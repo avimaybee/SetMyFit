@@ -129,6 +129,9 @@ export interface WeatherData {
   season?: string; // Current season based on date and location
   season_description?: string; // Detailed season description
   city?: string; // Detected city name
+  provider?: string; // Weather provider identifier
+  is_mock?: boolean; // True when fallback/mock data is returned
+  fetched_at?: string; // ISO timestamp representing when data was fetched
 }
 
 export interface WeatherAlert {

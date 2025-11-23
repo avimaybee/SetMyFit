@@ -145,6 +145,13 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
     const weatherPayload = await fetchWeatherData(lat, lon);
     if (process.env.NODE_ENV === 'development') {
       console.log('✓ Weather data fetched successfully');
+      console.log('📦 Weather API returning:', {
+        hasWeather: !!weatherPayload.weather,
+        temperature: weatherPayload.weather?.temperature,
+        city: weatherPayload.weather?.city,
+        condition: weatherPayload.weather?.weather_condition,
+        fullPayload: weatherPayload,
+      });
     }
 
     return NextResponse.json({
@@ -213,6 +220,7 @@ async function fetchWeatherData(
           });
         }
 
+        const fetchedAt = new Date();
         weatherData = {
           temperature: data.current.temp,
           feels_like: data.current.feels_like,
@@ -222,7 +230,10 @@ async function fetchWeatherData(
           air_quality_index: 0,
           pollen_count: 0,
           weather_condition: data.current.weather[0]?.description || 'Unknown',
-          timestamp: new Date(),
+          timestamp: fetchedAt,
+          fetched_at: fetchedAt.toISOString(),
+          provider: 'openWeather',
+          is_mock: false,
         };
 
         // Parse hourly forecast data
@@ -276,6 +287,7 @@ async function fetchWeatherData(
     console.warn('⚠️ No real weather data available — using mock fallback', { generated_temp: temperature });
     const humidity = 40 + Math.random() * 40; // 40-80%
     const windSpeed = 5 + Math.random() * 15; // 5-20 km/h
+    const fetchedAt = new Date();
 
     weatherData = {
       temperature: Math.round(temperature * 10) / 10,
@@ -286,7 +298,10 @@ async function fetchWeatherData(
       air_quality_index: Math.floor(Math.random() * 200), // 0-200
       pollen_count: Math.random() * 12, // 0-12
       weather_condition: 'Partly Cloudy',
-      timestamp: new Date(),
+      timestamp: fetchedAt,
+      fetched_at: fetchedAt.toISOString(),
+      provider: 'mock-fallback',
+      is_mock: true,
     };
 
     // Generate mock hourly forecast
