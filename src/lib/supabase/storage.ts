@@ -62,7 +62,7 @@ export async function uploadClothingImage(
 
     const canUseProgress = Boolean(supabaseUrl && anonKey && hasBrowserSupport);
 
-    if (canUseProgress) {
+    if (canUseProgress && supabaseUrl && anonKey) {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
 
