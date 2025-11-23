@@ -1,6 +1,11 @@
+import imglyRemoveBackground from "@imgly/background-removal";
+import { toast } from "@/components/ui/toaster";
 
-import { removeBackground } from "@imgly/background-removal";
-import { toast } from '@/components/ui/toaster';
+const DEFAULT_IMGLY_DATA_PATH = 'https://cdn.jsdelivr.net/npm/@imgly/background-removal-data@latest/dist/';
+const backgroundRemovalPublicPath = (process.env.NEXT_PUBLIC_IMGLY_PUBLIC_PATH ?? DEFAULT_IMGLY_DATA_PATH).replace(/\/?$/, '/');
+
+type ImglyRemoveBackgroundFn = typeof import("@imgly/background-removal").removeBackground;
+const removeBackground = imglyRemoveBackground as unknown as ImglyRemoveBackgroundFn;
 
 export interface ImageProcessOptions {
     removeBackground: boolean;
@@ -98,7 +103,7 @@ export const processImageUpload = async (file: File, options: ImageProcessOption
                 // Public Path is required when loading from CDN/External sources
                 // Switched to jsDelivr for better reliability/CORS handling than static.img.ly
                 const bgRemovedBlob = await removeBackground(processingBlob, {
-                    publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal-data@1.5.5/dist/',
+                    publicPath: backgroundRemovalPublicPath,
                     progress: (key: string, current: number, total: number) => {
                         // Map internal progress to our 40-80 range
                         const percent = 40 + Math.round((current / total) * 40);

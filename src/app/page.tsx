@@ -77,7 +77,7 @@ export default function HomePage() {
   const _router = _useRouter();
   const [location, setLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [recommendationData, setRecommendationData] = useState<RecommendationApiPayload | null>(null);
-  const [_loading, setLoading] = useState(true);
+  const [hasBootstrappedContent, setHasBootstrappedContent] = useState(false);
   const [_error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [_userId, setUserId] = useState<string | null>(null);
@@ -101,6 +101,7 @@ export default function HomePage() {
     if (cached && !cacheIsExpired) {
       try {
         setRecommendationData(JSON.parse(cached));
+        setHasBootstrappedContent(true);
       } catch (e) {
         console.error("Failed to parse cached recommendation", e);
         sessionStorage.removeItem("lastRecommendation");
@@ -170,6 +171,7 @@ export default function HomePage() {
       sessionStorage.setItem("lastRecommendationTimestamp", Date.now().toString());
       return updated;
     });
+    setHasBootstrappedContent(true);
   }, []);
 
   useEffect(() => {
@@ -252,7 +254,7 @@ export default function HomePage() {
 
   const fetchRecommendation = useCallback(async () => {
     if (!location) return;
-    setLoading(true);
+    setHasBootstrappedContent(true);
     setIsGenerating(true);
     try {
       const supabase = createClient();
@@ -296,7 +298,6 @@ export default function HomePage() {
     } catch (_err) {
       setError("An error occurred while fetching recommendation");
     } finally {
-      setLoading(false);
       setIsGenerating(false);
     }
   }, [location, selectedOccasion, lockedItems]);
@@ -445,12 +446,20 @@ export default function HomePage() {
     });
   };
 
+  useEffect(() => {
+    if (recommendationData && !hasBootstrappedContent) {
+      setHasBootstrappedContent(true);
+    }
+  }, [recommendationData, hasBootstrappedContent]);
+
+  const shouldShowSkeleton = !hasBootstrappedContent;
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
 
       {/* Left/Center Panel: Outfit Generator */}
       <div className="lg:col-span-2 h-full">
-        {_loading ? (
+        {shouldShowSkeleton ? (
           <OutfitSkeleton />
         ) : (
           <OutfitRecommender
@@ -479,7 +488,7 @@ export default function HomePage() {
 
         {/* Weather Widget */}
         <div className="h-48">
-          {weatherData && !_loading ? (
+          {!shouldShowSkeleton ? (
             <WeatherWidget data={weatherData} />
           ) : (
             <WeatherSkeleton />

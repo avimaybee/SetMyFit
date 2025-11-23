@@ -7,7 +7,7 @@ import { WardrobeItemForm } from './WardrobeItemForm';
 interface WardrobeGridProps {
     items: ClothingItem[];
     onAddItem: (item: Partial<ClothingItem>, file?: File) => void;
-    onUpdateItem: (item: Partial<ClothingItem>) => void;
+    onUpdateItem: (item: Partial<ClothingItem>, file?: File) => void;
     onDelete: (id: string) => void;
     isAdding: boolean;
     onOpenAdd: () => void;
@@ -61,7 +61,7 @@ export const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onAddItem, on
 
     const handleFormSave = (itemPayload: Partial<ClothingItem>, file?: File) => {
         if (itemPayload.id) {
-            onUpdateItem(itemPayload);
+            onUpdateItem(itemPayload, file);
         } else {
             onAddItem(itemPayload, file);
         }

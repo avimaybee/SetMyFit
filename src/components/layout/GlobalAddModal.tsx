@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { uploadClothingImage } from '@/lib/supabase/storage';
 import { WardrobeItemForm } from '@/components/wardrobe/WardrobeItemForm';
@@ -10,7 +11,13 @@ import { useAddItem } from '@/contexts/AddItemContext';
 import { dataUrlToFile, parseDataUrl } from '@/lib/utils';
 
 export const GlobalAddModal: React.FC = () => {
+    const pathname = usePathname();
     const { isGlobalAddOpen, closeGlobalAdd } = useAddItem();
+
+    // The wardrobe route renders its own add/edit modal so we avoid double stacks here.
+    if (pathname?.startsWith('/wardrobe')) {
+        return null;
+    }
 
     const mapUiCategoryToDbType = (uiCategory: ClothingType): string => {
         switch (uiCategory) {

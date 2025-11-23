@@ -6,8 +6,25 @@ import { logger } from '@/lib/logger';
 import { normalizeMaterial } from '@/lib/validation';
 
 // Allowed enums (kept here for runtime validation)
-const ALLOWED_TYPES = ['Outerwear','Top','Bottom','Footwear','Accessory','Headwear'];
+const ALLOWED_TYPES = ['Outerwear','Top','Bottom','Footwear','Accessory','Headwear','Dress'];
 const ALLOWED_DRESS_CODES = ['Casual','Business Casual','Formal','Athletic','Loungewear'];
+const ALLOWED_SEASONS = ['spring','summer','autumn','winter','all_season'] as const;
+type SeasonEnum = typeof ALLOWED_SEASONS[number];
+
+const normalizeSeasonTagsInput = (tags?: string[] | null): SeasonEnum[] | null => {
+  if (!tags || !tags.length) return null;
+  const normalized: SeasonEnum[] = [];
+  for (const raw of tags) {
+    if (!raw) continue;
+    let token = raw.trim().toLowerCase().replace(/[\s-]+/g, '_');
+    if (token === 'fall') token = 'autumn';
+    if (token === 'allseason') token = 'all_season';
+    if ((ALLOWED_SEASONS as readonly string[]).includes(token)) {
+      normalized.push(token as SeasonEnum);
+    }
+  }
+  return normalized.length ? normalized : null;
+};
 
 /**
  * GET /api/wardrobe
@@ -143,10 +160,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 
     const validBody = parsed.data;
 
-    // Normalize season_tags to lowercase to match database enum
-    const normalizedSeasonTags = validBody.season_tags
-      ? validBody.season_tags.map((season: string) => season.toLowerCase())
-      : null;
+    const normalizedSeasonTags = normalizeSeasonTagsInput(validBody.season_tags) ?? ['all_season'];
 
     // Normalize material to match database enum
     const normalizedMaterial = normalizeMaterial(validBody.material);

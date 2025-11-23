@@ -152,16 +152,52 @@ export default function WardrobePage() {
         }
     };
 
-    const handleUpdateItem = async (item: Partial<ClothingItem>) => {
+    const handleUpdateItem = async (item: Partial<ClothingItem>, file?: File) => {
         if (!item.id) return;
+
+        let uploadToastId: string | null = null;
         try {
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                toast.error("You must be logged in.");
+                return;
+            }
+
+            let imageUrl = item.image_url;
+            let uploadFile = file;
+
+            if (!uploadFile && imageUrl && imageUrl.startsWith("data:")) {
+                try {
+                    uploadFile = dataUrlToFile(imageUrl, "wardrobe-item.webp");
+                } catch (conversionError) {
+                    console.error("Failed to convert data URL to file", conversionError);
+                    toast.error("Unable to process image upload.");
+                    return;
+                }
+            }
+
+            if (uploadFile) {
+                uploadToastId = toast.loading('UPLOADING IMAGE... 0%');
+                const uploadResult = await uploadClothingImage(uploadFile, session.user.id, {
+                    onProgress: (percent) => {
+                        if (!uploadToastId) return;
+                        toast.loading(`UPLOADING IMAGE... ${percent}%`, { id: uploadToastId });
+                    },
+                });
+                if (!uploadResult.success || !uploadResult.url) {
+                    throw new Error(uploadResult.error || "Failed to upload image");
+                }
+                imageUrl = uploadResult.url;
+            }
+
             const payload = {
                 name: item.name,
                 type: mapUiCategoryToDbType(item.category as ClothingType),
                 material: item.material,
                 season_tags: item.season_tags,
                 dress_code: item.dress_code,
-                image_url: item.image_url,
+                image_url: imageUrl,
                 insulation_value: item.insulation_value,
                 is_favorite: item.is_favorite,
                 style_tags: item.style_tags
@@ -180,6 +216,10 @@ export default function WardrobePage() {
         } catch (err) {
             console.error("Error updating item:", err);
             toast.error("Failed to update item.");
+        } finally {
+            if (uploadToastId) {
+                toast.dismiss(uploadToastId);
+            }
         }
     };
 
