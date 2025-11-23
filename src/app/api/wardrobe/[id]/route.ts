@@ -14,10 +14,10 @@ export async function GET(
   const supabase = await createClient();
   const resolvedParams = await context.params;
   const { id } = resolvedParams;
-  
+
   // Get authenticated user
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  
+
   if (authError || !user) {
     return NextResponse.json(
       { success: false, error: 'Unauthorized' },
@@ -54,20 +54,20 @@ export async function GET(
 }
 
 /**
- * PUT /api/wardrobe/[id]
+ * PATCH /api/wardrobe/[id]
  * Update a clothing item
  */
-export async function PUT(
+export async function PATCH(
   request: NextRequest,
   context: { params: Promise<Record<string, string>> }
 ): Promise<NextResponse<ApiResponse<IClothingItem>>> {
   const supabase = await createClient();
   const resolvedParams = await context.params;
   const { id } = resolvedParams;
-  
+
   // Get authenticated user
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  
+
   if (authError || !user) {
     return NextResponse.json(
       { success: false, error: 'Unauthorized' },
@@ -77,7 +77,7 @@ export async function PUT(
 
   try {
     const body = await request.json();
-    
+
     // Normalize season_tags to lowercase to match database enum
     if (body.season_tags) {
       if (!Array.isArray(body.season_tags)) {
@@ -90,7 +90,7 @@ export async function PUT(
     if (body.dress_code && !Array.isArray(body.dress_code)) {
       body.dress_code = [body.dress_code];
     }
-    
+
     // Update the item
     const { data, error } = await supabase
       .from('clothing_items')
@@ -114,7 +114,7 @@ export async function PUT(
       message: 'Item updated successfully',
     });
   } catch (error) {
-    logger.error('Error processing PUT request', { error });
+    logger.error('Error processing PATCH request', { error });
     return NextResponse.json(
       { success: false, error: 'Invalid request data' },
       { status: 400 }
@@ -133,10 +133,10 @@ export async function DELETE(
   const supabase = await createClient();
   const resolvedParams = await context.params;
   const { id } = resolvedParams;
-  
+
   // Get authenticated user
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  
+
   if (authError || !user) {
     return NextResponse.json(
       { success: false, error: 'Unauthorized' },

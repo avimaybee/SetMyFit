@@ -283,21 +283,30 @@ async function fetchWeatherData(
 
   // Fallback to mock data if no real data available
   if (!weatherData) {
-    const temperature = 20 + Math.random() * 10; // 20-30°C
-    console.warn('⚠️ No real weather data available — using mock fallback', { generated_temp: temperature });
-    const humidity = 40 + Math.random() * 40; // 40-80%
-    const windSpeed = 5 + Math.random() * 15; // 5-20 km/h
+    console.warn('⚠️ No real weather data available — using mock fallback');
+
+    // Debug: Check if API key is loaded
+    const apiKey = config.weather.openWeather.apiKey;
+    console.log('🔑 Weather API Key Status:', apiKey ? `Loaded (${apiKey.substring(0, 4)}...)` : 'MISSING');
+
+    // Stable mock data (based on time of day to be slightly dynamic but consistent per refresh)
+    const hour = new Date().getHours();
+    const isDay = hour > 6 && hour < 18;
+
+    const temperature = isDay ? 22 : 18; // Stable temp
+    const humidity = 50;
+    const windSpeed = 10;
     const fetchedAt = new Date();
 
     weatherData = {
-      temperature: Math.round(temperature * 10) / 10,
-      feels_like: calculateFeelsLike(temperature, humidity, windSpeed),
-      humidity: Math.round(humidity),
-      wind_speed: Math.round(windSpeed * 10) / 10,
-      uv_index: Math.floor(Math.random() * 12), // 0-11
-      air_quality_index: Math.floor(Math.random() * 200), // 0-200
-      pollen_count: Math.random() * 12, // 0-12
-      weather_condition: 'Partly Cloudy',
+      temperature: temperature,
+      feels_like: temperature,
+      humidity: humidity,
+      wind_speed: windSpeed,
+      uv_index: isDay ? 5 : 0,
+      air_quality_index: 50,
+      pollen_count: 2,
+      weather_condition: isDay ? 'Sunny' : 'Clear',
       timestamp: fetchedAt,
       fetched_at: fetchedAt.toISOString(),
       provider: 'mock-fallback',
@@ -307,19 +316,17 @@ async function fetchWeatherData(
     // Generate mock hourly forecast
     const now = new Date();
     hourlyForecast = Array.from({ length: 12 }, (_, i) => {
-      const hourTemp = temperature + (Math.random() * 4 - 2); // ±2°C variation
+      const hourTemp = temperature;
       const hourDate = new Date(now.getTime() + i * 60 * 60 * 1000);
-      const conditions = ['Clear', 'Partly Cloudy', 'Cloudy', 'Light Rain'];
-      const condition = conditions[Math.floor(Math.random() * conditions.length)];
 
       return {
         timestamp: hourDate.toISOString(),
-        temperature: Math.round(hourTemp * 10) / 10,
-        weather_condition: condition.toLowerCase(),
-        condition: condition,
-        feels_like: calculateFeelsLike(hourTemp, humidity, windSpeed),
-        humidity: Math.round(humidity),
-        wind_speed: Math.round(windSpeed * 10) / 10,
+        temperature: hourTemp,
+        weather_condition: isDay ? 'Sunny' : 'Clear',
+        condition: isDay ? 'Clear' : 'Clear',
+        feels_like: hourTemp,
+        humidity: humidity,
+        wind_speed: windSpeed,
       };
     });
   }

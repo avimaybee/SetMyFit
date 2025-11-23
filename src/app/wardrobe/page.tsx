@@ -9,6 +9,7 @@ import { IClothingItem } from "@/types";
 import { toast } from "@/components/ui/toaster";
 import { useAddItem } from "@/contexts/AddItemContext";
 import { dataUrlToFile, parseDataUrl } from "@/lib/utils";
+import { ListSkeleton } from "@/components/ui/skeletons";
 
 export default function WardrobePage() {
     const [items, setItems] = useState<ClothingItem[]>([]);
@@ -245,9 +246,7 @@ export default function WardrobePage() {
         <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-primary)] min-h-screen text-[var(--text)]">
             <div className="max-w-7xl mx-auto">
                 {loading ? (
-                    <div className="flex items-center justify-center h-64">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--border)]"></div>
-                    </div>
+                    <ListSkeleton />
                 ) : (
                     <WardrobeGrid
                         items={items}

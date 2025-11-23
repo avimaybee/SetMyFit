@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { RecommendationApiPayload, RecommendationDiagnostics, IClothingItem, WeatherData, WeatherAlert } from "@/lib/types";
 import { WeatherWidget, WeatherData as WidgetWeatherData } from "../components/weather-widget";
 import { OutfitRecommender, Outfit, ClothingItem, ClothingType } from "../components/outfit-recommendation";
+import { OutfitSkeleton, WeatherSkeleton } from "../components/ui/skeletons";
 import { RetroWindow } from "../components/retro-ui";
 import { toast } from "../components/ui/toaster";
 import { MissionControl } from "../components/mission-control";
@@ -109,7 +110,7 @@ export default function HomePage() {
       sessionStorage.removeItem("lastRecommendation");
       sessionStorage.removeItem("lastRecommendationTimestamp");
     }
-    
+
     // Restore locked items
     const cachedLocks = sessionStorage.getItem("lockedItems");
     if (cachedLocks) {
@@ -449,24 +450,28 @@ export default function HomePage() {
 
       {/* Left/Center Panel: Outfit Generator */}
       <div className="lg:col-span-2 h-full">
-        <OutfitRecommender
-          items={allWardrobeItems}
-          suggestedOutfit={recommendationData?.recommendation?.outfit ? {
-            id: "generated",
-            outfit_date: new Date().toISOString(),
-            items: recommendationData.recommendation.outfit.map(mapClothingItem),
-            weather_snapshot: weatherData as unknown as Record<string, unknown>,
-            reasoning: parsedReasoning
-          } : null}
-          isGenerating={isGenerating}
-          generationProgress={0}
-          onGenerate={fetchRecommendation}
-          onLogOutfit={handleLogOutfit}
-          onOutfitChange={handleOutfitChange}
-          lockedItems={lockedItems}
-          onToggleLock={handleToggleLock}
-          isLogging={isLoggingOutfit}
-        />
+        {_loading ? (
+          <OutfitSkeleton />
+        ) : (
+          <OutfitRecommender
+            items={allWardrobeItems}
+            suggestedOutfit={recommendationData?.recommendation?.outfit ? {
+              id: "generated",
+              outfit_date: new Date().toISOString(),
+              items: recommendationData.recommendation.outfit.map(mapClothingItem),
+              weather_snapshot: weatherData as unknown as Record<string, unknown>,
+              reasoning: parsedReasoning
+            } : null}
+            isGenerating={isGenerating}
+            generationProgress={0}
+            onGenerate={fetchRecommendation}
+            onLogOutfit={handleLogOutfit}
+            onOutfitChange={handleOutfitChange}
+            lockedItems={lockedItems}
+            onToggleLock={handleToggleLock}
+            isLogging={isLoggingOutfit}
+          />
+        )}
       </div>
 
       {/* Right Panel: Widgets */}
@@ -474,14 +479,10 @@ export default function HomePage() {
 
         {/* Weather Widget */}
         <div className="h-48">
-          {weatherData ? (
+          {weatherData && !_loading ? (
             <WeatherWidget data={weatherData} />
           ) : (
-            <RetroWindow title="WEATHER_LINK" className="h-full">
-              <div className="flex items-center justify-center h-full">
-                <span className="animate-pulse font-mono text-xs">CONNECTING SAT...</span>
-              </div>
-            </RetroWindow>
+            <WeatherSkeleton />
           )}
         </div>
 

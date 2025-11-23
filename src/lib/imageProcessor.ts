@@ -16,7 +16,7 @@ const resizeImage = async (source: Blob | string, maxWidth: number): Promise<Blo
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.crossOrigin = "anonymous";
-        
+
         img.onload = () => {
             let width = img.width;
             let height = img.height;
@@ -29,15 +29,15 @@ const resizeImage = async (source: Blob | string, maxWidth: number): Promise<Blo
             const canvas = document.createElement('canvas');
             canvas.width = width;
             canvas.height = height;
-            
+
             const ctx = canvas.getContext('2d');
             if (!ctx) {
                 reject(new Error("Could not get canvas context"));
                 return;
             }
-            
+
             ctx.drawImage(img, 0, 0, width, height);
-            
+
             // Export as Blob
             canvas.toBlob((blob) => {
                 if (blob) resolve(blob);
@@ -76,11 +76,11 @@ const convertToWebP = async (source: Blob, quality: number): Promise<string> => 
 }
 
 export const processImageUpload = async (file: File, options: ImageProcessOptions): Promise<string> => {
-    const { 
-        removeBackground: shouldRemoveBg, 
-        maxWidth = 1024, 
+    const {
+        removeBackground: shouldRemoveBg,
+        maxWidth = 1024,
         quality = 0.8,
-        onProgress 
+        onProgress
     } = options;
 
     try {
@@ -88,7 +88,7 @@ export const processImageUpload = async (file: File, options: ImageProcessOption
 
         // 1. Resize first (crucial for performance of BG removal and storage)
         let processingBlob = await resizeImage(file, maxWidth);
-        
+
         onProgress?.('OPTIMIZING', 30);
 
         // 2. Remove Background (If requested)
@@ -96,8 +96,9 @@ export const processImageUpload = async (file: File, options: ImageProcessOption
             onProgress?.('AI_REMOVING_BG', 40);
             try {
                 // Public Path is required when loading from CDN/External sources
+                // Switched to jsDelivr for better reliability/CORS handling than static.img.ly
                 const bgRemovedBlob = await removeBackground(processingBlob, {
-                    publicPath: 'https://static.img.ly/background-removal-data/1.5.5/dist/',
+                    publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal-data@1.5.5/dist/',
                     progress: (key: string, current: number, total: number) => {
                         // Map internal progress to our 40-80 range
                         const percent = 40 + Math.round((current / total) * 40);
