@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 import { Calendar, RotateCcw, Star, Tag, Trash2 } from "lucide-react";
 import { IClothingItem } from "@/lib/types";
 import { RetroButton, RetroWindow } from "@/components/retro-ui";
@@ -126,8 +127,14 @@ export default function HistoryPage() {
                         <div className="flex-shrink-0 w-full md:w-1/3">
                           <div className="relative grid grid-cols-2 gap-2 bg-[var(--bg-tertiary)] p-2 border-2 border-[var(--border)] border-dashed">
                             {previewItems.map((item) => (
-                              <div key={`${entry.id}-${item.id}`} className="aspect-square border border-[var(--border)] overflow-hidden bg-[var(--bg-main)]">
-                                <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                              <div key={`${entry.id}-${item.id}`} className="aspect-square border border-[var(--border)] bg-[var(--bg-main)] relative overflow-hidden">
+                                <Image
+                                  src={item.image_url}
+                                  alt={item.name}
+                                  fill
+                                  sizes="(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 20vw"
+                                  className="object-cover"
+                                />
                               </div>
                             ))}
                             {remainingCount > 0 && (

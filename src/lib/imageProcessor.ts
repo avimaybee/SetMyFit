@@ -1,11 +1,8 @@
-import imglyRemoveBackground from "@imgly/background-removal";
+import { removeBackground } from "@imgly/background-removal";
 import { toast } from "@/components/ui/toaster";
 
 const DEFAULT_IMGLY_DATA_PATH = 'https://cdn.jsdelivr.net/npm/@imgly/background-removal-data@latest/dist/';
 const backgroundRemovalPublicPath = (process.env.NEXT_PUBLIC_IMGLY_PUBLIC_PATH ?? DEFAULT_IMGLY_DATA_PATH).replace(/\/?$/, '/');
-
-type ImglyRemoveBackgroundFn = typeof import("@imgly/background-removal").removeBackground;
-const removeBackground = imglyRemoveBackground as unknown as ImglyRemoveBackgroundFn;
 
 export interface ImageProcessOptions {
     removeBackground: boolean;

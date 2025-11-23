@@ -7,7 +7,6 @@ import type { RecommendationApiPayload, RecommendationDiagnostics, IClothingItem
 import { WeatherWidget, WeatherData as WidgetWeatherData } from "../components/weather-widget";
 import { OutfitRecommender, Outfit, ClothingItem, ClothingType } from "../components/outfit-recommendation";
 import { OutfitSkeleton, WeatherSkeleton } from "../components/ui/skeletons";
-import { RetroWindow } from "../components/retro-ui";
 import { toast } from "../components/ui/toaster";
 import { MissionControl } from "../components/mission-control";
 import { SystemMsg } from "../components/system-msg";

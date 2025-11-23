@@ -31,39 +31,6 @@ interface HourlyForecastItem {
   wind_speed?: number;
 }
 
-function calculateFeelsLike(
-  temp: number,
-  humidity: number,
-  windSpeed: number
-): number {
-  // Use heat index for temperatures above 80°F (27°C)
-  if (temp >= 27) {
-    // Simplified heat index formula
-    const hi = -8.78469475556 +
-      1.61139411 * temp +
-      2.33854883889 * humidity +
-      -0.14611605 * temp * humidity +
-      -0.012308094 * temp * temp +
-      -0.0164248277778 * humidity * humidity +
-      0.002211732 * temp * temp * humidity +
-      0.00072546 * temp * humidity * humidity +
-      -0.000003582 * temp * temp * humidity * humidity;
-    return Math.round(hi * 10) / 10;
-  }
-
-  // Use wind chill for temperatures below 50°F (10°C)
-  if (temp <= 10 && windSpeed > 3) {
-    // Wind chill formula (metric)
-    const wc = 13.12 + 0.6215 * temp - 11.37 * Math.pow(windSpeed, 0.16) +
-      0.3965 * temp * Math.pow(windSpeed, 0.16);
-    return Math.round(wc * 10) / 10;
-  }
-
-  // For moderate temperatures, return actual temperature
-  return temp;
-}
-
-
 function generateWeatherAlerts(weather: WeatherData): WeatherAlert[] {
   const alerts: WeatherAlert[] = [];
 
