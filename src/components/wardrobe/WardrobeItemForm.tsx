@@ -5,6 +5,7 @@ import { RetroButton, RetroInput, RetroWindow, RetroSelect, RetroSlider, RetroTo
 import { ClothingItem, ClothingType, ClothingMaterial, Season } from '@/types/retro';
 import { processImageUpload } from '@/lib/imageProcessor';
 import { dataUrlToFile } from '@/lib/utils';
+import { toast } from '@/components/ui/toaster';
 
 interface WardrobeItemFormProps {
     isOpen: boolean;
@@ -26,7 +27,6 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
     const [processedFile, setProcessedFile] = useState<File | null>(null);
     const processingJobIdRef = useRef(0);
     const analysisAbortControllerRef = useRef<AbortController | null>(null);
-    const fileReaderRef = useRef<FileReader | null>(null);
     const isMountedRef = useRef(true);
 
     // Processing State
@@ -36,6 +36,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
 
     // Analysis State
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [isImageLoading, setIsImageLoading] = useState(false);
 
     // Form State
     const [newItemName, setNewItemName] = useState('');
@@ -48,6 +49,9 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
     const [newItemFit, setNewItemFit] = useState<string>('Regular');
 
     const categories: ClothingType[] = ['Top', 'Bottom', 'Shoes', 'Outerwear', 'Accessory', 'Dress'];
+    const materialOptions: ClothingMaterial[] = ['Cotton', 'Polyester', 'Wool', 'Silk', 'Leather', 'Denim', 'Linen', 'Synthetic', 'Gore-Tex', 'Other'];
+    const patternOptions = ['Solid', 'Striped', 'Checkered', 'Plaid', 'Floral', 'Graphic', 'Camo', 'Polka Dot', 'Geometric', 'Animal Print', 'Abstract', 'Other'];
+    const fitOptions = ['Fitted', 'Regular', 'Slim', 'Relaxed', 'Oversized', 'Loose', 'Tailored', 'One Size', 'Tight'];
 
     useEffect(() => {
         if (isOpen) {
@@ -61,6 +65,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                 setNewItemPattern(initialItem.pattern || '');
                 setNewItemFit(initialItem.fit || 'Regular');
                 setPreviewUrl(initialItem.image_url);
+                setIsImageLoading(Boolean(initialItem.image_url));
                 setProcessedFile(null);
             } else {
                 resetForm();
@@ -77,12 +82,22 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                 analysisAbortControllerRef.current.abort();
                 analysisAbortControllerRef.current = null;
             }
-            if (fileReaderRef.current) {
-                fileReaderRef.current.abort();
-                fileReaderRef.current = null;
-            }
         };
     }, []);
+
+    useEffect(() => {
+        return () => {
+            if (previewUrl && previewUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(previewUrl);
+            }
+        };
+    }, [previewUrl]);
+
+    useEffect(() => {
+        if (!previewUrl) {
+            setIsImageLoading(false);
+        }
+    }, [previewUrl]);
 
     const resetForm = () => {
         setPreviewUrl(null);
@@ -97,6 +112,13 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
         setRemoveBgEnabled(true);
         setIsProcessingImage(false);
         setProcessedFile(null);
+        setIsImageLoading(false);
+    };
+
+    const setPreviewFromFile = (file: File) => {
+        const objectUrl = URL.createObjectURL(file);
+        setPreviewUrl(objectUrl);
+        setIsImageLoading(true);
     };
 
     const handleSaveItem = (e: React.FormEvent) => {
@@ -158,7 +180,13 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
 
         try {
             const result = await onAnalyzeImage(optimizedBase64, { signal: controller.signal });
-            if (!result || controller.signal.aborted) {
+
+            if (controller.signal.aborted) {
+                return;
+            }
+
+            if (!result) {
+                toast('AI analysis unavailable. Please fill fields manually.');
                 return;
             }
             if (!isMountedRef.current || processingJobIdRef.current !== currentJobId) {
@@ -175,6 +203,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
         } catch (error) {
             if (!controller.signal.aborted) {
                 console.error('Error analyzing image:', error);
+                toast.error('AI analysis failed. Please fill fields manually.');
             }
         } finally {
             if (analysisAbortControllerRef.current === controller) {
@@ -195,10 +224,6 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
             analysisAbortControllerRef.current.abort();
             analysisAbortControllerRef.current = null;
             setIsAnalyzing(false);
-        }
-        if (fileReaderRef.current) {
-            fileReaderRef.current.abort();
-            fileReaderRef.current = null;
         }
 
         setIsProcessingImage(true);
@@ -223,17 +248,27 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                 return;
             }
 
-            setPreviewUrl(optimizedBase64);
+            let previewFile: File | null = null;
             try {
                 const optimizedFile = dataUrlToFile(optimizedBase64, originalName);
+                previewFile = optimizedFile;
                 if (isMountedRef.current && processingJobIdRef.current === currentJobId) {
                     setProcessedFile(optimizedFile);
                 }
             } catch (conversionError) {
                 console.error('Failed to convert optimized image to file', conversionError);
+                previewFile = file;
                 if (isMountedRef.current && processingJobIdRef.current === currentJobId) {
                     setProcessedFile(file);
                 }
+            }
+
+            if (
+                previewFile &&
+                isMountedRef.current &&
+                processingJobIdRef.current === currentJobId
+            ) {
+                setPreviewFromFile(previewFile);
             }
 
             if (isMountedRef.current && processingJobIdRef.current === currentJobId) {
@@ -250,25 +285,9 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
             console.error(error);
             setIsProcessingImage(false);
 
-            // Fallback to simple read if pipeline fails
-            const reader = new FileReader();
-            fileReaderRef.current = reader;
-            reader.onload = (ev) => {
-                if (!isMountedRef.current || processingJobIdRef.current !== currentJobId) {
-                    return;
-                }
-                setPreviewUrl(ev.target?.result as string);
-            };
-            reader.onerror = (readerError) => console.error('FileReader error:', readerError);
-            reader.onloadend = () => {
-                if (fileReaderRef.current === reader) {
-                    fileReaderRef.current = null;
-                }
-            };
-            reader.readAsDataURL(file);
-
             if (isMountedRef.current && processingJobIdRef.current === currentJobId) {
                 setProcessedFile(file);
+                setPreviewFromFile(file);
             }
         } finally {
             if (isMountedRef.current && processingJobIdRef.current === currentJobId) {
@@ -286,16 +305,13 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
         e.stopPropagation();
         setPreviewUrl(null);
         setProcessedFile(null);
-        if (fileReaderRef.current) {
-            fileReaderRef.current.abort();
-            fileReaderRef.current = null;
-        }
         if (analysisAbortControllerRef.current) {
             analysisAbortControllerRef.current.abort();
             analysisAbortControllerRef.current = null;
         }
         processingJobIdRef.current += 1;
         setIsAnalyzing(false);
+        setIsImageLoading(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -355,21 +371,28 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                                             fill
                                             sizes="100vw"
                                             className="object-contain bg-[var(--bg-tertiary)]"
+                                            onLoadingComplete={() => setIsImageLoading(false)}
+                                            onError={() => setIsImageLoading(false)}
                                         />
                                     </div>
                                     
                                     {/* Scanning/Processing Overlay */}
-                                    {(isAnalyzing || isProcessingImage) && (
+                                    {(isAnalyzing || isProcessingImage || isImageLoading) && (
                                         <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-20 backdrop-blur-sm p-4">
                                             {isProcessingImage ? (
                                                 <>
                                                     <Loader2 size={32} className="text-[var(--accent-blue)] animate-spin mb-2" />
                                                     <span className="font-mono font-bold text-[var(--accent-blue)] bg-black px-2 border border-[var(--accent-blue)] text-xs animate-pulse">{processStatus}</span>
                                                 </>
-                                            ) : (
+                                            ) : isAnalyzing ? (
                                                 <>
                                                     <ScanLine size={32} className="text-[#00ff41] animate-bounce mb-2" />
                                                     <span className="font-mono font-bold text-[#00ff41] animate-pulse bg-black px-2 text-xs">ANALYZING METADATA...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Loader2 size={32} className="text-[var(--accent-blue)] animate-spin mb-2" />
+                                                    <span className="font-mono font-bold text-[var(--accent-blue)] bg-black px-2 border border-[var(--accent-blue)] text-xs animate-pulse">LOADING PREVIEW...</span>
                                                 </>
                                             )}
                                         </div>
@@ -424,7 +447,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                             <div>
                                 <label className="font-bold font-mono text-xs uppercase block mb-1 text-[var(--text)]">Material</label>
                                 <RetroSelect value={newItemMaterial} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewItemMaterial(e.target.value as ClothingMaterial)} disabled={isAnalyzing || isProcessingImage}>
-                                    {['Cotton', 'Polyester', 'Wool', 'Leather', 'Denim', 'Linen', 'Synthetic', 'Gore-Tex', 'Other'].map(m => 
+                                    {materialOptions.map(m => 
                                         <option key={m} value={m}>{m}</option>
                                     )}
                                 </RetroSelect>
@@ -435,7 +458,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                             <div>
                                 <label className="font-bold font-mono text-xs uppercase block mb-1 text-[var(--text)]">Pattern</label>
                                 <RetroSelect value={newItemPattern} onChange={(e) => setNewItemPattern(e.target.value)} disabled={isAnalyzing || isProcessingImage}>
-                                    {['Solid', 'Striped', 'Plaid', 'Floral', 'Graphic', 'Camo', 'Polka Dot', 'Other'].map(p => 
+                                    {patternOptions.map(p => 
                                         <option key={p} value={p}>{p}</option>
                                     )}
                                 </RetroSelect>
@@ -443,7 +466,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                             <div>
                                 <label className="font-bold font-mono text-xs uppercase block mb-1 text-[var(--text)]">Fit</label>
                                 <RetroSelect value={newItemFit} onChange={(e) => setNewItemFit(e.target.value)} disabled={isAnalyzing || isProcessingImage}>
-                                    {['Regular', 'Slim', 'Oversized', 'Loose', 'Tight', 'Tailored'].map(f => 
+                                    {fitOptions.map(f => 
                                         <option key={f} value={f}>{f}</option>
                                     )}
                                 </RetroSelect>
@@ -488,7 +511,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                         )}
 
                         <div className="pt-2">
-                            <RetroButton type="submit" className="w-full py-2" disabled={isAnalyzing || isProcessingImage}>
+                            <RetroButton type="submit" className="w-full py-2" disabled={isAnalyzing || isProcessingImage || !previewUrl}>
                                 {isAnalyzing ? 'PROCESSING IMAGE...' : (initialItem ? 'UPDATE ITEM' : 'SAVE TO DATABASE')}
                             </RetroButton>
                         </div>

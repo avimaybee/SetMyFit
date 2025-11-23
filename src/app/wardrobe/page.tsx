@@ -79,6 +79,7 @@ export default function WardrobePage() {
     };
 
     const handleAddItem = async (item: Partial<ClothingItem>, file?: File) => {
+        let uploadToastId: string | null = null;
         try {
             const supabase = createClient();
             const { data: { session } } = await supabase.auth.getSession();
@@ -101,7 +102,13 @@ export default function WardrobePage() {
             }
 
             if (uploadFile) {
-                const uploadResult = await uploadClothingImage(uploadFile, session.user.id);
+                uploadToastId = toast.loading('UPLOADING IMAGE... 0%');
+                const uploadResult = await uploadClothingImage(uploadFile, session.user.id, {
+                    onProgress: (percent) => {
+                        if (!uploadToastId) return;
+                        toast.loading(`UPLOADING IMAGE... ${percent}%`, { id: uploadToastId });
+                    },
+                });
                 if (!uploadResult.success || !uploadResult.url) {
                     throw new Error(uploadResult.error || "Failed to upload image");
                 }
@@ -137,6 +144,10 @@ export default function WardrobePage() {
         } catch (err) {
             console.error("Error adding item:", err);
             toast.error("Failed to add item.");
+        } finally {
+            if (uploadToastId) {
+                toast.dismiss(uploadToastId);
+            }
         }
     };
 

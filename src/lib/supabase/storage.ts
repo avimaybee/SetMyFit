@@ -13,6 +13,11 @@ export interface UploadResult {
   error?: string;
 }
 
+interface UploadOptions {
+  onProgress?: (percent: number) => void;
+  signal?: AbortSignal;
+}
+
 /**
  * Upload an image to the clothing_images bucket
  * 
@@ -22,10 +27,12 @@ export interface UploadResult {
  */
 export async function uploadClothingImage(
   file: File,
-  userId: string
+  userId: string,
+  options: UploadOptions = {}
 ): Promise<UploadResult> {
   try {
     const supabase = createClient();
+    const bucket = 'clothing_images';
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -49,9 +56,33 @@ export async function uploadClothingImage(
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
     const filePath = `${userId}/${fileName}`;
 
-    // Upload to Supabase Storage
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const hasBrowserSupport = typeof window !== 'undefined' && typeof XMLHttpRequest !== 'undefined';
+
+    const canUseProgress = Boolean(supabaseUrl && anonKey && hasBrowserSupport);
+
+    if (canUseProgress) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      if (accessToken) {
+        return await uploadWithProgress({
+          file,
+          filePath,
+          supabase,
+          supabaseUrl,
+          anonKey,
+          accessToken,
+          bucket,
+          options,
+        });
+      }
+    }
+
+    // Fallback upload without granular progress (e.g., server-side or missing env)
     const { data, error } = await supabase.storage
-      .from('clothing_images')
+      .from(bucket)
       .upload(filePath, file, {
         cacheControl: '3600',
         upsert: false,
@@ -65,9 +96,10 @@ export async function uploadClothingImage(
       };
     }
 
-    // Get public URL
+    options.onProgress?.(100);
+
     const { data: { publicUrl } } = supabase.storage
-      .from('clothing_images')
+      .from(bucket)
       .getPublicUrl(data.path);
 
     return {
@@ -83,6 +115,87 @@ export async function uploadClothingImage(
     };
   }
 }
+
+interface UploadWithProgressParams {
+  file: File;
+  filePath: string;
+  supabase: ReturnType<typeof createClient>;
+  supabaseUrl: string;
+  anonKey: string;
+  accessToken: string;
+  bucket: string;
+  options: UploadOptions;
+}
+
+const uploadWithProgress = ({
+  file,
+  filePath,
+  supabase,
+  supabaseUrl,
+  anonKey,
+  accessToken,
+  bucket,
+  options,
+}: UploadWithProgressParams): Promise<UploadResult> => {
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    let settled = false;
+
+    const finalize = (result: UploadResult) => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
+
+    if (options.signal) {
+      if (options.signal.aborted) {
+        finalize({ success: false, error: 'Upload aborted' });
+        return;
+      }
+      options.signal.addEventListener('abort', () => {
+        xhr.abort();
+        finalize({ success: false, error: 'Upload aborted' });
+      }, { once: true });
+    }
+
+    xhr.upload.onprogress = (event) => {
+      if (!options.onProgress || !event.lengthComputable) return;
+      const percent = Math.round((event.loaded / event.total) * 100);
+      options.onProgress(percent);
+    };
+
+    xhr.onerror = () => {
+      finalize({ success: false, error: 'Upload failed' });
+    };
+
+    xhr.onload = async () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        options.onProgress?.(100);
+        const { data: { publicUrl } } = supabase.storage
+          .from(bucket)
+          .getPublicUrl(filePath);
+        finalize({ success: true, url: publicUrl, path: filePath });
+      } else {
+        let message = 'Upload failed';
+        try {
+          const response = JSON.parse(xhr.responseText);
+          message = response?.error ?? message;
+        } catch (_) {
+          // Ignore JSON parse errors
+        }
+        finalize({ success: false, error: message });
+      }
+    };
+
+    const endpoint = `${supabaseUrl}/storage/v1/object/${bucket}/${filePath}`;
+    xhr.open('POST', endpoint);
+    xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+    xhr.setRequestHeader('apikey', anonKey);
+    xhr.setRequestHeader('x-upsert', 'false');
+    options.onProgress?.(0);
+    xhr.send(file);
+  });
+};
 
 /**
  * Delete an image from the clothing_images bucket

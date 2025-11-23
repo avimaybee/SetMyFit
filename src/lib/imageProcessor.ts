@@ -1,5 +1,6 @@
 
 import { removeBackground } from "@imgly/background-removal";
+import { toast } from '@/components/ui/toaster';
 
 export interface ImageProcessOptions {
     removeBackground: boolean;
@@ -108,6 +109,7 @@ export const processImageUpload = async (file: File, options: ImageProcessOption
                 console.error("Background removal failed, falling back to original", error);
                 // Fallback: continue with original image but warn?
                 onProgress?.('BG_REMOVAL_FAILED', 50);
+                toast.warning('Background removal unavailable. Continuing with original image.');
             }
         }
 
