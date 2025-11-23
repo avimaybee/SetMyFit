@@ -107,9 +107,8 @@ export const processImageUpload = async (file: File, options: ImageProcessOption
                 processingBlob = bgRemovedBlob;
             } catch (error) {
                 console.error("Background removal failed, falling back to original", error);
-                // Fallback: continue with original image but warn?
                 onProgress?.('BG_REMOVAL_FAILED', 50);
-                toast.warning('Background removal unavailable. Continuing with original image.');
+                toast('Background removal unavailable. Continuing with original image.', { icon: '⚠️' });
             }
         }
 
