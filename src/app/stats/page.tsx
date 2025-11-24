@@ -1,69 +1,123 @@
-/**
- * Statistics Dashboard Page
- * /stats
- * 
- * Displays comprehensive gamification statistics and achievements
- */
+"use client";
 
-import { Suspense } from 'react';
-import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
-import { StatsClient } from '@/components/client/stats-client';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useState, useEffect, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { StatsPage as StatsPageComponent } from "@/components/stats/StatsPage";
+import { ClothingItem, Outfit, ClothingType } from "@/types/retro";
+import { IClothingItem } from "@/types";
+import { toast } from "@/components/ui/toaster";
 
-export const metadata = {
-  title: 'Statistics | What2Wear',
-  description: 'View your outfit logging stats, streaks, and achievements'
-};
+export default function StatsPage() {
+  const [items, setItems] = useState<ClothingItem[]>([]);
+  const [_history, setHistory] = useState<Outfit[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export default async function StatsPage() {
-  const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-  
-  if (error || !user) {
-    redirect('/auth/sign-in?redirect=/stats');
-  }
-  
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) return;
+
+      // Fetch Wardrobe
+      const wardrobeRes = await fetch("/api/wardrobe");
+      if (!wardrobeRes.ok) throw new Error("Failed to fetch wardrobe");
+      const wardrobeData = await wardrobeRes.json();
+      
+      let mappedItems: ClothingItem[] = [];
+      if (wardrobeData.success && wardrobeData.data) {
+        mappedItems = (wardrobeData.data as IClothingItem[]).map((item) => ({
+          id: item.id.toString(),
+          name: item.name,
+          category: mapDbTypeToUiCategory(item.type),
+          type: item.type,
+          image_url: item.image_url || "https://picsum.photos/200/300?grayscale",
+          color: item.color || "Unknown",
+          style_tags: (item.style_tags || []) as string[],
+          season_tags: (item.season_tags || []) as string[],
+          material: item.material || "Cotton",
+          insulation_value: item.insulation_value || 5,
+          dress_code: (item.dress_code || []) as string[],
+          wear_count: item.wear_count || 0,
+          last_worn: item.last_worn || null,
+          is_favorite: item.is_favorite || false,
+          created_at: item.created_at
+        }));
+        setItems(mappedItems);
+      }
+
+      // Fetch History
+      const historyRes = await fetch("/api/outfits/history?limit=100"); // Fetch last 100 for stats
+      if (!historyRes.ok) throw new Error("Failed to fetch history");
+      const historyData = await historyRes.json();
+      
+      let mappedHistory: Outfit[] = [];
+      if (historyData.data) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          mappedHistory = historyData.data.map((h: any) => ({
+              id: h.id.toString(),
+              outfit_date: h.outfit_date,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              items: h.items.map((i: any) => ({
+                  id: i.id.toString(),
+                  name: i.name,
+                  category: mapDbTypeToUiCategory(i.type),
+                  type: i.type,
+                  image_url: i.image_url,
+                  color: i.color,
+                  // Fill defaults for missing fields in history item view
+                  season_tags: i.season_tags || [],
+                  style_tags: i.style_tags || [],
+                  material: i.material || "Unknown",
+                  insulation_value: i.insulation_value || 0,
+                  dress_code: i.dress_code || [],
+                  wear_count: i.wear_count || 0,
+                  last_worn: i.last_worn || null,
+                  is_favorite: i.is_favorite || false,
+                  created_at: i.created_at || new Date().toISOString()
+              })),
+              status: 'completed',
+              rating: h.feedback
+          }));
+          setHistory(mappedHistory);
+      }
+
+    } catch (err) {
+      console.error("Error fetching stats data:", err);
+      toast.error("Failed to load statistics.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const mapDbTypeToUiCategory = (dbType: string): ClothingType => {
+      switch (dbType) {
+          case 'Footwear': return 'Shoes';
+          case 'Headwear': return 'Accessory';
+          case 'Outerwear': return 'Outerwear';
+          case 'Top': return 'Top';
+          case 'Bottom': return 'Bottom';
+          case 'Dress': return 'Dress';
+          default: return 'Top';
+      }
+  };
+
   return (
-    <div className="min-h-screen">
-      <main className="container mx-auto px-4 py-4 md:py-6 max-w-7xl space-y-6">
-        <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase text-muted-foreground font-heading">Daily Pulse</p>
-          <h1 className="text-2xl md:text-3xl font-semibold uppercase font-heading">Outfit Stats</h1>
+        <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-primary)] min-h-screen text-[var(--text)]">
+            <div className="max-w-7xl mx-auto">
+                {loading ? (
+                    <div className="flex items-center justify-center h-64">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--border)]"></div>
+                    </div>
+                ) : (
+                  <StatsPageComponent items={items} _history={_history} />
+                )}
+            </div>
         </div>
-        <Suspense fallback={<StatsLoadingSkeleton />}>
-          <StatsClient userId={user.id} />
-        </Suspense>
-      </main>
-    </div>
-  );
-}
-
-function StatsLoadingSkeleton() {
-  return (
-    <div className="space-y-6">
-      {/* Quick stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-32 rounded-xl" />
-        ))}
-      </div>
-      
-      {/* Streak card */}
-      <Skeleton className="h-48 rounded-xl" />
-      
-      {/* Weekly activity */}
-      <Skeleton className="h-64 rounded-xl" />
-      
-      {/* Achievements */}
-      <div className="space-y-3">
-        <Skeleton className="h-6 w-48" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-32 rounded-xl" />
-          ))}
-        </div>
-      </div>
-    </div>
   );
 }

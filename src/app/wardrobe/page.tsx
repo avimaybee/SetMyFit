@@ -1,1517 +1,306 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Filter, Trash2, Calendar, PackageOpen, AlertCircle, Search, X, ArrowUpDown, Shirt, Upload, Loader2, Image as ImageIcon, Edit, Camera } from "lucide-react";
-import { getRelativeTime, cn } from "@/lib/utils";
-import { motionVariants, motionDurations } from "@/lib/motion";
-import { toast } from "@/components/ui/toaster";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { uploadClothingImage, deleteClothingImage } from "@/lib/supabase/storage";
-import type { ClothingType, IClothingItem, DressCode } from "@/types";
-import { EmptyState } from "@/components/ui/empty-state";
-import Image from "next/image";
-
-const clothingTypes: ClothingType[] = ["Outerwear", "Top", "Bottom", "Footwear", "Accessory", "Headwear"];
-const dressCodeOptions: DressCode[] = ["Casual", "Business Casual", "Formal", "Athletic", "Loungewear"];
-const seasonOptions = ["Spring", "Summer", "Fall", "Winter"];
-type SortOption = "recent" | "lastWorn" | "name" | "type";
+import { uploadClothingImage } from "@/lib/supabase/storage";
+import { WardrobeGrid } from "@/components/wardrobe/WardrobeGrid";
+import { ClothingItem, ClothingType } from "@/types/retro";
+import { IClothingItem } from "@/types";
+import { toast } from "@/components/ui/toaster";
+import { useAddItem } from "@/contexts/AddItemContext";
+import { dataUrlToFile, parseDataUrl } from "@/lib/utils";
+import { ListSkeleton } from "@/components/ui/skeletons";
 
 export default function WardrobePage() {
-  const [wardrobeItems, setWardrobeItems] = useState<IClothingItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
-  // Search and filter state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState<ClothingType | "All">("All");
-  const [filterColor, setFilterColor] = useState<string | "All">("All");
-  const [filterSeason, setFilterSeason] = useState<string | "All">("All");
-  const [filterDressCode, setFilterDressCode] = useState<DressCode | "All">("All");
-  const [sortBy, setSortBy] = useState<SortOption>("recent");
-  
-  // UI state
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [deleteItem, setDeleteItem] = useState<IClothingItem | null>(null);
-  const [_hoveredItem, setHoveredItem] = useState<number | null>(null);
-  const [_modalSource, setModalSource] = useState<"add-button" | "delete" | "edit" | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  
-  // Edit state
-  const [editItem, setEditItem] = useState<IClothingItem | null>(null);
-  const [editFormData, setEditFormData] = useState<Partial<IClothingItem>>({});
-  const [saving, setSaving] = useState(false);
+    const [items, setItems] = useState<ClothingItem[]>([]);
+    const [loading, setLoading] = useState(true);
+    const { isGlobalAddOpen, openGlobalAdd, closeGlobalAdd } = useAddItem();
 
-  // Upload state
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [dragActive, setDragActive] = useState(false);
+    const fetchWardrobe = useCallback(async () => {
+        try {
+            setLoading(true);
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
 
-  // File input refs for camera and gallery
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+            if (!session) return;
 
-  // Fetch wardrobe items from API
-  const fetchWardrobe = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+            const response = await fetch("/api/wardrobe");
+            if (!response.ok) throw new Error("Failed to fetch wardrobe");
 
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        setError("Please sign in to view your wardrobe");
-        setLoading(false);
-        return;
-      }
-
-      const response = await fetch("/api/wardrobe");
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch wardrobe");
-      }
-
-      const data = await response.json();
-
-      if (data.success && data.data) {
-        setWardrobeItems(data.data);
-      } else {
-        throw new Error(data.error || "Failed to load wardrobe");
-      }
-
-      setLoading(false);
-    } catch (err) {
-      console.error("Error fetching wardrobe:", err);
-      setError(err instanceof Error ? err.message : "Failed to load wardrobe");
-      setLoading(false);
-    }
-  };
-
-  // Fetch on mount
-  useEffect(() => {
-    fetchWardrobe();
-  }, []);
-
-  // Get unique colors from wardrobe items
-  const availableColors = Array.from(
-    new Set(
-      wardrobeItems
-        .filter(item => item.color)
-        .map(item => item.color!)
-    )
-  ).sort();
-
-  // Advanced filtering logic
-  const filteredItems = wardrobeItems
-    .filter(item => {
-      // Search filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const matchesName = item.name.toLowerCase().includes(query);
-        const matchesColor = item.color?.toLowerCase().includes(query);
-        const matchesMaterial = item.material.toLowerCase().includes(query);
-        if (!matchesName && !matchesColor && !matchesMaterial) return false;
-      }
-      
-      // Type filter
-      if (filterType !== "All" && item.type !== filterType) return false;
-      
-      // Color filter
-      if (filterColor !== "All" && item.color !== filterColor) return false;
-      
-      // Season filter
-      if (filterSeason !== "All") {
-        if (!item.season_tags || !item.season_tags.some(s => s.toLowerCase() === filterSeason.toLowerCase())) return false;
-      }
-      
-      // Dress code filter
-      if (filterDressCode !== "All") {
-        if (!item.dress_code || !item.dress_code.includes(filterDressCode)) return false;
-      }
-      
-      return true;
-    })
-    .sort((a, b) => {
-      // Sorting logic
-      switch (sortBy) {
-        case "recent":
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        case "lastWorn":
-          if (!a.last_worn && !b.last_worn) return 0;
-          if (!a.last_worn) return 1;
-          if (!b.last_worn) return -1;
-          return new Date(b.last_worn).getTime() - new Date(a.last_worn).getTime();
-        case "name":
-          return a.name.localeCompare(b.name);
-        case "type":
-          return a.type.localeCompare(b.type);
-        default:
-          return 0;
-      }
-    });
-
-  // Check if any filters are active
-  const hasActiveFilters = searchQuery !== "" || filterType !== "All" || filterColor !== "All" || filterSeason !== "All" || filterDressCode !== "All";
-
-  // Clear all filters
-  const clearAllFilters = () => {
-    setSearchQuery("");
-    setFilterType("All");
-    setFilterColor("All");
-    setFilterSeason("All");
-    setFilterDressCode("All");
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!deleteItem) return;
-
-    setDeleting(true);
-
-    try {
-      const response = await fetch(`/api/wardrobe/${deleteItem.id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete item");
-      }
-
-      toast.success("Item deleted successfully!", { duration: 2000 });
-      
-      // Refresh wardrobe
-      await fetchWardrobe();
-      
-      setDeleteItem(null);
-      setModalSource(null);
-    } catch (err) {
-      console.error("Error deleting item:", err);
-      toast.error("Your stylist couldn’t delete that piece. Try again in a sec.");
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const handleOpenAddModal = () => {
-    setModalSource("add-button");
-    setShowAddModal(true);
-  };
-
-  const handleCloseAddModal = () => {
-    setShowAddModal(false);
-    setSelectedFile(null);
-    setImagePreview(null);
-    setTimeout(() => setModalSource(null), 300);
-  };
-
-  const processSelectedFile = (file: File) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("Grab a photo of your piece so our stylist can see it.");
-      return;
-    }
-    const maxSize = 5 * 1024 * 1024;
-    if (file.size > maxSize) {
-      toast.error("That photo’s a bit chunky. Try one under 5MB.");
-      return;
-    }
-    setSelectedFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setImagePreview(reader.result as string);
-    reader.readAsDataURL(file);
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    processSelectedFile(file);
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!uploading) setDragActive(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (uploading) return;
-    const file = e.dataTransfer.files && e.dataTransfer.files[0];
-    if (file) processSelectedFile(file);
-  };
-
-  const handleUploadAndCreate = async () => {
-    if (!selectedFile) {
-      toast.error('Please select an image');
-      return;
-    }
-
-    setUploading(true);
-
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        toast.error('You must be signed in to upload images');
-        setUploading(false);
-        return;
-      }
-
-      // Upload image to Supabase Storage
-      toast('Uploading image...', { icon: '📤' });
-      const uploadResult = await uploadClothingImage(selectedFile, user.id);
-
-      if (!uploadResult.success) {
-        toast.error(uploadResult.error || 'Upload failed');
-        setUploading(false);
-        return;
-      }
-
-      // Use AI to analyze the clothing item
-      toast('Analyzing clothing with AI...', { icon: '🤖', duration: 2000 });
-      
-      let analyzedData;
-      try {
-        const analysisResponse = await fetch('/api/wardrobe/analyze', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            imageUrl: uploadResult.url,
-            storagePath: uploadResult.path // Pass storage path for direct Supabase download
-          }),
-        });
-
-        if (analysisResponse.ok) {
-          const analysisResult = await analysisResponse.json();
-          if (analysisResult.success) {
-            analyzedData = analysisResult.data;
-            if (analyzedData?.error === 'No clothing item detected') {
-              toast.error('AI could not detect a clothing item. Please try another image.');
-              // Clean up the uploaded image from storage
-              await deleteClothingImage(uploadResult.path!);
-              setUploading(false);
-              setSelectedFile(null);
-              setImagePreview(null);
-              return; // Stop the process
+            const data = await response.json();
+            if (data.success && data.data) {
+                const mappedItems: ClothingItem[] = (data.data as IClothingItem[]).map((item) => ({
+                    id: item.id.toString(),
+                    name: item.name,
+                    category: mapDbTypeToUiCategory(item.type),
+                    type: item.type, // Keep original type
+                    image_url: item.image_url || "https://picsum.photos/200/300?grayscale",
+                    color: item.color || "Unknown",
+                    style_tags: (item.style_tags || []) as string[],
+                    season_tags: (item.season_tags || []) as string[],
+                    material: item.material || "Cotton",
+                    insulation_value: item.insulation_value || 5,
+                    dress_code: (item.dress_code || []) as string[],
+                    wear_count: item.wear_count || 0,
+                    last_worn: item.last_worn || null,
+                    is_favorite: item.is_favorite || false,
+                    created_at: item.created_at
+                }));
+                setItems(mappedItems);
             }
-            toast.success('AI analysis complete! 🎯', { duration: 1500 });
-          } else {
-            console.error('❌ AI analysis returned error:', analysisResult.error);
-            toast.error('AI analysis failed: ' + analysisResult.error);
-          }
-        } else {
-          console.error('❌ AI analysis HTTP error:', analysisResponse.status);
-          const errorText = await analysisResponse.text();
-          console.error('Error details:', errorText);
-          
-          // If it's a 503 (service unavailable) or 502 (AI error), clean up and ask to retry
-          if (analysisResponse.status === 503 || analysisResponse.status === 502) {
-            toast.error('AI service is temporarily unavailable. Please try again.');
-            await deleteClothingImage(uploadResult.path!);
-            setUploading(false);
-            setSelectedFile(null);
-            setImagePreview(null);
-            return;
-          }
-          
-          toast.error('AI analysis failed (HTTP ' + analysisResponse.status + ')');
+        } catch (err) {
+            console.error("Error fetching wardrobe:", err);
+            toast.error("Failed to load wardrobe items.");
+        } finally {
+            setLoading(false);
         }
-      } catch (analysisError) {
-        console.error('❌ AI analysis exception:', analysisError);
-        // On exception, clean up and ask user to retry
-        toast.error('Could not analyze the image. Please try uploading again.');
-        await deleteClothingImage(uploadResult.path!);
-        setUploading(false);
-        setSelectedFile(null);
-        setImagePreview(null);
-        return;
-      }
+    }, []);
 
-      // Create wardrobe item with ALL AI-analyzed data or defaults
-      const newItem = {
-        name: analyzedData?.name || selectedFile.name.split('.')[0] || 'New Item',
-        type: (analyzedData?.type as ClothingType) || 'Top',
-        material: analyzedData?.material || 'Cotton',
-        color: analyzedData?.color || null,
-        insulation_value: analyzedData?.insulation_value || 2,
-        image_url: uploadResult.url!,
-        dress_code: (analyzedData?.dress_code as DressCode[]) || ['Casual'],
-        season_tags: analyzedData?.season_tags || null,
-        // Enhanced AI properties for better outfit recommendations
-        pattern: analyzedData?.pattern || null,
-        fit: analyzedData?.fit || null,
-        style: analyzedData?.style || null,
-        occasion: analyzedData?.occasion || null,
-        description: analyzedData?.description || null,
-      };
+    useEffect(() => {
+        fetchWardrobe();
+    }, [fetchWardrobe]);
 
-      const response = await fetch('/api/wardrobe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newItem),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        const errorMsg = data.error || data.message || 'Failed to create wardrobe item';
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Failed to create wardrobe item:', errorMsg, 'Response status:', response.status);
+    const mapDbTypeToUiCategory = (dbType: string): ClothingType => {
+        switch (dbType) {
+            case 'Footwear': return 'Shoes';
+            case 'Headwear': return 'Accessory';
+            case 'Outerwear': return 'Outerwear';
+            case 'Top': return 'Top';
+            case 'Bottom': return 'Bottom';
+            case 'Dress': return 'Dress';
+            default: return 'Top';
         }
-        throw new Error(errorMsg);
-      }
+    };
 
-      toast.success(
-        analyzedData 
-          ? '✨ Item added with AI-detected properties!' 
-          : 'Item added successfully! 🎉', 
-        { duration: 3000 }
-      );
-      handleCloseAddModal();
-      fetchWardrobe(); // Refresh the wardrobe
-    } catch (error) {
-      console.error('Error creating item:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to add item');
-    } finally {
-      setUploading(false);
-    }
-  };
+    const mapUiCategoryToDbType = (uiCategory: ClothingType): string => {
+        switch (uiCategory) {
+            case 'Shoes': return 'Footwear';
+            default: return uiCategory;
+        }
+    };
 
-  const handleOpenDeleteModal = (item: IClothingItem) => {
-    setModalSource("delete");
-    setDeleteItem(item);
-  };
-
-  const handleOpenEditModal = (item: IClothingItem) => {
-    setModalSource("edit");
-    setEditItem(item);
-    setEditFormData({
-      name: item.name,
-      type: item.type,
-      material: item.material,
-      color: item.color,
-      insulation_value: item.insulation_value,
-      season_tags: item.season_tags,
-      dress_code: item.dress_code,
-      pattern: item.pattern,
-      fit: item.fit,
-      style: item.style,
-      occasion: item.occasion,
-      description: item.description,
-    });
-  };
-
-  const handleCloseEditModal = () => {
-    setEditItem(null);
-    setEditFormData({});
-    setModalSource(null);
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editItem) return;
-
-    setSaving(true);
-
-    try {
-      const response = await fetch(`/api/wardrobe/${editItem.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(editFormData),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to update item");
-      }
-
-      toast.success("Item updated successfully!", { duration: 2000 });
-      
-      // Refresh wardrobe
-      await fetchWardrobe();
-      
-      handleCloseEditModal();
-    } catch (err) {
-      console.error("Error updating item:", err);
-      toast.error("Your stylist couldn’t save those changes. Try again.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Loading state
-  if (loading) {
-    return (
-      <div className="container max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-4 md:py-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <Skeleton variant="text" className="h-8 w-56 mb-2" />
-            <Skeleton variant="text" className="h-4 w-64" />
-          </div>
-          <Skeleton variant="panel" className="h-10 w-32" />
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
-          {Array.from({ length: 12 }).map((_, idx) => (
-            <Skeleton key={idx} variant="panel" className="aspect-square" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="container max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-4 md:py-6">
-        <div className="max-w-2xl mx-auto">
-          <EmptyState
-            icon={AlertCircle}
-            title="Oops! Something Went Wrong"
-            description={error}
-            actions={[
-              {
-                label: "Try Again",
-                onClick: fetchWardrobe,
-                variant: "default"
-              }
-            ]}
-            variant="default"
-          />
-        </div>
-      </div>
-    );
-  }
-
-  // Empty state logic moved inside main return to ensure modals are always rendered
-  const renderEmptyState = () => (
-    <>
-      <div className="container max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-4 md:py-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-heading text-foreground mb-1">Virtual Wardrobe</h1>
-            <p className="text-sm text-muted-foreground">
-              Manage your clothing collection
-            </p>
-          </div>
-        </div>
-        <div className="space-y-6">
-          <EmptyState
-            icon={PackageOpen}
-            title="Your wardrobe is empty"
-            description="Start building your digital closet! Add your first clothing item and we'll start generating personalized outfit recommendations."
-            actions={[
-              {
-                label: "Add Your First Item",
-                onClick: handleOpenAddModal,
-                icon: Plus,
-                variant: "default"
-              }
-            ]}
-            tips={[
-              "Take a photo or upload from your phone",
-              "Add details like color, season, and style tags",
-              "Track when you last wore each item",
-              "Get AI-powered outfit suggestions based on weather"
-            ]}
-            variant="illustrated"
-          />
-
-          {/* Photography Tips Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="max-w-2xl mx-auto"
-          >
-            <Card className="border-[2.5px] border-[hsl(210_10%_85%)] shadow-md bg-[hsl(40_50%_99%)]">
-              <CardContent className="p-6 space-y-4">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-xl bg-primary/10">
-                    <ImageIcon className="h-5 w-5 text-primary" />
-                  </div>
-                  <h3 className="font-semibold text-lg text-foreground">📸 Photography Tips</h3>
-                </div>
-                <ul className="space-y-2 text-sm text-foreground">
-                  <li className="flex items-start gap-2">
-                    <span className="text-primary font-bold">•</span>
-                    <span className="text-foreground">Use a neutral background (plain wall or bed)</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-primary font-bold">•</span>
-                    <span className="text-foreground">Capture the full garment clearly</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-primary font-bold">•</span>
-                    <span className="text-foreground">Good lighting helps us detect colors better</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-primary font-bold">•</span>
-                    <span className="text-foreground">One item per photo works best</span>
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </div>
-      </div>
-    </>
-  );
-
-  if (wardrobeItems.length === 0) {
-    return (
-      <>
-        {renderEmptyState()}
-        {/* Add Item Dialog (uses new Dialog component with layoutId) */}
-        <AnimatePresence>
-          {showAddModal && (
-            <Dialog open={showAddModal} onOpenChange={handleCloseAddModal}>
-              <DialogContent variant="scale" layoutId="add-item-button" className="max-w-md border-[2.5px] border-[hsl(210_10%_85%)] shadow-lg bg-[hsl(40_50%_99%)] rounded-[26px]">
-                <DialogHeader>
-                  <DialogTitle className="text-xl font-heading">Add New Item</DialogTitle>
-                  <DialogDescription className="text-sm">
-                    Upload a photo of your clothing item
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <div className="space-y-4 py-4">
-                  {!imagePreview ? (
-                    // File upload area
-                    <div
-                      className={cn(
-                        "flex flex-col items-center justify-center gap-4 py-12 border-[2.5px] border-dashed rounded-[20px] transition-all cursor-pointer bg-card",
-                        dragActive ? "border-primary bg-primary/5 shadow-md" : "border-[hsl(210_14%_82%)] hover:border-primary/50 hover:bg-primary/5"
-                      )}
-                      onDragEnter={handleDragOver}
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      onDrop={handleDrop}
-                    >
-                      <input
-                        type="file"
-                        accept="image/*"
-                        id="wardrobe-file-input"
-                        className="hidden"
-                        ref={fileInputRef}
-                        onChange={handleFileSelect}
-                        disabled={uploading}
-                      />
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        id="wardrobe-camera-input"
-                        className="hidden"
-                        ref={cameraInputRef}
-                        onChange={handleFileSelect}
-                        disabled={uploading}
-                      />
-                      <div className="flex flex-col items-center gap-3 w-full">
-                        <div className="p-4 rounded-full bg-primary/15 text-primary shadow-sm border-2 border-primary/20">
-                          <Upload className="h-8 w-8" />
-                        </div>
-                        <div className="text-center mb-2">
-                          <p className="text-sm font-semibold mb-1">Add photo</p>
-                          <p className="text-xs text-muted-foreground">Max 5MB • JPG, PNG, WEBP</p>
-                        </div>
-                        <div className="flex gap-2 w-full px-4">
-                          <button
-                            onClick={() => cameraInputRef.current?.click()}
-                            disabled={uploading}
-                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <Camera className="h-4 w-4" />
-                            <span>Camera</span>
-                          </button>
-                          <button
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={uploading}
-                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <ImageIcon className="h-4 w-4" />
-                            <span>Gallery</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    // Image preview
-                    <div className="space-y-4">
-                        <div className="relative aspect-square rounded-[20px] overflow-hidden bg-muted border-[2.5px] border-[hsl(210_10%_85%)] shadow-md">
-                        <Image
-                          src={imagePreview}
-                          alt="Preview"
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground truncate flex-1">
-                          {selectedFile?.name}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedFile(null);
-                            setImagePreview(null);
-                          }}
-                          disabled={uploading}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground text-center">
-                        After uploading, you&apos;ll be able to edit details like name, type, color, and season tags.
-                      </p>
-                    </div>
-                  )}
-                </div>
-                
-                <DialogFooter className="gap-3">
-                  <Button 
-                    onClick={handleCloseAddModal} 
-                    variant="outline"
-                    disabled={uploading}
-                    className="rounded-2xl border-[2.5px] shadow-sm hover:-translate-y-[1px] hover:shadow-md"
-                  >
-                    Cancel
-                  </Button>
-                  {imagePreview && (
-                    <Button 
-                      onClick={handleUploadAndCreate}
-                      disabled={uploading || !selectedFile}
-                      className="rounded-2xl border-[2.5px] border-primary shadow-[3px_3px_0_0_rgba(0,0,0,0.15)] hover:translate-y-[1px] hover:shadow-md"
-                    >
-                      {uploading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-4 w-4 mr-2" />
-                          Add Item
-                        </>
-                      )}
-                    </Button>
-                  )}
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
-        </AnimatePresence>
-      </>
-    );
-  }
-
-  return (
-    <div 
-      className={cn(
-        "container max-w-screen-2xl px-4 sm:px-6 lg:px-8 pt-2 pb-24 md:pt-4 md:pb-10 space-y-6",
-        dragActive && "ring-2 ring-primary ring-offset-4 ring-offset-background rounded-[1.5rem]"
-      )}
-      onDragEnter={handleDragOver}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={(e) => {
-        handleDrop(e);
-        if (!showAddModal) setShowAddModal(true);
-      }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase text-muted-foreground font-heading">Virtual Closet</p>
-          <h1 className="text-3xl md:text-4xl font-heading uppercase text-foreground mb-1">Virtual Wardrobe</h1>
-          <p className="text-sm text-muted-foreground">
-            {filteredItems.length} of {wardrobeItems.length} items
-            {hasActiveFilters && " (filtered)"}
-          </p>
-        </div>
-
-      </div>
-
-      {/* Search Bar and Filter Row */}
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          <Input
-            type="text"
-            placeholder="Search by name, color, or material..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-10 rounded-[0.875rem] border-2 bg-card"
-            aria-label="Search wardrobe items"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Clear search"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
-          )}
-        </div>
-        
-        {/* Filter Button - Both Mobile and Desktop */}
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="default" aria-label="Open filters menu">
-              <Filter className="h-4 w-4 mr-2" aria-hidden="true" />
-              Filters {hasActiveFilters && `(${[filterType !== "All", filterColor !== "All", filterSeason !== "All", filterDressCode !== "All"].filter(Boolean).length})`}
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="w-[300px] overflow-y-auto">
-            <SheetHeader>
-              <SheetTitle>Filter & Sort</SheetTitle>
-            </SheetHeader>
-            <div className="mt-6 space-y-6">
-              {/* Sort */}
-              <div>
-                <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
-                  <ArrowUpDown className="h-4 w-4" aria-hidden="true" />
-                  Sort By
-                </h3>
-                <div className="space-y-2">
-                  {[
-                    { value: "recent" as SortOption, label: "Recently Added" },
-                    { value: "lastWorn" as SortOption, label: "Last Worn" },
-                    { value: "name" as SortOption, label: "Name (A-Z)" },
-                    { value: "type" as SortOption, label: "Type" },
-                  ].map(({ value, label }) => (
-                    <Button
-                      key={value}
-                      className="w-full justify-start"
-                      size="sm"
-                      variant={sortBy === value ? "secondary" : "ghost"}
-                      onClick={() => setSortBy(value)}
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Type Filter */}
-              <div>
-                <h3 className="text-sm font-medium mb-2">Type</h3>
-                <div className="space-y-2">
-                  <Button
-                    className="w-full justify-start"
-                    size="sm"
-                    variant={filterType === "All" ? "secondary" : "ghost"}
-                    onClick={() => setFilterType("All")}
-                  >
-                    All Types
-                  </Button>
-                  {clothingTypes.map((type) => (
-                    <Button
-                      key={type}
-                      className="w-full justify-start"
-                      size="sm"
-                      variant={filterType === type ? "secondary" : "ghost"}
-                      onClick={() => setFilterType(type)}
-                    >
-                      {type}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Color Filter */}
-              {availableColors.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Color</h3>
-                  <div className="space-y-2">
-                    <Button
-                      className="w-full justify-start"
-                      size="sm"
-                      variant={filterColor === "All" ? "secondary" : "ghost"}
-                      onClick={() => setFilterColor("All")}
-                    >
-                      All Colors
-                    </Button>
-                    {availableColors.map((color) => (
-                      <Button
-                        key={color}
-                        className="w-full justify-start gap-2"
-                        size="sm"
-                        variant={filterColor === color ? "secondary" : "ghost"}
-                        onClick={() => setFilterColor(color)}
-                      >
-                        <div
-                          className="w-4 h-4 rounded-full border"
-                          style={{ backgroundColor: color.toLowerCase() }}
-                        />
-                        {color}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Season Filter */}
-              <div>
-                <h3 className="text-sm font-medium mb-2">Season</h3>
-                <div className="space-y-2">
-                  <Button
-                    className="w-full justify-start"
-                    size="sm"
-                    variant={filterSeason === "All" ? "secondary" : "ghost"}
-                    onClick={() => setFilterSeason("All")}
-                  >
-                    All Seasons
-                  </Button>
-                  {seasonOptions.map((season) => (
-                    <Button
-                      key={season}
-                      className="w-full justify-start"
-                      size="sm"
-                      variant={filterSeason === season ? "secondary" : "ghost"}
-                      onClick={() => setFilterSeason(season)}
-                    >
-                      {season}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Dress Code Filter */}
-              <div>
-                <h3 className="text-sm font-medium mb-2">Dress Code</h3>
-                <div className="space-y-2">
-                  <Button
-                    className="w-full justify-start"
-                    size="sm"
-                    variant={filterDressCode === "All" ? "secondary" : "ghost"}
-                    onClick={() => setFilterDressCode("All")}
-                  >
-                    All Dress Codes
-                  </Button>
-                  {dressCodeOptions.map((code) => (
-                    <Button
-                      key={code}
-                      className="w-full justify-start"
-                      size="sm"
-                      variant={filterDressCode === code ? "secondary" : "ghost"}
-                      onClick={() => setFilterDressCode(code)}
-                    >
-                      {code}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Clear Filters */}
-              {hasActiveFilters && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={clearAllFilters}
-                >
-                  Clear All Filters
-                </Button>
-              )}
-            </div>
-          </SheetContent>
-        </Sheet>
-        
-        {/* Sort Quick Selector removed – use Filter & Sort sheet only */}
-      </div>
-      
-      {/* Active Filters Display */}
-      {hasActiveFilters && (
-        <div className="flex items-center gap-2 flex-wrap border-2 border-dashed border-border rounded-[1rem] px-3 py-2 bg-card/50">
-          <span className="text-xs text-muted-foreground">Active filters:</span>
-          {filterType !== "All" && (
-            <Badge variant="sticker" tone="muted" className="gap-1">
-              Type: {filterType}
-              <button onClick={() => setFilterType("All")} className="ml-1 hover:text-destructive">
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
-          {filterColor !== "All" && (
-            <Badge variant="sticker" tone="muted" className="gap-1">
-              Color: {filterColor}
-              <button onClick={() => setFilterColor("All")} className="ml-1 hover:text-destructive">
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
-          {filterSeason !== "All" && (
-            <Badge variant="sticker" tone="muted" className="gap-1">
-              Season: {filterSeason}
-              <button onClick={() => setFilterSeason("All")} className="ml-1 hover:text-destructive">
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
-          {filterDressCode !== "All" && (
-            <Badge variant="sticker" tone="muted" className="gap-1">
-              Dress Code: {filterDressCode}
-              <button onClick={() => setFilterDressCode("All")} className="ml-1 hover:text-destructive">
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
-          <Button variant="ghost" size="sm" onClick={clearAllFilters}>
-            Clear All
-          </Button>
-        </div>
-      )}
-
-      {/* Wardrobe Grid with Enhanced Cards */}
-      <AnimatePresence mode="popLayout">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
-          {filteredItems.map((item, idx) => (
-            <motion.div
-              key={item.id}
-              variants={motionVariants.fade}
-              initial="hidden"
-              animate="visible"
-              exit="hidden"
-              transition={{ 
-                duration: motionDurations.fast / 1000,
-                delay: idx * 0.02 
-              }}
-              layout
-            >
-              <Card hoverable
-                className="group overflow-hidden cursor-pointer"
-                onMouseEnter={() => setHoveredItem(item.id)}
-                onMouseLeave={() => setHoveredItem(null)}
-              >
-                {/* Image with zoom on hover */}
-                <div className="relative aspect-square overflow-hidden bg-muted flex items-center justify-center" onClick={() => handleOpenEditModal(item)}>
-                  {item.image_url ? (
-                    <Image
-                      src={item.image_url}
-                      alt={item.name}
-                      fill
-                      className="object-cover transition-transform duration-300 group-hover:scale-105"
-                      sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
-                      priority={idx < 6}
-                      unoptimized
-                    />
-                  ) : (
-                    <Shirt className="h-12 w-12 text-muted-foreground" />
-                  )}
-                  
-                  {/* Type Badge */}
-                  <div className="absolute top-2 right-2 z-10">
-                    <Badge variant="sticker" tone="teal">
-                      {item.type}
-                    </Badge>
-                  </div>
-
-                  {/* "Most Worn" or "Never Worn" Badge */}
-
-
-                  {/* Delete Button - visible on mobile, shows on hover desktop */}
-                  <div className="absolute top-2 left-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                    <Button
-                      size="icon"
-                      variant="destructive"
-                      className="h-8 w-8 shadow-lg"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenDeleteModal(item);
-                      }}
-                      aria-label={`Delete ${item.name}`}
-                    >
-                      <Trash2 className="h-4 w-4" aria-hidden="true" />
-                    </Button>
-                  </div>
-                </div>
-
-                <CardContent className="p-3 space-y-2" onClick={() => handleOpenEditModal(item)}>
-                  <div>
-                    <h3 className="font-semibold text-foreground truncate">{item.name}</h3>
-                    <p className="text-sm text-muted-foreground">{item.material}</p>
-                  </div>
-                  
-                  <div className="flex items-center justify-between pt-2 border-t-2 border-dashed">
-                    <div className="text-xs">
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Calendar className="h-3 w-3" aria-hidden="true" />
-                        <span>Last Worn</span>
-                      </div>
-                      <p className="font-medium">{getRelativeTime(item.last_worn)}</p>
-                    </div>
-                    {item.color && (
-                      <div
-                        className="w-6 h-6 rounded-full border-2 shadow-md"
-                        style={{ backgroundColor: item.color.toLowerCase() }}
-                        title={item.color}
-                      />
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-      </AnimatePresence>
-
-      {/* Floating Add Item FAB */}
-      <motion.div layoutId="add-item-button" className="fixed bottom-20 right-4 md:bottom-8 md:right-8 z-40">
-        <Button
-          variant="default"
-          size="lg"
-          onClick={handleOpenAddModal}
-          className="rounded-full px-6 flex items-center gap-2 border-[2.5px] border-primary shadow-[3px_3px_0_0_rgba(0,0,0,0.15)] hover:translate-y-[1px] hover:shadow-lg transition-all duration-300"
-          aria-label="Add new wardrobe item"
-        >
-          <Plus className="h-5 w-5" aria-hidden="true" />
-          Add Item
-        </Button>
-      </motion.div>
-
-      {/* Empty State with Beautiful Illustration */}
-      {filteredItems.length === 0 && !loading && wardrobeItems.length > 0 && (
-        <EmptyState
-          icon={PackageOpen}
-          title="No items match your filters"
-          description={
-            hasActiveFilters
-              ? "Try adjusting your search or filters to see more results."
-              : "Your wardrobe appears to be empty for the current selection."
-          }
-          actions={[
-            {
-              label: "Clear All Filters",
-              onClick: clearAllFilters,
-              icon: X,
-              variant: "default"
-            },
-            {
-              label: "Add New Item",
-              onClick: handleOpenAddModal,
-              icon: Plus,
-              variant: "outline"
+    const handleAddItem = async (item: Partial<ClothingItem>, file?: File) => {
+        let uploadToastId: string | null = null;
+        try {
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                toast.error("You must be logged in.");
+                return;
             }
-          ]}
-          variant="default"
-        />
-      )}
 
-      {/* Add Item Dialog (uses new Dialog component with layoutId) */}
-      <AnimatePresence>
-        {showAddModal && (
-          <Dialog open={showAddModal} onOpenChange={handleCloseAddModal}>
-            <DialogContent variant="scale" layoutId="add-item-button" className="max-w-md border-[2.5px] border-[hsl(210_10%_85%)] shadow-lg bg-[hsl(40_50%_99%)] rounded-[26px]">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-heading">Add New Item</DialogTitle>
-                <DialogDescription className="text-sm">
-                  Upload a photo of your clothing item
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="space-y-4 py-4">
-                {!imagePreview ? (
-                  // File upload area
-                  <div
-                    className={cn(
-                      "flex flex-col items-center justify-center gap-4 py-12 border-[2.5px] border-dashed rounded-[20px] transition-all cursor-pointer bg-card",
-                      dragActive ? "border-primary bg-primary/5 shadow-md" : "border-[hsl(210_14%_82%)] hover:border-primary/50 hover:bg-primary/5"
-                    )}
-                    onDragEnter={handleDragOver}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                  >
-                    <input
-                      type="file"
-                      accept="image/*"
-                      id="wardrobe-file-input-2"
-                      className="hidden"
-                      ref={fileInputRef}
-                      onChange={handleFileSelect}
-                      disabled={uploading}
-                    />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      id="wardrobe-camera-input-2"
-                      className="hidden"
-                      ref={cameraInputRef}
-                      onChange={handleFileSelect}
-                      disabled={uploading}
-                    />
-                    <div className="flex flex-col items-center gap-3 w-full">
-                      <div className="p-4 rounded-full bg-primary/15 text-primary shadow-sm border-2 border-primary/20">
-                        <Upload className="h-8 w-8" />
-                      </div>
-                      <div className="text-center mb-2">
-                        <p className="text-sm font-semibold mb-1">Add photo</p>
-                        <p className="text-xs text-muted-foreground">Max 5MB • JPG, PNG, WEBP</p>
-                      </div>
-                      <div className="flex gap-2 w-full px-4">
-                        <button
-                          onClick={() => cameraInputRef.current?.click()}
-                          disabled={uploading}
-                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <Camera className="h-4 w-4" />
-                          <span>Camera</span>
-                        </button>
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={uploading}
-                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <ImageIcon className="h-4 w-4" />
-                          <span>Gallery</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+            let imageUrl = item.image_url;
+            let uploadFile = file;
+
+            if (!uploadFile && imageUrl && imageUrl.startsWith("data:")) {
+                try {
+                    uploadFile = dataUrlToFile(imageUrl, "wardrobe-item.webp");
+                } catch (conversionError) {
+                    console.error("Failed to convert data URL to file", conversionError);
+                    toast.error("Unable to process image upload.");
+                    return;
+                }
+            }
+
+            if (uploadFile) {
+                uploadToastId = toast.loading('UPLOADING IMAGE... 0%');
+                const uploadResult = await uploadClothingImage(uploadFile, session.user.id, {
+                    onProgress: (percent) => {
+                        if (!uploadToastId) return;
+                        toast.loading(`UPLOADING IMAGE... ${percent}%`, { id: uploadToastId });
+                    },
+                });
+                if (!uploadResult.success || !uploadResult.url) {
+                    throw new Error(uploadResult.error || "Failed to upload image");
+                }
+                imageUrl = uploadResult.url;
+            }
+
+            const payload = {
+                name: item.name,
+                type: mapUiCategoryToDbType(item.category as ClothingType),
+                category: "General", // Default or derived
+                material: item.material,
+                color: "Unknown", // UI doesn't have color picker yet?
+                season_tags: item.season_tags,
+                dress_code: item.dress_code,
+                image_url: imageUrl,
+                insulation_value: item.insulation_value,
+                is_favorite: item.is_favorite,
+                style_tags: item.style_tags
+            };
+
+            const response = await fetch("/api/wardrobe", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error("Failed to create item");
+
+            toast.success("Item added to wardrobe.");
+            closeGlobalAdd();
+            fetchWardrobe();
+
+        } catch (err) {
+            console.error("Error adding item:", err);
+            toast.error("Failed to add item.");
+        } finally {
+            if (uploadToastId) {
+                toast.dismiss(uploadToastId);
+            }
+        }
+    };
+
+    const handleUpdateItem = async (item: Partial<ClothingItem>, file?: File) => {
+        if (!item.id) return;
+
+        let uploadToastId: string | null = null;
+        try {
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                toast.error("You must be logged in.");
+                return;
+            }
+
+            let imageUrl = item.image_url;
+            let uploadFile = file;
+
+            if (!uploadFile && imageUrl && imageUrl.startsWith("data:")) {
+                try {
+                    uploadFile = dataUrlToFile(imageUrl, "wardrobe-item.webp");
+                } catch (conversionError) {
+                    console.error("Failed to convert data URL to file", conversionError);
+                    toast.error("Unable to process image upload.");
+                    return;
+                }
+            }
+
+            if (uploadFile) {
+                uploadToastId = toast.loading('UPLOADING IMAGE... 0%');
+                const uploadResult = await uploadClothingImage(uploadFile, session.user.id, {
+                    onProgress: (percent) => {
+                        if (!uploadToastId) return;
+                        toast.loading(`UPLOADING IMAGE... ${percent}%`, { id: uploadToastId });
+                    },
+                });
+                if (!uploadResult.success || !uploadResult.url) {
+                    throw new Error(uploadResult.error || "Failed to upload image");
+                }
+                imageUrl = uploadResult.url;
+            }
+
+            const payload = {
+                name: item.name,
+                type: mapUiCategoryToDbType(item.category as ClothingType),
+                material: item.material,
+                season_tags: item.season_tags,
+                dress_code: item.dress_code,
+                image_url: imageUrl,
+                insulation_value: item.insulation_value,
+                is_favorite: item.is_favorite,
+                style_tags: item.style_tags
+            };
+
+            const response = await fetch(`/api/wardrobe/${item.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error("Failed to update item");
+
+            toast.success("Item updated.");
+            fetchWardrobe();
+        } catch (err) {
+            console.error("Error updating item:", err);
+            toast.error("Failed to update item.");
+        } finally {
+            if (uploadToastId) {
+                toast.dismiss(uploadToastId);
+            }
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        try {
+            const response = await fetch(`/api/wardrobe/${id}`, { method: "DELETE" });
+            if (!response.ok) throw new Error("Failed to delete item");
+
+            setItems(prev => prev.filter(i => i.id !== id));
+            toast.success("Item deleted.");
+        } catch (err) {
+            console.error("Error deleting item:", err);
+            toast.error("Failed to delete item.");
+        }
+    };
+
+    const handleToggleFavorite = async (id: string) => {
+        const item = items.find(i => i.id === id);
+        if (!item) return;
+
+        // Optimistic update
+        setItems(prev => prev.map(i => i.id === id ? { ...i, is_favorite: !i.is_favorite } : i));
+
+        try {
+            const response = await fetch(`/api/wardrobe/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ is_favorite: !item.is_favorite })
+            });
+            if (!response.ok) throw new Error("Failed to update favorite status");
+        } catch (err) {
+            console.error("Error updating favorite:", err);
+            // Revert
+            setItems(prev => prev.map(i => i.id === id ? { ...i, is_favorite: item.is_favorite } : i));
+            toast.error("Failed to update favorite.");
+        }
+    };
+
+    const handleAnalyzeImage = async (base64: string, options?: { signal?: AbortSignal }): Promise<Partial<ClothingItem> | null> => {
+        try {
+            const { base64: payload, mimeType } = parseDataUrl(base64, "image/webp");
+            const response = await fetch("/api/wardrobe/analyze", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ image: payload, mimeType }),
+                signal: options?.signal
+            });
+
+            if (!response.ok) throw new Error("Analysis failed");
+
+            const result = await response.json();
+            if (result.success && result.data) {
+                return result.data as Partial<ClothingItem>;
+            }
+            return null;
+        } catch (error) {
+            console.error("Error analyzing image:", error);
+            toast.error("Failed to analyze image.");
+            return null;
+        }
+    };
+
+    return (
+        <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-primary)] min-h-screen text-[var(--text)]">
+            <div className="max-w-7xl mx-auto">
+                {loading ? (
+                    <ListSkeleton />
                 ) : (
-                  // Image preview
-                  <div className="space-y-4">
-                      <div className="relative aspect-square rounded-[20px] overflow-hidden bg-muted border-[2.5px] border-[hsl(210_10%_85%)] shadow-md">
-                      <Image
-                        src={imagePreview}
-                        alt="Preview"
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground truncate flex-1">
-                        {selectedFile?.name}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedFile(null);
-                          setImagePreview(null);
-                        }}
-                        disabled={uploading}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground text-center">
-                      After uploading, you&apos;ll be able to edit details like name, type, color, and season tags.
-                    </p>
-                  </div>
+                    <WardrobeGrid
+                        items={items}
+                        onAddItem={handleAddItem}
+                        onUpdateItem={handleUpdateItem}
+                        onDelete={handleDelete}
+                        isAdding={isGlobalAddOpen}
+                        onOpenAdd={openGlobalAdd}
+                        onCloseAdd={closeGlobalAdd}
+                        onToggleFavorite={handleToggleFavorite}
+                        onAnalyzeImage={handleAnalyzeImage}
+                    />
                 )}
-              </div>
-              
-              <DialogFooter className="gap-3">
-                <Button 
-                  onClick={handleCloseAddModal} 
-                  variant="outline"
-                  disabled={uploading}
-                  className="rounded-2xl border-[2.5px] shadow-sm hover:-translate-y-[1px] hover:shadow-md"
-                >
-                  Cancel
-                </Button>
-                {imagePreview && (
-                  <Button 
-                    onClick={handleUploadAndCreate}
-                    disabled={uploading || !selectedFile}
-                    className="rounded-2xl border-[2.5px] border-primary shadow-[3px_3px_0_0_rgba(0,0,0,0.15)] hover:translate-y-[1px] hover:shadow-md"
-                  >
-                    {uploading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-4 w-4 mr-2" />
-                        Add Item
-                      </>
-                    )}
-                  </Button>
-                )}
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
-      </AnimatePresence>
-
-      {/* Edit Item Dialog */}
-      <Dialog open={editItem !== null} onOpenChange={(open) => !open && handleCloseEditModal()}>
-        <DialogContent variant="scale" className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Item Details</DialogTitle>
-            <DialogDescription>
-              Update the clothing item information. The AI may have detected some details automatically.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            {/* Image Preview */}
-            {editItem && (
-              <div className="relative aspect-square w-32 rounded-[1.25rem] overflow-hidden bg-muted mx-auto">
-                <Image
-                  src={editItem.image_url}
-                  alt={editItem.name}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Name */}
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="edit-name">Name</Label>
-                <Input
-                  id="edit-name"
-                  value={editFormData.name || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                  placeholder="e.g., Navy Blue T-Shirt"
-                />
-              </div>
-
-              {/* Type */}
-              <div className="space-y-2">
-                <Label htmlFor="edit-type">Type</Label>
-                <select
-                  id="edit-type"
-                  value={editFormData.type || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, type: e.target.value as ClothingType })}
-                  className="w-full h-10 rounded-[0.875rem] border-2 border-border bg-card px-3 py-2 text-sm shadow-sm focus-visible:outline-none"
-                >
-                  {clothingTypes.map((type) => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Material */}
-              <div className="space-y-2">
-                <Label htmlFor="edit-material">Material</Label>
-                <Input
-                  id="edit-material"
-                  value={editFormData.material || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, material: e.target.value })}
-                  placeholder="e.g., Cotton, Denim, Leather"
-                />
-              </div>
-
-              {/* Color */}
-              <div className="space-y-2">
-                <Label htmlFor="edit-color">Color</Label>
-                <Input
-                  id="edit-color"
-                  value={editFormData.color || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, color: e.target.value })}
-                  placeholder="e.g., Navy Blue, Black"
-                />
-              </div>
-
-              {/* Insulation Value */}
-              <div className="space-y-2">
-                <Label htmlFor="edit-insulation">Warmth Level (1-10)</Label>
-                <Input
-                  id="edit-insulation"
-                  type="number"
-                  min="1"
-                  max="10"
-                  value={editFormData.insulation_value || 3}
-                  onChange={(e) => setEditFormData({ ...editFormData, insulation_value: parseInt(e.target.value) })}
-                />
-                <p className="text-xs text-muted-foreground">1 = Very Light, 10 = Extreme Warmth</p>
-              </div>
-
-              {/* Pattern */}
-              <div className="space-y-2">
-                <Label htmlFor="edit-pattern">Pattern</Label>
-                <Input
-                  id="edit-pattern"
-                  value={editFormData.pattern || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, pattern: e.target.value })}
-                  placeholder="e.g., Solid, Striped, Plaid"
-                />
-              </div>
-
-              {/* Fit */}
-              <div className="space-y-2">
-                <Label htmlFor="edit-fit">Fit</Label>
-                <Input
-                  id="edit-fit"
-                  value={editFormData.fit || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, fit: e.target.value })}
-                  placeholder="e.g., Slim Fit, Regular, Loose"
-                />
-              </div>
-
-              {/* Style */}
-              <div className="space-y-2">
-                <Label htmlFor="edit-style">Style</Label>
-                <Input
-                  id="edit-style"
-                  value={editFormData.style || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, style: e.target.value })}
-                  placeholder="e.g., Modern, Vintage, Streetwear"
-                />
-              </div>
-
-              {/* Season Tags */}
-              <div className="space-y-2 md:col-span-2">
-                <Label>Seasons</Label>
-                <div className="flex flex-wrap gap-2">
-                  {seasonOptions.map((season) => {
-                    const isSelected = editFormData.season_tags?.some(s => s.toLowerCase() === season.toLowerCase()) || false;
-                    return (
-                      <Badge
-                        key={season}
-                        variant={isSelected ? "default" : "outline"}
-                        className={cn("cursor-pointer", isSelected && "text-foreground")}
-                        onClick={() => {
-                          const current = editFormData.season_tags || [];
-                          const updated = isSelected
-                            ? current.filter((s) => s.toLowerCase() !== season.toLowerCase())
-                            : [...current, season.toLowerCase()];
-                          setEditFormData({ ...editFormData, season_tags: updated });
-                        }}
-                      >
-                        {season}
-                      </Badge>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Dress Codes */}
-              <div className="space-y-2 md:col-span-2">
-                <Label>Dress Codes</Label>
-                <div className="flex flex-wrap gap-2">
-                  {dressCodeOptions.map((code) => {
-                    const dressCodeArray = Array.isArray(editFormData.dress_code) 
-                      ? editFormData.dress_code 
-                      : [];
-                    const isSelected = dressCodeArray.includes(code);
-                    return (
-                      <Badge
-                        key={code}
-                        variant={isSelected ? "default" : "outline"}
-                        className={cn("cursor-pointer", isSelected && "text-foreground")}
-                        onClick={() => {
-                          const current = dressCodeArray;
-                          const updated = isSelected
-                            ? current.filter((c) => c !== code)
-                            : [...current, code];
-                          setEditFormData({ ...editFormData, dress_code: updated });
-                        }}
-                      >
-                        {code}
-                      </Badge>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="edit-description">Description</Label>
-                <textarea
-                  id="edit-description"
-                  value={editFormData.description || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
-                  placeholder="Add any additional details about this item..."
-                  className="w-full min-h-[100px] rounded-[0.875rem] border-2 border-border bg-card px-3 py-2 text-sm shadow-sm focus-visible:outline-none"
-                />
-              </div>
             </div>
-          </div>
-          
-          <DialogFooter>
-            <Button 
-              onClick={handleCloseEditModal} 
-              variant="outline"
-              disabled={saving}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleSaveEdit}
-              disabled={saving}
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Save Changes
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteItem !== null} onOpenChange={(open) => !open && setDeleteItem(null)}>
-        <DialogContent variant="scale">
-          <DialogHeader>
-            <DialogTitle>Delete Item?</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to remove &ldquo;{deleteItem?.name}&rdquo; from your wardrobe? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button 
-              onClick={() => setDeleteItem(null)} 
-              variant="outline"
-              disabled={deleting}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleDeleteConfirm} 
-              variant="destructive"
-              disabled={deleting}
-            >
-              {deleting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+        </div>
+    );
 }

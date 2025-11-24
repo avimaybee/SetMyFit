@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { ApiResponse, IClothingItem, WeatherData } from '@/lib/types';
 import { generateAIOutfitRecommendation } from '@/lib/helpers/aiOutfitAnalyzer';
-import { filterByLastWorn } from '@/lib/helpers/recommendationEngine';
+import { filterByLastWorn } from '@/lib/helpers/clothingHelpers';
 import { getCurrentSeason, getSeasonDescription } from '@/lib/helpers/seasonDetector';
 
 /**
@@ -174,8 +174,19 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       }
     );
 
-    // Create reasoning from analysis log
-    const reasoning = aiResult.analysisLog.join('\n');
+    // Create reasoning from analysis log or structured reasoning
+    let reasoning = aiResult.analysisLog.join('\n');
+    
+    if (aiResult.reasoning) {
+      reasoning = `
+Style Score: ${aiResult.reasoning.styleScore}/10
+Weather Match: ${aiResult.reasoning.weatherMatch}
+Color Analysis: ${aiResult.reasoning.colorAnalysis}
+Layering: ${aiResult.reasoning.layeringStrategy}
+Occasion Fit: ${aiResult.reasoning.occasionFit}
+History Check: ${aiResult.reasoning.historyCheck}
+      `.trim();
+    }
 
     // Store recommendation in database
     const { data: _savedRecommendation, error: saveError } = await supabase

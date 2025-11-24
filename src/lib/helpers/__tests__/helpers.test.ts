@@ -3,41 +3,18 @@
  * Run with: npx tsx src/lib/helpers/__tests__/helpers.test.ts
  */
 
-import { classifyEvent } from '../eventClassifier';
 import { 
   filterByLastWorn, 
-  getDressCodeFromEvents,
-  adjustInsulationForActivity,
-  calculateRequiredInsulation,
-  getRecommendation,
-} from '../recommendationEngine';
+} from '../clothingHelpers';
 import { adjustPreferences } from '../preferenceLearning';
 import { 
   IClothingItem, 
-  CalendarEvent, 
   UserPreferences,
   RecommendationFeedback,
   WeatherData
 } from '../../types';
 
 console.log('🧪 Testing Backend Helper Functions\n');
-
-// Test 1: Event Classification
-console.log('📅 Test 1: Event Classification');
-const testEvents = [
-  'Team Meeting',
-  'Gym Workout',
-  'Dinner with friends',
-  'Client Presentation',
-  'Morning Run',
-  'Birthday Party'
-];
-
-testEvents.forEach(event => {
-  const classified = classifyEvent(event);
-  console.log(`  "${event}" → ${classified}`);
-});
-console.log('✅ Event classification working\n');
 
 // Test 2: Last Worn Filter
 console.log('👕 Test 2: Last Worn Filter');
@@ -97,52 +74,6 @@ console.log(`  Total items: ${mockItems.length}`);
 console.log(`  Items eligible (not worn in 7+ days): ${filtered.length}`);
 console.log(`  Eligible items: ${filtered.map(i => i.name).join(', ')}`);
 console.log('✅ Last worn filtering working\n');
-
-// Test 3: Dress Code from Events
-console.log('💼 Test 3: Dress Code from Events');
-const mockCalendarEvents: CalendarEvent[] = [
-  {
-    id: '1',
-    title: 'Client Meeting',
-    start_time: new Date(),
-    end_time: new Date(),
-    event_type: 'Work/Business',
-  },
-  {
-    id: '2',
-    title: 'Lunch',
-    start_time: new Date(),
-    end_time: new Date(),
-    event_type: 'Casual/Social',
-  },
-];
-
-const dressCode = getDressCodeFromEvents(mockCalendarEvents);
-console.log(`  Events: ${mockCalendarEvents.map(e => e.title).join(', ')}`);
-console.log(`  Recommended dress code: ${dressCode}`);
-console.log('✅ Dress code determination working\n');
-
-// Test 4: Insulation Adjustment for Activity
-console.log('🏃 Test 4: Insulation Adjustment for Activity');
-const baseInsulation = 7;
-const lowActivity = adjustInsulationForActivity(baseInsulation, 'Low');
-const mediumActivity = adjustInsulationForActivity(baseInsulation, 'Medium');
-const highActivity = adjustInsulationForActivity(baseInsulation, 'High');
-
-console.log(`  Base insulation: ${baseInsulation}`);
-console.log(`  Low activity: ${lowActivity} (no change)`);
-console.log(`  Medium activity: ${mediumActivity} (-1)`);
-console.log(`  High activity: ${highActivity} (-2)`);
-console.log('✅ Activity-based insulation adjustment working\n');
-
-// Test 5: Required Insulation Calculation
-console.log('🌡️  Test 5: Required Insulation by Temperature');
-const temps = [-5, 5, 15, 22, 28];
-temps.forEach(temp => {
-  const required = calculateRequiredInsulation(temp);
-  console.log(`  ${temp}°C → Insulation level ${required}`);
-});
-console.log('✅ Temperature-based insulation calculation working\n');
 
 // Test 6: Preference Learning
 console.log('🧠 Test 6: Preference Learning');

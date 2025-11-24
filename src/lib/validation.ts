@@ -8,7 +8,6 @@ import { NextRequest } from 'next/server';
 export const weatherRequestSchema = z.object({
   lat: z.number().min(-90).max(90),
   lon: z.number().min(-180).max(180),
-  provider: z.string().default('openWeather'),
 });
 
 // Recommendation request schema
@@ -16,6 +15,7 @@ export const recommendationRequestSchema = z.object({
   lat: z.number().min(-90).max(90),
   lon: z.number().min(-180).max(180),
   occasion: z.string().optional(),
+  lockedItems: z.array(z.string()).optional(),
 });
 
 // Helper to validate query params

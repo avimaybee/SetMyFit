@@ -1,759 +1,142 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Work+Sans:wght@400;600;800&display=swap');
 @import "tailwindcss";
 
-/* Custom variant for dark mode support (no-op while dark mode disabled) */
-@custom-variant dark (&:is(.dark *));
+/* Fonts */
+@theme {
+  --font-sans: 'Work Sans', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+}
 
-/* Light theme (default) */
 :root {
-  /* Base canvas */
-  --background: hsl(0 0% 100%);
-  --foreground: hsl(224 71% 4%);
+  --bg-main: #FFF8E7;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary: #f0f0f0; /* Light gray for panels */
+  --border: #000000;
+  --text: #000000;
+  --text-muted: #4b5563; /* Gray-600 */
   
-  /* Card & Surface colors */
-  --card: hsl(0 0% 100%);
-  --card-foreground: var(--foreground);
+  --accent-blue: #A0C4FF;
+  --accent-pink: #FF99C8;
+  --accent-orange: #FF8E72;
+  --accent-yellow: #FDFFB6;
+  --accent-green: #CAFFBF;
   
-  /* Popover colors */
-  --popover: hsl(0 0% 100%);
-  --popover-foreground: var(--foreground);
-  
-  /* Semantic text colors */
-  --color-text-primary: oklch(0.20 0.010 286.375);
-  --color-text-secondary: oklch(0.45 0.012 286.375);
-  --color-text-tertiary: oklch(0.60 0.015 286.375);
-  --color-text-quaternary: oklch(0.72 0.015 286.375);
-  --color-text-muted: oklch(0.60 0.015 286.375);
-  
-  /* Surface & elevation layers */
-  --color-surface: hsl(0 0% 100%);
-  --color-surface-1: hsl(210 20% 98%);
-  --color-surface-2: hsl(210 18% 96%);
-  --color-surface-3: hsl(210 16% 94%);
-  --surface-plaster: hsl(210 20% 97%);
-  --surface-recycled: hsl(210 18% 95%);
-  --surface-shell: hsl(210 16% 93%);
-  --paper-outline: hsl(210 10% 85%);
-  
-  /* Shadow system */
-  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.08);
-  --shadow-sm: 0 2px 6px rgba(15, 23, 42, 0.08);
-  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.10);
-  --shadow-lg: 0 8px 20px rgba(15, 23, 42, 0.12);
-  --shadow-xl: 0 12px 30px rgba(15, 23, 42, 0.16);
-  --shadow-2xl: 0 18px 40px rgba(15, 23, 42, 0.18);
-  
-  /* Motion system tokens */
-  --motion-duration-fast: 120ms;
-  --motion-duration-medium: 240ms;
-  --motion-duration-slow: 420ms;
-  --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
-  --motion-ease-out: cubic-bezier(0, 0, 0.2, 1);
-  --motion-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-  --motion-ease-elastic: cubic-bezier(0.2, 0.9, 0.2, 1);
-  --motion-ease-bounce: cubic-bezier(0.22, 1, 0.36, 1);
-  
-  /* Brand palette */
-  --primary: hsl(6 95% 67%); /* Coral color matching the attached button image */
-  --primary-foreground: hsl(0 0% 100%);
-  
-  --secondary: hsl(177 20% 90%);
-  --secondary-foreground: hsl(177 79% 26%);
-  
-  --muted: hsl(210 20% 96%);
-  --muted-foreground: hsl(224 15% 35%);
-  
-  --accent: hsl(177 79% 26%);
-  --accent-foreground: hsl(0 0% 100%);
-  
-  --destructive: hsl(0 84.2% 60.2%);
-  --destructive-foreground: hsl(0 0% 100%);
-  
-  /* Borders */
-  --border: hsl(220 13% 90%);
-  --input: hsl(0 0% 100%);
-  --ring: var(--primary);
-  
-  /* Chart colors */
-  --chart-1: var(--primary);
-  --chart-2: oklch(from var(--primary) l c calc(h + 120));
-  --chart-3: oklch(from var(--primary) calc(l - 0.15) c calc(h + 180));
-  --chart-4: oklch(from var(--primary) calc(l + 0.15) c calc(h - 60));
-  --chart-5: oklch(from var(--primary) calc(l + 0.10) c calc(h + 30));
-  
-  /* Border radius scale */
-  --radius: 0.875rem;
-  
-  /* Sidebar colors (for future use) */
-  --sidebar: oklch(0.99 0.002 264.376);
-  --sidebar-foreground: oklch(0.15 0.007 286.375);
-  --sidebar-primary: oklch(0.65 0.19 35);
-  --sidebar-primary-foreground: oklch(0.99 0.002 264.376);
-  --sidebar-accent: oklch(0.96 0.008 35);
-  --sidebar-accent-foreground: oklch(0.15 0.007 286.375);
-  --sidebar-border: oklch(0.92 0.006 286.375);
-  --sidebar-ring: oklch(0.65 0.19 35);
-
-  /* Heading font */
-  --font-heading: var(--font-heading);
+  --card-shadow: 4px 4px 0px 0px var(--border);
 }
 
-/* Dark theme variables kept for future use but currently unused
-   since dark mode is disabled at the app level. */
+.theme-hacker {
+  --bg-main: #000000;
+  --bg-secondary: #0c0c0c;
+  --bg-tertiary: #111111;
+  --border: #00ff41;
+  --text: #00ff41;
+  --text-muted: rgba(0, 255, 65, 0.7);
 
-/* Map CSS variables to Tailwind utilities using @theme inline */
-@theme inline {
-  /* Colors */
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
+  /* Accents in hacker mode are dark backgrounds with bright borders usually, 
+      or we keep them as distinct colors but suitable for dark mode */
+  --accent-blue: #001a33;
+  --accent-pink: #33001a;
+  --accent-orange: #331a00;
+  --accent-yellow: #333300;
+  --accent-green: #003300;
   
-  /* Radius scale */
-  --radius-xs: calc(var(--radius) - 4px);
-  --radius-sm: calc(var(--radius) - 2px);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 2px);
-  --radius-xl: calc(var(--radius) + 4px);
-  
-  /* Sidebar colors */
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-  
-  /* Spacing scale - 4px base */
-  --spacing: 0.25rem;
-  
-  /* Semantic text colors */
-  --color-text-primary: var(--color-text-primary);
-  --color-text-secondary: var(--color-text-secondary);
-  --color-text-muted: var(--color-text-muted);
-  
-  /* Surface layers */
-  --color-surface: var(--color-surface);
-  --color-surface-1: var(--color-surface-1);
-  --color-surface-2: var(--color-surface-2);
-  --color-surface-3: var(--color-surface-3);
-  
-  /* Shadow system */
-  --shadow-xs: var(--shadow-xs);
-  --shadow-sm: var(--shadow-sm);
-  --shadow-md: var(--shadow-md);
-  --shadow-lg: var(--shadow-lg);
-  --shadow-xl: var(--shadow-xl);
-  --shadow-2xl: var(--shadow-2xl);
+  --card-shadow: 4px 4px 0px 0px var(--border);
 }
 
-/* Base styles */
-@layer base {
-  * {
-    @apply border-border/40;
-  }
-  
-  .border-border,
-  .border-border\/40 {
-    border-color: hsl(220 13% 90%);
-  }
-  
-  body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-  
-  /* Apply Stack Sans Text to all headings */
-  h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-heading);
-    font-optical-sizing: auto;
-  }
-  
-  /* Focus styles for accessibility */
-  *:focus-visible {
-    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
-  }
-  
-  /* Smooth scrolling */
-  @media (prefers-reduced-motion: no-preference) {
-    html {
-      scroll-behavior: smooth;
-    }
-  }
+body {
+  font-family: 'Work Sans', sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-@layer base {
-  .uppercase {
-    /* Removed: text-transform: uppercase; */
-  }
-  
-  .paper-tape {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.35rem;
-    padding: 0.15rem 1.2rem;
-    color: hsl(200 15% 20%);
-    background: linear-gradient(135deg, hsl(0 0% 100%), hsl(210 20% 97%));
-    box-shadow: inset 0 0 0 1px hsl(210 15% 85% / 0.6), 0 3px 10px hsl(210 30% 40% / 0.15);
-    transform: rotate(var(--tape-rotation, -1.5deg));
-    border-radius: 0.25rem;
-  }
-  .paper-tape::before,
-  .paper-tape::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-  }
-  .paper-tape::before {
-    border: 1px dashed hsl(210 12% 70% / 0.8);
-  }
-  .paper-tape::after {
-    box-shadow: 0 6px 12px hsl(210 25% 35% / 0.2);
-    transform: translateY(4px);
-    opacity: 0.35;
-  }
+/* Default Retro Theme Background */
+body:not(.theme-hacker) {
+    background-image: radial-gradient(#e5e5e5 1px, transparent 1px);
+    background-size: 20px 20px;
 }
 
-/* Legacy grid helper (if needed elsewhere) */
-@layer base {
-  .papercraft-grid-bg {
-    background-color: hsl(40 50% 98%);
-    background-image:
-      linear-gradient(
-        90deg,
-        hsl(177 20% 90%) 1px,
-        transparent 1px
-      ),
-      linear-gradient(
-        hsl(177 20% 90%) 1px,
-        transparent 1px
-      );
-    background-size: 32px 32px;
-    background-position: -1px -1px;
-  }
+.theme-hacker body {
+  background-image: 
+      linear-gradient(0deg, transparent 24%, rgba(0, 255, 65, .03) 25%, rgba(0, 255, 65, .03) 26%, transparent 27%, transparent 74%, rgba(0, 255, 65, .03) 75%, rgba(0, 255, 65, .03) 76%, transparent 77%, transparent), 
+      linear-gradient(90deg, transparent 24%, rgba(0, 255, 65, .03) 25%, rgba(0, 255, 65, .03) 26%, transparent 27%, transparent 74%, rgba(0, 255, 65, .03) 75%, rgba(0, 255, 65, .03) 76%, transparent 77%, transparent);
+  background-size: 30px 30px;
+  font-family: 'Space Mono', monospace;
 }
 
-/* Squircle filter utilities - Apple-style smooth rounded corners */
-@layer utilities {
-  .squircle-filter {
-    filter: url(#SkiperSquiCircleFilterLayout);
-    /* Fallback for unsupported browsers */
-    @supports not (filter: url(#SkiperSquiCircleFilterLayout)) {
-      border-radius: var(--radius-xl);
-    }
-  }
-  
-  .squircle-sm {
-    filter: url(#SkiperSquiCircleFilterLayout);
-    @supports not (filter: url(#SkiperSquiCircleFilterLayout)) {
-      border-radius: var(--radius-sm);
-    }
-  }
-  
-  .squircle-md {
-    filter: url(#SkiperSquiCircleFilterLayout);
-    @supports not (filter: url(#SkiperSquiCircleFilterLayout)) {
-      border-radius: var(--radius-md);
-    }
-  }
-  
-  .squircle-lg {
-    filter: url(#SkiperSquiCircleFilterLayout);
-    @supports not (filter: url(#SkiperSquiCircleFilterLayout)) {
-      border-radius: var(--radius-lg);
-    }
-  }
-  
-  .squircle-xl {
-    filter: url(#SkiperSquiCircleFilterLayout);
-    @supports not (filter: url(#SkiperSquiCircleFilterLayout)) {
-      border-radius: var(--radius-xl);
-    }
-  }
-  
-  /* Font family utilities */
-  .font-heading {
-    font-family: var(--font-heading);
-    font-optical-sizing: auto;
-  }
-  
-  /* Apple HIG Label Hierarchy Utilities */
-  /* Use these for semantic text styling instead of arbitrary colors */
-  .text-label {
-    color: var(--color-text-primary);
-  }
-  
-  .text-secondary-label {
-    color: var(--color-text-secondary);
-  }
-  
-  .text-tertiary-label {
-    color: var(--color-text-tertiary);
-  }
-  
-  .text-quaternary-label {
-    color: var(--color-text-quaternary);
-  }
-  
-  /* Icon styling for dark mode - Add subtle borders for better contrast */
-  .icon-dark-mode {
-    @media (prefers-color-scheme: dark) {
-      filter: drop-shadow(0 0 1px oklch(0.98 0.002 286.375 / 0.3));
-    }
-  }
-  
-  :is(.dark *) {
-    .icon-dark-mode {
-      filter: drop-shadow(0 0 1px oklch(0.98 0.002 286.375 / 0.3));
-    }
-  }
-  
-  /* Illustration adjustments for dark mode */
-  .illustration-adaptive {
-    @media (prefers-color-scheme: dark) {
-      filter: brightness(1.1) contrast(0.95);
-    }
-  }
-  
-  :is(.dark *) {
-    .illustration-adaptive {
-      filter: brightness(1.1) contrast(0.95);
-    }
-  }
-  /* Shimmer animation for skeleton placeholders */
-  @keyframes shimmer {
-    100% { transform: translateX(100%); }
-  }
-  .animate-shimmer {
-    animation: shimmer 1.4s infinite;
-  }
-  .animate-spin-slow { animation: spin 3s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-}
-/* Liquid Glass Material Effects - Apple Design Language */
-/* Based on Apple HIG Materials: https://developer.apple.com/design/human-interface-guidelines/materials */
-@layer utilities {
-  /* Ultra Thin - Highly translucent, minimal blur */
-  .glass-ultra-thin {
-    background: oklch(from var(--background) l c h / 0.65);
-    backdrop-filter: blur(10px) saturate(180%) brightness(1.1);
-    -webkit-backdrop-filter: blur(10px) saturate(180%) brightness(1.1);
-    border: 1px solid oklch(from var(--border) l c h / 0.18);
-    box-shadow: 0 0 0 0.5px oklch(from var(--foreground) l c h / 0.03) inset,
-                0 1px 2px -1px oklch(from var(--foreground) l c h / 0.08);
-  }
-  
-  /* Thin - More blur, better separation */
-  .glass-thin {
-    background: oklch(from var(--background) l c h / 0.72);
-    backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
-    -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
-    border: 1px solid oklch(from var(--border) l c h / 0.22);
-    box-shadow: 0 0 0 0.5px oklch(from var(--foreground) l c h / 0.05) inset,
-                0 2px 4px -2px oklch(from var(--foreground) l c h / 0.1);
-  }
-  
-  /* Regular (default) - Primary Liquid Glass variant */
-  /* Provides optimal legibility with blur and luminosity adjustment */
-  .glass-regular {
-    background: oklch(from var(--card) l c h / 0.95);
-    backdrop-filter: blur(60px) saturate(180%) brightness(1.02);
-    -webkit-backdrop-filter: blur(60px) saturate(180%) brightness(1.02);
-    border: 1px solid oklch(from var(--border) l c h / 0.35);
-    box-shadow: 0 0 0 0.5px oklch(from var(--foreground) l c h / 0.08) inset,
-                0 4px 8px -4px oklch(from var(--foreground) l c h / 0.14),
-                0 0 0 1px oklch(from var(--background) l c h / 0.06);
-  }
-  
-  /* Thick - Maximum opacity, strongest blur */
-  .glass-thick {
-    background: oklch(from var(--card) l c h / 0.85);
-    backdrop-filter: blur(40px) saturate(180%) brightness(1.0);
-    -webkit-backdrop-filter: blur(40px) saturate(180()) brightness(1.0);
-    border: 1px solid oklch(from var(--border) l c h / 0.35);
-    box-shadow: 0 0 0 0.5px oklch(from var(--foreground) l c h / 0.08) inset,
-                0 8px 16px -6px oklch(from var(--foreground) l c h / 0.15),
-                0 0 0 1px oklch(from var(--background) l c h / 0.05);
-  }
-  
-  /* Clear variant - For media/visually rich backgrounds */
-  /* Highly translucent to prioritize content visibility */
-  .glass-clear {
-    background: oklch(from var(--background) l c h / 0.45);
-    backdrop-filter: blur(15px) saturate(150%);
-    -webkit-backdrop-filter: blur(15px) saturate(150%);
-    border: 1px solid oklch(from var(--border) l c h / 0.12);
-    box-shadow: 0 0 0 0.5px oklch(from var(--foreground) l c h / 0.02) inset;
-  }
-  
-  /* Glass with elevation shadow for floating elements */
-  .glass-elevated {
-    @apply glass-regular;
-    box-shadow: 0 0 0 0.5px oklch(from var(--foreground) l c h / 0.06) inset,
-                0 8px 24px -8px oklch(from var(--foreground) l c h / 0.18),
-                0 16px 32px -12px oklch(from var(--foreground) l c h / 0.14);
-  }
-  
-  /* Dimming layer for clear glass over bright content (35% opacity as per HIG) */
-  .glass-dimming {
-    background: oklch(0 0 0 / 0.35);
-  }
-  
-  /* Fallback for browsers without backdrop-filter support */
-  @supports not (backdrop-filter: blur(20px)) {
-    .glass-ultra-thin,
-    .glass-thin,
-    .glass-regular,
-    .glass-thick,
-    .glass-clear {
-      background: var(--card);
-    }
-  }
-  
-  /* Dark mode adjustments for Liquid Glass */
-  @media (prefers-color-scheme: dark) {
-    .glass-ultra-thin {
-      background: oklch(from var(--background) l c h / 0.60);
-      backdrop-filter: blur(10px) saturate(180%) brightness(0.95);
-      -webkit-backdrop-filter: blur(10px) saturate(180%) brightness(0.95);
-    }
-    
-    .glass-thin {
-      background: oklch(from var(--background) l c h / 0.68);
-      backdrop-filter: blur(20px) saturate(180%) brightness(0.97);
-      -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(0.97);
-    }
-    
-    .glass-regular {
-      background: oklch(from var(--card) l c h / 0.90);
-      backdrop-filter: blur(50px) saturate(180%) brightness(0.98);
-      -webkit-backdrop-filter: blur(50px) saturate(180%) brightness(0.98);
-    }
-    
-    .glass-thick {
-      background: oklch(from var(--card) l c h / 0.82);
-      backdrop-filter: blur(40px) saturate(180%) brightness(0.99);
-      -webkit-backdrop-filter: blur(40px) saturate(180%) brightness(0.99);
-    }
-    
-    .glass-clear {
-      background: oklch(from var(--background) l c h / 0.40);
-      backdrop-filter: blur(15px) saturate(150%) brightness(0.92);
-      -webkit-backdrop-filter: blur(15px) saturate(150%) brightness(0.92);
-    }
-  }
-  
-  /* Dark class support for manual dark mode */
-  :is(.dark *) {
-    .glass-ultra-thin {
-      background: oklch(from var(--background) l c h / 0.60);
-      backdrop-filter: blur(10px) saturate(180%) brightness(0.95);
-      -webkit-backdrop-filter: blur(10px) saturate(180%) brightness(0.95);
-    }
-    
-    .glass-thin {
-      background: oklch(from var(--background) l c h / 0.68);
-      backdrop-filter: blur(20px) saturate(180%) brightness(0.97);
-      -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(0.97);
-    }
-    
-    .glass-regular {
-      background: oklch(from var(--card) l c h / 0.92);
-      backdrop-filter: blur(70px) saturate(180%) brightness(0.98);
-      -webkit-backdrop-filter: blur(70px) saturate(180%) brightness(0.98);
-    }
-    
-    .glass-thick {
-      background: oklch(from var(--card) l c h / 0.82);
-      backdrop-filter: blur(40px) saturate(180%) brightness(0.99);
-      -webkit-backdrop-filter: blur(40px) saturate(180%) brightness(0.99);
-    }
-    
-    .glass-clear {
-      background: oklch(from var(--background) l c h / 0.40);
-      backdrop-filter: blur(15px) saturate(150%) brightness(0.92);
-      -webkit-backdrop-filter: blur(15px) saturate(150%) brightness(0.92);
-    }
-  }
+.theme-hacker * {
+    border-color: var(--border) !important;
 }
 
-/* Liquid Glass Material Effects - Tailwind v4 syntax */
-@utility glass-ultra-thin {
-  background: oklch(from var(--background) l c h / 0.65);
-  backdrop-filter: blur(10px) saturate(180%) brightness(1.1);
-  -webkit-backdrop-filter: blur(10px) saturate(180%) brightness(1.1);
-  border: 1px solid oklch(from var(--border) l c h / 0.18);
-  box-shadow: 0 0 0 0.5px oklch(from var(--foreground) l c h / 0.03) inset,
-              0 1px 2px -1px oklch(from var(--foreground) l c h / 0.08);
+/* Force text color on inputs in hacker mode to ensure visibility */
+.theme-hacker input, .theme-hacker select, .theme-hacker textarea {
+    background-color: #050505;
+    color: #00ff41;
+}
+.theme-hacker input::placeholder {
+    color: rgba(0, 255, 65, 0.5);
 }
 
-@utility glass-thin {
-  background: oklch(from var(--background) l c h / 0.72);
-  backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
-  -webkit-backdrop-filter: blur(20px) saturate(180%) brightness(1.05);
-  border: 1px solid oklch(from var(--border) l c h / 0.22);
-  box-shadow: 0 0 0 0.5px oklch(from var(--foreground) l c h / 0.05) inset,
-              0 2px 4px -2px oklch(from var(--foreground) l c h / 0.1);
+.font-mono {
+  font-family: 'Space Mono', monospace;
+}
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 12px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-main);
+  border-left: 2px solid var(--border);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--accent-pink);
+  border: 2px solid var(--border);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-orange);
 }
 
-@utility glass-regular {
-  background: oklch(from var(--card) l c h / 0.98);
-  backdrop-filter: blur(80px) saturate(180%) brightness(1.02);
-  -webkit-backdrop-filter: blur(80px) saturate(180%) brightness(1.02);
-  border: 1px solid oklch(from var(--border) l c h / 0.35);
-  box-shadow: 0 0 0 0.5px oklch(from var(--foreground) l c h / 0.08) inset,
-              0 4px 8px -4px oklch(from var(--foreground) l c h / 0.16),
-              0 0 0 1px oklch(from var(--background) l c h / 0.06);
+/* Effects */
+@keyframes crt-flicker {
+  0% { opacity: 0.95; }
+  5% { opacity: 1; }
+  10% { opacity: 0.95; }
+  15% { opacity: 1; }
+  100% { opacity: 0.95; }
 }
 
-@utility glass-thick {
-  background: oklch(from var(--card) l c h / 0.85);
-  backdrop-filter: blur(40px) saturate(180%) brightness(1.0);
-  -webkit-backdrop-filter: blur(40px) saturate(180%) brightness(1.0);
-  border: 1px solid oklch(from var(--border) l c h / 0.35);
-  box-shadow: 0 0 0 0.5px oklch(from var(--foreground) l c h / 0.08) inset,
-              0 8px 16px -6px oklch(from var(--foreground) l c h / 0.15),
-              0 0 0 1px oklch(from var(--background) l c h / 0.05);
+@keyframes chromatic {
+  0% { text-shadow: 2px 0 red, -2px 0 blue; }
+  100% { text-shadow: -2px 0 red, 2px 0 blue; }
 }
 
-@utility glass-clear {
-  background: oklch(from var(--background) l c h / 0.45);
-  backdrop-filter: blur(15px) saturate(150%);
-  -webkit-backdrop-filter: blur(15px) saturate(150%);
-  border: 1px solid oklch(from var(--border) l c h / 0.12);
-  box-shadow: 0 0 0 0.5px oklch(from var(--foreground) l c h / 0.02) inset;
-}
-
-/* Glass effect for cards - liquid glass aesthetic */
-@utility glass-effect {
-  background: oklch(from var(--card) l c h / 0.75);
-  backdrop-filter: blur(24px) saturate(160%) brightness(1.05);
-  -webkit-backdrop-filter: blur(24px) saturate(160%) brightness(1.05);
-  border: 1px solid oklch(from var(--border) l c h / 0.25);
-  box-shadow: 
-    0 0 0 0.5px oklch(from var(--foreground) l c h / 0.05) inset,
-    0 4px 12px -4px oklch(from var(--foreground) l c h / 0.1),
-    0 0 0 1px oklch(from var(--background) l c h / 0.03);
-}
-
-/**
- * ================================================================
- * MOBILE-OPTIMIZED UX UTILITIES
- * ================================================================
- * Feature #6: Mobile-Optimized UX Enhancements
- * Touch-friendly interactions, gestures, and mobile-first design
- */
-
-/* Touch-friendly target sizes (Apple HIG: 44pt minimum, Google Material: 48dp) */
-@utility touch-target {
-  min-height: 44px;
-  min-width: 44px;
-  
-  @media (min-width: 768px) {
-    min-height: 40px;
-    min-width: 40px;
-  }
-}
-
-@utility touch-target-lg {
-  min-height: 48px;
-  min-width: 48px;
-}
-
-/* Safe area padding for mobile devices (notches, home indicators) */
-@utility pb-safe {
-  padding-bottom: max(1rem, env(safe-area-inset-bottom));
-}
-
-@utility pt-safe {
-  padding-top: max(0.5rem, env(safe-area-inset-top));
-}
-
-@utility px-safe {
-  padding-left: max(1rem, env(safe-area-inset-left));
-  padding-right: max(1rem, env(safe-area-inset-right));
-}
-
-/* Mobile-optimized spacing for bottom navigation */
-@utility pb-nav {
-  padding-bottom: calc(56px + max(0.5rem, env(safe-area-inset-bottom)));
-}
-
-/* Touch manipulation for better mobile performance */
-@utility touch-action-none {
-  touch-action: none;
-}
-
-@utility touch-action-pan-y {
-  touch-action: pan-y;
-}
-
-@utility touch-action-pan-x {
-  touch-action: pan-x;
-}
-
-/* Active press feedback for mobile */
-@utility active-press {
-  transition: transform 120ms ease-out;
-  
-  &:active {
-    transform: scale(0.96);
-  }
-}
-
-/* Smooth scrolling areas */
-@utility smooth-scroll {
-  -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
-}
-
-/* Hide scrollbar but keep functionality (mobile swipe) */
-@utility scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-  
-  &::-webkit-scrollbar {
-    display: none;
-  }
-}
-
-/* Mobile-optimized focus states (larger, more visible) */
-@utility focus-mobile {
-  @media (max-width: 767px) {
-    &:focus-visible {
-      outline: 3px solid oklch(from var(--primary) l c h / 0.5);
-      outline-offset: 3px;
-    }
-  }
-}
-
-/* Tap highlight removal (use custom active states instead) */
-@utility tap-highlight-none {
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
-}
-
-/* Optimized text selection for mobile */
-@utility select-mobile {
-  -webkit-user-select: text;
-  user-select: text;
-}
-
-@utility select-none-mobile {
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-/* Mobile-friendly card press animation */
-@utility card-press {
-  transition: transform 150ms ease-out, box-shadow 150ms ease-out;
-  
-  &:active {
-    transform: scale(0.98) translateY(1px);
-    box-shadow: 
-      0 0 0 0.5px oklch(from var(--foreground) l c h / 0.03) inset,
-      0 2px 4px -2px oklch(from var(--foreground) l c h / 0.08);
-  }
-}
-
-/* Swipe indicator (for carousels, sheets) */
-@utility swipe-indicator {
+.crt-effect {
+  animation: crt-flicker 0.1s infinite;
   position: relative;
-  
-  &::after {
-    content: '';
-    position: absolute;
-    top: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 48px;
-    height: 4px;
-    background: oklch(from var(--muted-foreground) l c h / 0.3);
-    border-radius: 2px;
-  }
 }
 
-/* Optimized animation for mobile (respects reduced motion) */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+.crt-effect::before {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+  z-index: 2;
+  background-size: 100% 2px, 3px 100%;
+  pointer-events: none;
 }
 
-/* Mobile-specific overrides */
-@media (max-width: 767px) {
-  /* Larger buttons on mobile */
-  .btn-mobile {
-    min-height: 48px;
-    min-width: 48px;
-    font-size: 16px; /* Prevents zoom on iOS */
-  }
-  
-  /* Larger input fields on mobile (prevents zoom on iOS) */
-  input,
-  textarea,
-  select {
-    font-size: max(16px, 1em); /* iOS won't zoom if font-size >= 16px */
-  }
-  
-  /* Optimized modal positioning */
-  [role="dialog"] {
-    max-height: calc(100vh - env(safe-area-inset-bottom) - env(safe-area-inset-top));
-  }
+@keyframes pixelate-out {
+  0% { filter: blur(0px); transform: scale(1); opacity: 1; }
+  50% { filter: blur(2px); transform: scale(0.9); opacity: 0.5; }
+  100% { filter: blur(4px); transform: scale(0.8); opacity: 0; }
 }
 
-/* Haptic feedback simulation (visual only, actual haptics require native) */
-@utility haptic-feedback {
-  transition: opacity 80ms ease-out;
-  
-  &:active {
-    opacity: 0.7;
-  }
+.pixelate-exit {
+  animation: pixelate-out 0.3s forwards;
 }
 
-/* Mobile sheet drag handle */
-@utility drag-handle {
-  width: 48px;
-  height: 4px;
-  background: oklch(from var(--muted-foreground) l c h / 0.2);
-  border-radius: 2px;
-  margin: 8px auto;
-  cursor: grab;
-  
-  &:active {
-    cursor: grabbing;
-  }
-}
 

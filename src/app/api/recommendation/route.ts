@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { IClothingItem, WeatherData, ClothingType, RecommendationDiagnostics, RecommendationApiPayload } from '@/lib/types';
-import { getRecommendation, RecommendationDebugCollector, resolveInsulationValue } from '@/lib/helpers/recommendationEngine';
+import { generateAIOutfitRecommendation } from '@/lib/helpers/aiOutfitAnalyzer';
+import { resolveInsulationValue, filterByLastWorn } from '@/lib/helpers/clothingHelpers';
 
 interface InsufficientItemsError extends Error {
   customMessage?: string;
@@ -9,7 +10,7 @@ interface InsufficientItemsError extends Error {
 import { validateBody, recommendationRequestSchema } from '@/lib/validation';
 import { logger, generateRequestId } from '@/lib/logger';
 import { getCurrentSeason, getSeasonDescription } from '@/lib/helpers/seasonDetector';
- 
+
 // DB row type used for items fetched from Supabase
 type DBClothingRow = Partial<IClothingItem> & {
   id?: number;
@@ -31,14 +32,14 @@ const TYPE_ALIASES: Record<string, ClothingType> = {
   accessory: 'Accessory',
   accessories: 'Accessory',
   headwear: 'Headwear',
-  
+
   // Old schema ENUM values (original clothing_category enum)
   'shirt': 'Top',
   't-shirt': 'Top',
   'jacket': 'Outerwear',
   'pants': 'Bottom',
   'shoes': 'Footwear',
-  
+
   // Common variations
   shirts: 'Top',
   tee: 'Top',
@@ -216,10 +217,10 @@ const describeDetectedTypes = (items: Array<{ normalizedType: ClothingType | nul
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
-  
+
   // Get authenticated user
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  
+
   if (authError || !user) {
     return NextResponse.json(
       { success: false, error: 'Unauthorized' },
@@ -228,13 +229,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const validatedData = await validateBody(request, recommendationRequestSchema) as { lat: number; lon: number; occasion?: string };
-    const { lat, lon, occasion = "" } = validatedData;
+    const validatedData = await validateBody(request, recommendationRequestSchema) as { lat: number; lon: number; occasion?: string; lockedItems?: string[] };
+    const { lat, lon, occasion = "", lockedItems = [] } = validatedData;
 
     if (process.env.NODE_ENV === 'development') {
-      console.log('🎯 Generating recommendation for:', { lat, lon, occasion });
+      console.log('🎯 Generating recommendation for:', { lat, lon, occasion, lockedItems });
     }
-    const { payload, diagnostics } = await generateRecommendation(user.id, lat, lon, occasion, request);
+    const { payload, diagnostics } = await generateRecommendation(user.id, lat, lon, occasion, lockedItems, request);
     if (process.env.NODE_ENV === 'development') {
       console.log('✓ Recommendation generated successfully');
     }
@@ -248,13 +249,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
     console.error('❌ Error generating recommendation:', errorMsg);
     logger.error('Error generating recommendation', { error });
-    
+
     // Handle special cases for empty/insufficient wardrobe
     if (error instanceof Error) {
       if (error.message === 'EMPTY_WARDROBE') {
         return NextResponse.json(
-          { 
-            success: false, 
+          {
+            success: false,
             error: 'EMPTY_WARDROBE',
             message: 'Your wardrobe is empty. Add some clothing items to get started!',
             needsWardrobe: true
@@ -262,12 +263,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           { status: 200 }
         );
       }
-      
+
       if (error.message === 'INSUFFICIENT_ITEMS') {
         const insufficientItemsError = error as InsufficientItemsError;
         return NextResponse.json(
-          { 
-            success: false, 
+          {
+            success: false,
             error: 'INSUFFICIENT_ITEMS',
             message: insufficientItemsError.customMessage || 'You need at least one top, one bottom, and one pair of shoes to create an outfit.',
             needsWardrobe: true
@@ -276,11 +277,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
       }
     }
-    
+
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to generate recommendation' 
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to generate recommendation'
       },
       { status: 500 }
     );
@@ -296,6 +297,7 @@ async function generateRecommendation(
   lat: number,
   lon: number,
   occasion: string,
+  lockedItems: string[],
   request: NextRequest
 ): Promise<{ payload: RecommendationApiPayload; diagnostics: RecommendationDiagnostics }> {
   const supabase = await createClient();
@@ -398,13 +400,13 @@ async function generateRecommendation(
           updated: results.reduce((sum, r) => sum + (r.count ?? 0), 0),
         });
       }
-      
+
       // CRITICAL: Refetch the items after backfilling to get the updated types
       const { data: updatedWardrobeItems, error: refetchError } = await supabase
         .from('clothing_items')
         .select('*')
         .eq('user_id', userId);
-      
+
       if (!refetchError && updatedWardrobeItems) {
         // Re-normalize with the updated data
         normalizedWardrobeItems = (updatedWardrobeItems as DBClothingRow[]).map((item) => {
@@ -416,7 +418,7 @@ async function generateRecommendation(
             rawCategory: (item.category ?? null) as string | null,
           } as DBClothingRow & { normalizedType: ClothingType | null; rawType: string | null; rawCategory: string | null };
         });
-        
+
         if (process.env.NODE_ENV === 'development') {
           console.log('Re-fetched items after backfill:', normalizedWardrobeItems.map(item => ({
             id: item.id,
@@ -473,12 +475,11 @@ async function generateRecommendation(
   const weatherUrl = new URL('/api/weather', request.url);
   weatherUrl.searchParams.set('lat', lat.toString());
   weatherUrl.searchParams.set('lon', lon.toString());
-  weatherUrl.searchParams.set('provider', 'openWeather');
-  
+
   const weatherResponse = await fetch(weatherUrl.toString(), {
     headers: request.headers,
   });
-  
+
   if (!weatherResponse.ok) {
     throw new Error('Failed to fetch weather data');
   }
@@ -486,18 +487,18 @@ async function generateRecommendation(
   const weatherData = await weatherResponse.json();
   const weather: WeatherData = weatherData.data.weather;
   const alerts = weatherData.data.alerts;
-  
+
   // Detect current season based on date and latitude
   const currentSeason = getCurrentSeason(new Date(), lat);
   const seasonDescription = getSeasonDescription(currentSeason, new Date().getMonth());
-  
+
   // Add season context to weather data for AI recommendations
   const weatherWithSeason = {
     ...weather,
     season: currentSeason,
     season_description: seasonDescription,
   };
-  
+
   pushEvent('weather:fetched', {
     provider: 'openWeather',
     alerts: alerts?.length ?? 0,
@@ -519,10 +520,10 @@ async function generateRecommendation(
     styles: [],
     materials: [],
   };
-  
+
   if (profile?.preferences) {
     const prefs = profile.preferences as Record<string, Record<string, number>>;
-    
+
     if (prefs.colors) {
       userPreferences.colors = Object.entries(prefs.colors)
         .filter(([_, score]) => score > 0)
@@ -530,7 +531,7 @@ async function generateRecommendation(
         .slice(0, 5)
         .map(([color]) => color);
     }
-    
+
     if (prefs.styles) {
       userPreferences.styles = Object.entries(prefs.styles)
         .filter(([_, score]) => score > 0)
@@ -538,7 +539,7 @@ async function generateRecommendation(
         .slice(0, 5)
         .map(([style]) => style);
     }
-    
+
     if (prefs.materials) {
       userPreferences.materials = Object.entries(prefs.materials)
         .filter(([_, score]) => score > 0)
@@ -549,7 +550,7 @@ async function generateRecommendation(
   }
 
   // Prepare wardrobe payload for recommendation engine
-  const availableItems = normalizedWardrobeItems.map(item => {
+  let availableItems = normalizedWardrobeItems.map(item => {
     const resolvedType = (item.normalizedType ?? normalizeTypeValue(item.rawType) ?? 'Top') as ClothingType;
     return {
       ...(item as IClothingItem),
@@ -559,36 +560,85 @@ async function generateRecommendation(
     };
   }) as IClothingItem[];
 
+  // Apply Freshness Rule: Filter out recently worn items
+  // This prevents outfit repetition unless the item is a Favorite or Locked
+  const freshItems = filterByLastWorn(availableItems);
+
+  // Re-inject Locked Items if they were filtered out by the freshness rule
+  // "Locks override logic" - User Requirement
+  if (lockedItems && lockedItems.length > 0) {
+    const lockedIds = new Set(lockedItems);
+    const lockedButFiltered = availableItems.filter(item =>
+      lockedIds.has(String(item.id)) && !freshItems.some(fresh => fresh.id === item.id)
+    );
+    // Add locked items back
+    freshItems.push(...lockedButFiltered);
+  }
+
+  // SAFETY NET: Ensure we haven't filtered out ALL items of a core category
+  // If we have, add them back (ignoring freshness) so the AI at least has options
+  const coreTypes: ClothingType[] = ['Top', 'Bottom', 'Footwear'];
+
+  for (const type of coreTypes) {
+    const hasType = freshItems.some(i => i.type === type || (type === 'Top' && i.type === 'Outerwear'));
+
+    if (!hasType) {
+      // Find items of this type from the original available list
+      const backfill = availableItems.filter(i => i.type === type || (type === 'Top' && i.type === 'Outerwear'));
+
+      if (backfill.length > 0) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`⚠️ Freshness rule depleted all ${type}s. Backfilling ${backfill.length} items.`);
+        }
+        // Add them back to freshItems
+        // We use a Set to avoid duplicates if we already added some via lockedItems
+        const currentIds = new Set(freshItems.map(i => i.id));
+        const uniqueBackfill = backfill.filter(i => !currentIds.has(i.id));
+        freshItems.push(...uniqueBackfill);
+      }
+    }
+  }
+
+  // Final assignment
+  availableItems = freshItems;
+
   // Generate the recommendation
   const filterCounts = summary.filterCounts ?? {};
   summary.filterCounts = filterCounts;
 
-  const debugCollector: RecommendationDebugCollector = (event) => {
-    diagnostics.events.push(event);
-    if (event.stage.startsWith('filter:')) {
-      const remaining = event.meta?.remaining;
-      if (typeof remaining === 'number') {
-        filterCounts[event.stage] = remaining;
-      }
-    }
-  };
+  // Calculate Target Insulation Score (The "Comfort Formula")
+  // Formula: (Baseline 24°C - CurrentTemp) / 2.5 step
+  // 24°C = Level 0-1. Every 2.5°C drop adds 1 point.
+  const targetInsulation = Math.max(1, Math.ceil((27 - weatherWithSeason.feels_like) / 2.5));
 
-  const recommendation = getRecommendation(
+  // Use the new AI-powered recommendation engine
+  const weatherContextString = `
+    Condition: ${weatherWithSeason.weather_condition}
+    Temperature: ${weatherWithSeason.temperature}°C (Feels like ${weatherWithSeason.feels_like}°C)
+    Target Insulation Score: ~${targetInsulation} (Calculated based on 24°C baseline)
+    Humidity: ${weatherWithSeason.humidity}%
+    Wind: ${weatherWithSeason.wind_speed} km/h
+    Season: ${weatherWithSeason.season} (${weatherWithSeason.season_description})
+  `.trim();
+
+  const aiRecommendation = await generateAIOutfitRecommendation(
     availableItems,
     {
-      weather: weatherWithSeason,
-      user_preferences: userPreferences,
-    },
-    {
-      weather_alerts: alerts,
-    },
-    debugCollector
+      weather: weatherContextString,
+      occasion: occasion || 'General Day-to-Day',
+      season: weatherWithSeason.season || 'Unknown',
+      userPreferences: {
+        styles: userPreferences.styles,
+        colors: userPreferences.colors,
+      },
+      lockedItems: lockedItems,
+    }
   );
 
-  summary.selectedItemIds = recommendation.items.map((i: IClothingItem) => i.id);
+  summary.selectedItemIds = aiRecommendation.outfit.map((i: IClothingItem) => i.id);
   pushEvent('selection:engineComplete', {
     itemIds: summary.selectedItemIds,
-    confidence: recommendation.confidence_score,
+    confidence: aiRecommendation.validationScore / 100,
   });
 
   // Store recommendation in database for feedback tracking
@@ -596,12 +646,12 @@ async function generateRecommendation(
     .from('outfit_recommendations')
     .insert({
       user_id: userId,
-      outfit_items: recommendation.items.map((i: IClothingItem) => i.id),
+      outfit_items: aiRecommendation.outfit.map((i: IClothingItem) => i.id),
       weather_data: weather,
-      confidence_score: recommendation.confidence_score,
-      reasoning: recommendation.reasoning,
-      detailed_reasoning: recommendation.detailed_reasoning || null,
-      missing_items: recommendation.missing_items || null,
+      confidence_score: aiRecommendation.validationScore / 100,
+      reasoning: aiRecommendation.reasoning?.weatherMatch || "AI Optimized",
+      detailed_reasoning: JSON.stringify(aiRecommendation.reasoning), // Store full structured reasoning as JSON string
+      missing_items: [],
       created_at: new Date().toISOString(),
     })
     .select()
@@ -616,7 +666,7 @@ async function generateRecommendation(
   const SIGNED_URL_TTL = 60 * 60; // 1 hour
 
   const outfitWithSignedUrls = await Promise.all(
-    recommendation.items.map(async (item) => {
+    aiRecommendation.outfit.map(async (item) => {
       if (item.image_url) {
         try {
           const url = new URL(item.image_url);
@@ -646,17 +696,17 @@ async function generateRecommendation(
   const transformedData: RecommendationApiPayload = {
     recommendation: {
       outfit: outfitWithSignedUrls,
-      confidence_score: recommendation.confidence_score,
-      reasoning: recommendation.reasoning,
-      detailed_reasoning: recommendation.detailed_reasoning || null,
-      missing_items: recommendation.missing_items || [],
+      confidence_score: aiRecommendation.validationScore / 100,
+      reasoning: aiRecommendation.reasoning?.weatherMatch || "AI Optimized",
+      detailed_reasoning: JSON.stringify(aiRecommendation.reasoning), // Pass full structured reasoning
+      missing_items: [],
       dress_code: 'Casual', // Default, could be enhanced from context
-      weather_alerts: recommendation.alerts || [],
+      weather_alerts: alerts || [],
       id: savedRecommendation?.id,
       outfit_visual_urls: [],
     },
     weather: weather,
-    alerts: recommendation.alerts || [],
+    alerts: alerts || [],
   };
 
   pushEvent('response:ready', {

@@ -1,7 +1,24 @@
 import { GoogleGenerativeAI, type GenerativeModel } from '@google/generative-ai';
-import { IClothingItem } from '@/lib/types';
+import { IClothingItem, OutfitValidation } from '@/lib/types';
+import { UserPreferences } from '@/types/retro';
 import { config } from '@/lib/config';
-import { resolveInsulationValue } from './recommendationEngine';
+import { resolveInsulationValue } from './clothingHelpers';
+
+const toTitleCase = (value?: string) => {
+  if (!value) return undefined;
+  return value
+    .split(/[\s|_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+};
+
+const normalizeCategoryLabel = (category?: string) => {
+  if (!category) return 'Accessory';
+  const primary = category.split('|')[0];
+  return toTitleCase(primary) || 'Accessory';
+};
+const normalizeMaterialLabel = (material?: string) => toTitleCase(material) || 'Other';
 
 /**
  * AI-Powered Outfit Analyzer using Gemini 2.5 Flash
@@ -32,22 +49,6 @@ const getTextModel = (() => {
   };
 })();
 
-const extractJsonSegment = <T>(source: string, pattern: RegExp): T | null => {
-  const match = source.match(pattern);
-  if (!match) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(match[0]) as T;
-  } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Failed to parse Gemini response JSON segment', error, { source });
-    }
-    return null;
-  }
-};
-
 /**
  * Analyze a clothing item image to extract metadata
  * Used during onboarding to auto-populate item properties
@@ -60,6 +61,12 @@ export async function analyzeClothingImage(
   detectedColor: string;
   detectedMaterial: string;
   detectedStyleTags: string[];
+  detectedPattern?: string;
+  detectedFit?: string;
+  detectedSeason?: string[];
+  detectedInsulation?: number;
+  detectedDescription?: string;
+  detectedName?: string;
 }> {
   try {
     const requestBody = {
@@ -68,16 +75,22 @@ export async function analyzeClothingImage(
           role: 'user',
           parts: [
             {
-              text: `Analyze this clothing item image and extract metadata. Respond with only valid JSON (no markdown, no code blocks).
+              text: `You are an expert fashion archivist. Analyze the image of the clothing item and extract metadata into a strict JSON format.
+
+Respond with only valid JSON (no markdown, no code blocks).
 
 {
-  "detectedType": "top|bottom|outerwear|shoes|accessory",
-  "detectedColor": "#RRGGBB (hex color of main item color)",
-  "detectedMaterial": "cotton|polyester|wool|denim|leather|silk|linen|etc",
-  "detectedStyleTags": ["casual", "formal", "sporty", "vintage", "modern", "bold", "minimalist", "etc"]
-}
-
-Analyze the image and provide accurate JSON with no additional text.`,
+  "name": "A creative, short name for the item (e.g. 'Vintage Acid Wash Tee')",
+  "category": "Top|Bottom|Shoes|Outerwear|Accessory|Dress (e.g. dress, gown, frock, sundress, maxi, mini, wrap, shift, sheath)",
+  "material": "Cotton|Polyester|Wool|Silk|Leather|Denim|Linen|Synthetic|Gore-Tex|Other",
+  "color": "Main color name or hex",
+  "formality_insulation_value": 0-10 (0 for naked, 10 for arctic parka),
+  "pattern": "Solid|Striped|Checkered|Graphic|Floral|etc",
+  "fit": "Fitted|Regular|Relaxed|Oversized|Slim|Loose|One Size",
+  "season_tags": ["Spring", "Summer", "Autumn", "Winter", "All Season"],
+  "style_tags": ["casual", "formal", "sporty", "vintage", "modern", "bold", "minimalist", "streetwear", "gorpcore", "y2k"],
+  "description": "Short description of the item"
+}`,
             },
             {
               inlineData: {
@@ -91,17 +104,17 @@ Analyze the image and provide accurate JSON with no additional text.`,
       generationConfig: {
         temperature: 0.5,
         topP: 0.9,
-        maxOutputTokens: 500,
+        maxOutputTokens: 1000,
+        responseMimeType: 'application/json',
       },
     };
 
     const response = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-exp:generateContent',
+      `https://generativelanguage.googleapis.com/v1beta/models/${config.ai.gemini.model}:generateContent?key=${config.ai.gemini.apiKey}`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-goog-api-key': config.ai.gemini.apiKey,
         },
         body: JSON.stringify(requestBody),
       }
@@ -123,344 +136,42 @@ Analyze the image and provide accurate JSON with no additional text.`,
       throw new Error('Invalid response from Gemini API');
     }
 
-    const parts: unknown[] = data.candidates[0].content.parts;
-    const textPart = parts.find((part) => {
-      if (part && typeof part === 'object' && part !== null) {
-        return 'text' in part;
-      }
-      return false;
-    });
-
-    if (!textPart || typeof textPart !== 'object' || !('text' in textPart)) {
-      throw new Error('No text response from Gemini');
-    }
-
+    const textPart = data.candidates[0].content.parts[0];
     const text = textPart.text as string;
-    const analysisResult = extractJsonSegment<{
-      detectedType: string;
-      detectedColor: string;
-      detectedMaterial: string;
-      detectedStyleTags: string[];
-    }>(text, /\{[\s\S]*\}/);
 
-    if (!analysisResult) {
-      throw new Error('Failed to parse analysis result');
-    }
+    // Clean up markdown if present (though we asked for none)
+    const cleanText = text.replace(/```json\n?|\n?```/g, '').trim();
 
-    return analysisResult;
+    const analysis = JSON.parse(cleanText);
+
+    return {
+      detectedType: normalizeCategoryLabel(analysis.category),
+      detectedColor: analysis.color || '#000000',
+      detectedMaterial: normalizeMaterialLabel(analysis.material),
+      detectedStyleTags: analysis.style_tags || [],
+      detectedPattern: analysis.pattern,
+      detectedFit: analysis.fit,
+      detectedSeason: analysis.season_tags,
+      detectedInsulation: analysis.formality_insulation_value,
+      detectedDescription: analysis.description,
+      detectedName: analysis.name,
+    };
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.error('Error analyzing clothing image:', error);
     }
     // Return safe defaults on error
     return {
-      detectedType: 'accessory',
+      detectedType: 'Accessory',
       detectedColor: '#808080',
-      detectedMaterial: 'unknown',
+      detectedMaterial: 'Unknown',
       detectedStyleTags: ['casual'],
     };
   }
 }
 
 /**
- * Analyze clothing item description to understand its characteristics
- */
-export async function analyzeClothingDescription(item: IClothingItem): Promise<{
-  style: string;
-  formality: string;
-  season_suitability: string;
-  color_harmony: string[];
-  occasion_fit: string[];
-}> {
-  const model = getTextModel();
-
-  const prompt = `Analyze this clothing item and provide a detailed assessment:
-
-Name: ${item.name}
-Type: ${item.type}
-Material: ${item.material}
-Color: ${item.color || 'unspecified'}
-Style Tags: ${item.style_tags?.join(', ') || 'none'}
-Dress Code: ${item.dress_code.join(', ')}
-Insulation: ${resolveInsulationValue(item)}/10
-
-Provide a JSON response with:
-{
-  "style": "describe the overall style (e.g., casual, formal, sporty, vintage)",
-  "formality": "rate formality level (casual/business-casual/formal/athletic)",
-  "season_suitability": "which seasons this is MOST appropriate for (e.g., 'Fall and Winter', 'Spring and Summer', 'All seasons')",
-  "color_harmony": ["list of colors that would pair well with this item"],
-  "occasion_fit": ["list of occasions this is suitable for"]
-}
-
-IMPORTANT: For season_suitability, consider the item's coverage, material warmth, and typical wearing season. For example:
-- Long sleeves, sweaters, boots = Fall/Winter
-- Short sleeves, sandals, light fabrics = Spring/Summer
-- Versatile basics = All seasons`;
-
-  const result = await model.generateContent(prompt);
-  const response = result.response.text();
-
-  const parsed = response ? extractJsonSegment<{
-    style: string;
-    formality: string;
-    season_suitability: string;
-    color_harmony: string[];
-    occasion_fit: string[];
-  }>(response, /\{[\s\S]*\}/) : null;
-
-  if (parsed) {
-    return parsed;
-  }
-
-  // Fallback if parsing fails
-  return {
-    style: 'casual',
-    formality: item.dress_code[0] || 'casual',
-    season_suitability: 'all seasons',
-    color_harmony: ['neutral'],
-    occasion_fit: ['everyday'],
-  };
-}
-
-/**
- * Generate outfit combination suggestions based on context and item analysis
- */
-export async function generateOutfitCombinations(
-  items: IClothingItem[],
-  context: {
-    weather: string;
-    occasion: string;
-    season: string;
-  }
-): Promise<IClothingItem[][]> {
-  const model = getTextModel();
-
-  // Create detailed descriptions of all available items
-  const itemDescriptions = items.map((item, idx) => ({
-    id: idx,
-    originalId: item.id,
-    name: item.name,
-    type: item.type,
-    material: item.material,
-    color: item.color,
-    insulation: resolveInsulationValue(item),
-    dressCode: item.dress_code,
-    styleTags: item.style_tags,
-  }));
-
-  const prompt = `You are a professional fashion stylist. Create 3 complete outfit combinations from these clothing items:
-
-Available Items:
-${JSON.stringify(itemDescriptions, null, 2)}
-
-Context:
-- Weather: ${context.weather}
-- Occasion: ${context.occasion}
-- Season: ${context.season}
-
-CRITICAL INSTRUCTIONS:
-- The SEASON (${context.season}) is the PRIMARY consideration for outfit selection
-- Even if the weather temperature seems warm/cool, prioritize season-appropriate clothing
-- For example, in Fall/Winter, prefer long sleeves, layers, and closed-toe shoes even on mild days
-- In Spring/Summer, lighter fabrics and shorter sleeves are appropriate even on cooler days
-- People dress for the season first, temperature second
-
-Requirements:
-- Each outfit must include: Top, Bottom, Footwear, and optionally Outerwear
-- Items must work well together in terms of style, color, and formality
-- Outfit should be appropriate for the SEASON first, then weather conditions
-- Consider color harmony and style coherence
-- Prioritize seasonal appropriateness over temperature alone
-
-Respond with a JSON array of 3 outfit combinations. Each combination should be an array of item IDs (using the 'id' field from above).
-
-Example format:
-[
-  [0, 2, 4, 7],  // Outfit 1
-  [1, 3, 5, 8],  // Outfit 2
-  [0, 3, 4, 6]   // Outfit 3
-]
-
-Only respond with the JSON array, no additional text.`;
-
-  const result = await model.generateContent(prompt);
-  const response = result.response.text();
-
-  const combinations = response ? extractJsonSegment<number[][]>(response, /\[[\s\S]*\]/) : null;
-
-  if (!combinations) {
-    throw new Error('Failed to parse outfit combinations from AI response');
-  }
-
-  // Map back to actual clothing items
-  return combinations.map(combo =>
-    combo.map(idx => items[idx]).filter(Boolean)
-  );
-}
-
-/**
- * Validate outfit by analyzing images of selected items
- */
-export async function validateOutfitImages(
-  items: IClothingItem[]
-): Promise<{
-  isValid: boolean;
-  score: number;
-  issues: string[];
-  suggestions: string[];
-  problemItemId?: number;
-}> {
-  const model = getTextModel();
-
-  // Fetch images and convert to base64
-  const imageParts = await Promise.all(
-    items.map(async (item) => {
-      try {
-        const response = await fetch(item.image_url);
-        const arrayBuffer = await response.arrayBuffer();
-        const base64 = Buffer.from(arrayBuffer).toString('base64');
-        
-        return {
-          inlineData: {
-            data: base64,
-            mimeType: 'image/jpeg',
-          },
-        };
-      } catch (error) {
-        console.error(`Failed to fetch image for ${item.name}:`, error);
-        return null;
-      }
-    })
-  );
-
-  const validImages = imageParts.filter((img): img is { inlineData: { data: string; mimeType: string } } => img !== null);
-  
-  if (validImages.length === 0) {
-    throw new Error('No valid images to analyze');
-  }
-
-  const itemList = items.map(item => `- ${item.name} (${item.type}, ${item.color})`).join('\n');
-
-  const prompt = `You are an expert fashion stylist. Analyze these clothing items as a complete outfit:
-
-Items in this outfit:
-${itemList}
-
-Evaluate the outfit based on:
-1. Color coordination - Do the colors work well together?
-2. Style coherence - Do the pieces match in style?
-3. Formality level - Is the formality consistent across items?
-4. Proportion and fit - Do the pieces look balanced together?
-5. Overall aesthetic - Does this create a cohesive, attractive look?
-
-Provide your analysis in JSON format:
-{
-  "isValid": true/false (whether the outfit works as a whole),
-  "score": 0-100 (overall outfit quality score),
-  "issues": ["list of specific problems if any"],
-  "suggestions": ["how to improve the outfit"],
-  "problemItemId": null or the index (0-based) of the most problematic item if any
-}
-
-Be critical but fair. An outfit is valid (isValid: true) if score >= 70.`;
-
-  const result = await model.generateContent([prompt, ...validImages]);
-  const response = result.response.text();
-
-  const validation = response ? extractJsonSegment<{
-    isValid: boolean;
-    score: number;
-    issues: string[];
-    suggestions: string[];
-    problemItemId?: number;
-  }>(response, /\{[\s\S]*\}/) : null;
-
-  if (!validation) {
-    throw new Error('Failed to parse validation result from AI response');
-  }
-
-  return validation;
-}
-
-/**
- * Find a suitable replacement for a problematic item
- */
-export async function findReplacementItem(
-  problemItem: IClothingItem,
-  outfitItems: IClothingItem[],
-  availableItems: IClothingItem[],
-  issues: string[]
-): Promise<IClothingItem | null> {
-  const model = getTextModel();
-
-  // Get items of the same type that aren't already in the outfit
-  const candidates = availableItems.filter(
-    item => 
-      item.type === problemItem.type && 
-      item.id !== problemItem.id &&
-      !outfitItems.some(oi => oi.id === item.id)
-  );
-
-  if (candidates.length === 0) {
-    return null;
-  }
-
-  const outfitDescription = outfitItems
-    .filter(item => item.id !== problemItem.id)
-    .map(item => `- ${item.name} (${item.type}, ${item.color})`)
-    .join('\n');
-
-  const candidateDescriptions = candidates.map((item, idx) => ({
-    id: idx,
-    originalId: item.id,
-    name: item.name,
-    type: item.type,
-    color: item.color,
-    material: item.material,
-    dressCode: item.dress_code,
-  }));
-
-  const prompt = `You are a fashion stylist. The outfit has these items:
-${outfitDescription}
-
-The problematic item is:
-- ${problemItem.name} (${problemItem.type}, ${problemItem.color})
-
-Issues identified:
-${issues.join('\n')}
-
-Available replacement options:
-${JSON.stringify(candidateDescriptions, null, 2)}
-
-Which replacement would best fix the outfit? Consider:
-- Color harmony with existing items
-- Style coherence
-- Addressing the specific issues mentioned
-
-Respond with just the ID (index) of the best replacement, or -1 if none are suitable.
-Format: {"replacementId": 0}`;
-
-  const result = await model.generateContent(prompt);
-  const response = result.response.text();
-
-  const payload = response ? extractJsonSegment<{ replacementId: number }>(response, /\{[\s\S]*\}/) : null;
-
-  if (!payload) {
-    return null;
-  }
-
-  const { replacementId } = payload;
-
-  if (replacementId >= 0 && replacementId < candidates.length) {
-    return candidates[replacementId];
-  }
-  
-  return null;
-}
-
-/**
- * Complete AI-powered outfit recommendation flow
+ * Generate AI-powered outfit recommendation using the "Fire Fit" logic
  */
 export async function generateAIOutfitRecommendation(
   wardrobeItems: IClothingItem[],
@@ -468,99 +179,207 @@ export async function generateAIOutfitRecommendation(
     weather: string;
     occasion: string;
     season: string;
-  },
-  maxIterations: number = 3
+    userPreferences?: UserPreferences;
+    lockedItems?: string[];
+  }
 ): Promise<{
   outfit: IClothingItem[];
   validationScore: number;
   iterations: number;
   analysisLog: string[];
+  reasoning?: {
+    weatherMatch?: string;
+    colorAnalysis?: string;
+    historyCheck?: string;
+    styleScore?: number;
+    totalInsulation?: number;
+    layeringStrategy?: string;
+    occasionFit?: string;
+  };
 }> {
+  const model = getTextModel();
   const log: string[] = [];
-  
-  log.push('🤖 Starting AI outfit recommendation...');
-  log.push(`Available items: ${wardrobeItems.length}`);
-  
-  // Step 1: Analyze all clothing descriptions
-  log.push('📝 Analyzing clothing descriptions...');
-  const analyses = await Promise.all(
-    wardrobeItems.map(item => analyzeClothingDescription(item))
-  );
-  log.push(`✓ Analyzed ${analyses.length} items`);
-  
-  // Step 2: Generate outfit combinations
-  log.push('🎨 Generating outfit combinations...');
-  const combinations = await generateOutfitCombinations(wardrobeItems, context);
-  log.push(`✓ Generated ${combinations.length} outfit ideas`);
-  
-  // Step 3: Validate each combination and pick the best
-  let bestOutfit = combinations[0];
-  let bestScore = 0;
-  let iteration = 0;
-  
-  for (const combo of combinations) {
-    if (combo.length < 3) continue; // Need at least 3 items
-    
-    log.push(`🔍 Validating combination ${iteration + 1}...`);
-    
-    let currentOutfit = combo;
-    let attempts = 0;
-    
-    while (attempts < maxIterations) {
-      attempts++;
+
+  log.push('🤖 Starting AI outfit recommendation (Fire Fit Engine)...');
+
+  const defaultPreferences: UserPreferences = {
+    gender: 'NEUTRAL',
+    preferred_silhouette: 'neutral',
+    preferred_styles: ['Streetwear', 'Vintage'],
+    preferred_color_palette: 'Neutral',
+    theme: 'RETRO'
+  };
+
+  const userPreferences = context.userPreferences || defaultPreferences;
+  const lockedItems = context.lockedItems || [];
+
+  // Prepare Wardrobe Context (Lightweight to save tokens)
+  const wardrobeContext = wardrobeItems.map(item => ({
+    id: item.id,
+    name: item.name,
+    category: item.type, // Mapping type to category
+    color: item.color,
+    style_tags: item.style_tags,
+    insulation: resolveInsulationValue(item),
+    material: item.material,
+    fit: item.fit || 'Regular',
+    is_favorite: Boolean(item.favorite)
+  }));
+
+  const systemInstruction = `
+      You are "SetMyFit", a world-class Stylist and Creative Director.
+      Your goal is to generate a "FIRE FIT" (a highly cohesive, stylish, and practical outfit) based on the user's inventory.
+
+      ### CORE FASHION ALGORITHMS TO APPLY
+      1. **The Sandwich Rule:** Try to match the color of the shoes with the top (or hat/layer). This creates visual balance.
+      2. **Silhouette Theory:** Create contrast in fit. 
+         - If Top is Oversized -> Bottom should be Regular or Slim.
+         - If Top is Fitted -> Bottom should be Relaxed or Baggy.
+         - Exception: "Streetwear/Gorpcore" styles allow Oversized on Oversized.
+      3. **Texture Variance:** Do not use the same material for everything (e.g. No full denim unless it's a 'Canadian Tuxedo' look). Mix Cotton with Denim, or Fleece with Synthetics.
+      4. **Color Theory:** Use complementary colors or monochromatic shades with different textures.
       
-      // Validate the outfit with image analysis
-      const validation = await validateOutfitImages(currentOutfit);
+      ### USER PREFERENCES
+      - Aesthetics: ${(userPreferences.preferred_styles || []).join(', ')}.
+      - Preferred Silhouette: ${userPreferences.preferred_silhouette}.
+      - Gender Context: ${userPreferences.gender}.
+
+      ### RULES
+      - You MUST select at least 1 Top, 1 Bottom, and 1 Shoes and prefer layering.
+      - **CRITICAL SEASONAL RULE**: If the season is 'Autumn' or 'Winter', you MUST prioritize warmth (layers, hoodies, jackets) even if the temperature seems mild (e.g. 18°C - 25°C). Users in these regions feel cold easily. Do NOT suggest simple t-shirts without layers for Autumn/Winter unless it is > 25°C.
+      - Outerwear and Accessories are recommended if its a cold season.
+      - MANDATORY: You MUST include these locked Item IDs if provided: ${JSON.stringify(lockedItems)}.
+      - **ANCHORING RULE**: If items are locked, they are the ANCHORS. You must build the rest of the outfit specifically to match them.
+      - Prioritize items with 'is_favorite: true' if they fit the vibe.
       
-      log.push(`  Attempt ${attempts}: Score ${validation.score}/100`);
+      Return a strictly structured JSON object.
+  `;
+
+  const prompt = `
+      EXECUTE STYLING SEQUENCE.
+
+      ENVIRONMENTAL DATA:
+      - Context: ${context.weather}
+      - Season: ${context.season}
+
+      MISSION PROFILE (OCCASION):
+      ${context.occasion}
+
+      CONSTRAINTS:
+      - Locked Items (MANDATORY ANCHORS): ${lockedItems.length > 0 ? lockedItems.join(', ') : "None"}
       
-      if (validation.score > bestScore) {
-        bestScore = validation.score;
-        bestOutfit = currentOutfit;
-      }
-      
-      // If outfit is valid or we can't improve, stop
-      if (validation.isValid || validation.score >= 85) {
-        log.push(`  ✓ Outfit validated successfully!`);
-        break;
-      }
-      
-      // Try to fix the outfit
-      if (validation.problemItemId !== null && validation.problemItemId !== undefined) {
-        const problemItem = currentOutfit[validation.problemItemId];
-        log.push(`  ⚠️ Issue with ${problemItem.name}. Finding replacement...`);
-        
-        const replacement = await findReplacementItem(
-          problemItem,
-          currentOutfit,
-          wardrobeItems,
-          validation.issues
-        );
-        
-        if (replacement) {
-          log.push(`  → Replacing with ${replacement.name}`);
-          currentOutfit = currentOutfit.map((item, idx) =>
-            idx === validation.problemItemId ? replacement : item
-          );
-        } else {
-          log.push(`  → No suitable replacement found`);
-          break;
+      INVENTORY:
+      ${JSON.stringify(wardrobeContext)}
+
+      Respond with JSON:
+      {
+        "selectedItemIds": ["id1", "id2", ...],
+        "reasoning": {
+          "weatherMatch": "explanation",
+          "colorAnalysis": "explanation",
+          "historyCheck": "explanation",
+          "styleScore": number (1-10),
+          "totalInsulation": number,
+          "layeringStrategy": "explanation",
+          "occasionFit": "explanation"
         }
-      } else {
-        break;
+      }
+  `;
+
+  log.push('🎨 Generating outfit with Gemini 2.5 Flash...');
+
+  try {
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: systemInstruction + "\n\n" + prompt }] }],
+      generationConfig: {
+        temperature: 1.2, // Higher creativity for fashion
+        topK: 40,
+        responseMimeType: 'application/json',
+      }
+    });
+
+    const responseText = result.response.text();
+    const aiResponse = JSON.parse(responseText);
+
+    if (!aiResponse.selectedItemIds || !Array.isArray(aiResponse.selectedItemIds)) {
+      throw new Error('Invalid AI response format');
+    }
+
+    const selectedItems = wardrobeItems.filter(item =>
+      aiResponse.selectedItemIds.includes(String(item.id))
+    );
+
+    // --- LOCKING MECHANISM ENFORCEMENT ---
+    // The AI treats locked items as anchors, but we must guarantee their presence.
+    if (lockedItems && lockedItems.length > 0) {
+      const lockedIdsSet = new Set(lockedItems);
+      
+      // 1. Identify missing locked items
+      // Convert item.id to string for comparison since lockedItems are strings
+      const missingLockedIds = lockedItems.filter(id => !selectedItems.some(item => String(item.id) === id));
+      
+      if (missingLockedIds.length > 0) {
+        log.push(`🔒 Enforcing ${missingLockedIds.length} locked items that AI missed.`);
+        
+        for (const id of missingLockedIds) {
+          // Convert item.id to string for comparison
+          const itemToAdd = wardrobeItems.find(i => String(i.id) === id);
+          if (itemToAdd) {
+            // 2. Remove conflicting unlocked items of the same type to maintain outfit structure
+            // We only replace if there's a conflict in the same category (e.g. swapping one Top for another)
+            const conflictIndex = selectedItems.findIndex(i => 
+              i.type === itemToAdd.type && !lockedIdsSet.has(String(i.id))
+            );
+            
+            if (conflictIndex !== -1) {
+              selectedItems.splice(conflictIndex, 1);
+            }
+            
+            selectedItems.push(itemToAdd);
+          }
+        }
       }
     }
-    
-    iteration++;
+    // -------------------------------------
+
+    // Basic validation
+    const hasTop = selectedItems.some(i => ['top', 'shirt', 't-shirt', 'blouse', 'sweater', 'hoodie', 'outerwear'].includes(i.type.toLowerCase()));
+    const hasBottom = selectedItems.some(i => ['bottom', 'pants', 'jeans', 'shorts', 'skirt'].includes(i.type.toLowerCase()));
+
+    if (!hasTop || !hasBottom) {
+      log.push("⚠️ AI returned incomplete outfit (missing top or bottom)");
+    }
+
+    log.push(`✨ Generated outfit with score ${aiResponse.reasoning?.styleScore}/10`);
+    log.push(`Items: ${selectedItems.map(i => i.name).join(', ')}`);
+
+    return {
+      outfit: selectedItems,
+      validationScore: (aiResponse.reasoning?.styleScore || 0) * 10, // Convert 1-10 to 0-100
+      iterations: 1,
+      analysisLog: log,
+      reasoning: aiResponse.reasoning
+    };
+
+  } catch (error) {
+    console.error('AI Generation failed:', error);
+    log.push(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw error;
   }
-  
-  log.push(`\n✨ Final outfit score: ${bestScore}/100`);
-  log.push(`Items: ${bestOutfit.map(i => i.name).join(', ')}`);
-  
+}
+
+export async function validateOutfitImages(items: IClothingItem[]): Promise<OutfitValidation> {
+  const missingImageItems = items.filter(item => !item.image_url);
+  const issues = missingImageItems.map(item => `Missing image for ${item.name || item.id}`);
+  const suggestions = missingImageItems.length
+    ? ['Upload clear photos for the highlighted items.']
+    : ['All outfit items include imagery.'];
+
   return {
-    outfit: bestOutfit,
-    validationScore: bestScore,
-    iterations: iteration,
-    analysisLog: log,
+    isValid: issues.length === 0,
+    score: missingImageItems.length ? 65 : 100,
+    issues,
+    suggestions,
+    problemItemId: missingImageItems[0]?.id,
   };
 }

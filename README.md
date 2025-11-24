@@ -13,8 +13,6 @@ Our vision is to eliminate the daily "what to wear" dilemma. We aim to create a 
 *   **Virtual Wardrobe:** Easily add, categorize, and manage your clothing items. You can upload images, add details like brand, color, and material, and even track the last time you wore an item.
 *   **Context-Aware Recommendations:** Our recommendation engine takes into account multiple factors to suggest the perfect outfit:
     *   **Weather:** Real-time weather data, including temperature, humidity, and chance of precipitation.
-    *   **Calendar Events:** The app syncs with your calendar to suggest appropriate attire for your appointments, whether it's a business meeting or a casual brunch.
-    *   **Activity Level:** What2Wear considers your planned activities for the day to ensure your outfit is comfortable and practical.
 *   **Personalized Suggestions:** Our machine learning models learn your style preferences over time. The more you use the app and provide feedback on the recommendations, the better it gets at suggesting outfits you'll love.
 *   **Outfit Logging:** Keep a visual diary of your daily outfits. This helps you track your style evolution and avoid repeating outfits too often.
 
@@ -36,9 +34,8 @@ What2Wear is built on a modern, scalable, and serverless architecture.
 
 Our recommendation engine uses a combination of machine learning models to provide personalized suggestions:
 
-*   **Event Classifier:** This model classifies your calendar events into different categories (e.g., work, social, formal) to help determine the appropriate level of formality for your outfit.
 *   **Preference Learning:** We use a preference learning model to understand your style. This model takes your feedback on recommended outfits and learns what you like and dislike.
-*   **Recommendation Engine:** The core of our recommendation system, this engine combines all the inputs (weather, calendar, activity, user preferences) to generate the final outfit recommendations.
+*   **Recommendation Engine:** The core of our recommendation system, this engine combines all the inputs (weather, user preferences) to generate the final outfit recommendations.
 
 ## Getting Started
 
@@ -82,8 +79,6 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 The API endpoints are located in `src/app/api`. Each endpoint is responsible for a specific feature:
 
-*   `/api/calendar/events`: Manages calendar events.
-*   `/api/health/activity`: Tracks health and activity data.
 *   `/api/outfit/log`: Logs daily outfits.
 *   `/api/recommendation/[id]/feedback`: Handles feedback for recommendations.
 *   `/api/settings/profile`: Manages user profiles.
