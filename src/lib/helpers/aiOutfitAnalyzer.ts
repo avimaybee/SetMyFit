@@ -2,7 +2,27 @@ import { GoogleGenerativeAI, type GenerativeModel } from '@google/generative-ai'
 import { IClothingItem, OutfitValidation } from '@/lib/types';
 import { UserPreferences } from '@/types/retro';
 import { config } from '@/lib/config';
-import { resolveInsulationValue } from './clothingHelpers';
+
+/**
+ * Normalize AI style score to 0-100 scale
+ * Handles cases where AI returns decimal (0.9) vs integer (9)
+ */
+function normalizeStyleScore(score: number | undefined): number {
+  if (score === undefined || score === null) return 50; // Default to 50%
+
+  // If score is between 0-1 (decimal), scale to 0-100
+  if (score > 0 && score <= 1) {
+    return Math.round(score * 100);
+  }
+
+  // If score is between 1-10, scale to 0-100
+  if (score >= 1 && score <= 10) {
+    return Math.round(score * 10);
+  }
+
+  // Already 0-100 scale or out of range - clamp it
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
 
 const toTitleCase = (value?: string) => {
   if (!value) return undefined;
@@ -244,43 +264,55 @@ export async function generateAIOutfitRecommendation(
   const lockedItems = context.lockedItems || [];
 
   // Prepare Wardrobe Context (Lightweight to save tokens)
+  // Removed insulation - focusing on style/aesthetics instead
   const wardrobeContext = wardrobeItems.map(item => ({
     id: item.id,
     name: item.name,
     category: item.type, // Mapping type to category
     color: item.color,
     style_tags: item.style_tags,
-    insulation: resolveInsulationValue(item),
     material: item.material,
     fit: item.fit || 'Regular',
     is_favorite: Boolean(item.favorite)
   }));
 
   const systemInstruction = `
-      You are "SetMyFit", a world-class Stylist and Creative Director.
-      Your goal is to generate a "FIRE FIT" (a highly cohesive, stylish, and practical outfit) based on the user's inventory.
+      You are "SetMyFit", a legendary Fashion Stylist and Creative Director known for creating ICONIC looks.
+      Your mission: Generate a "FIRE FIT" - an outfit so good it turns heads and gets compliments.
+
+      ### YOUR STYLING PHILOSOPHY
+      You prioritize AESTHETICS above all. Every outfit should look like it belongs in a fashion magazine.
 
       ### CORE FASHION ALGORITHMS TO APPLY
-      1. **The Sandwich Rule:** Try to match the color of the shoes with the top (or hat/layer). This creates visual balance.
-      2. **Silhouette Theory:** Create contrast in fit. 
-         - If Top is Oversized -> Bottom should be Regular or Slim.
-         - If Top is Fitted -> Bottom should be Relaxed or Baggy.
-         - Exception: "Streetwear/Gorpcore" styles allow Oversized on Oversized.
-      3. **Texture Variance:** Do not use the same material for everything (e.g. No full denim unless it's a 'Canadian Tuxedo' look). Mix Cotton with Denim, or Fleece with Synthetics.
-      4. **Color Theory:** Use complementary colors or monochromatic shades with different textures.
+      1. **The Sandwich Rule:** Match the color of shoes with the top (or hat/layer). This creates visual harmony and intentionality.
+      2. **Silhouette Theory:** Create visual interest through fit contrast:
+         - Oversized Top → Slim/Regular Bottom (balanced proportions)
+         - Fitted Top → Relaxed/Wide Bottom (intentional contrast)
+         - Exception: Full oversized is valid for Streetwear/Gorpcore aesthetics
+      3. **Texture Play:** Mix materials for depth - Denim + Cotton, Leather + Wool, Fleece + Nylon. Avoid same-material monotony.
+      4. **Color Theory:** Use complementary colors, analogous palettes, or monochromatic with texture variation.
+      5. **The 3-Color Rule:** Limit to 3 main colors max for cohesion. Neutrals (black/white/gray/beige) don't count.
+      6. **Statement Piece:** Every great outfit has ONE standout item. Let it shine, keep everything else supporting.
       
       ### USER PREFERENCES
-      - Aesthetics: ${(userPreferences.preferred_styles || []).join(', ')}.
+      - Aesthetic Vibes: ${(userPreferences.preferred_styles || []).join(', ')}.
       - Preferred Silhouette: ${userPreferences.preferred_silhouette}.
       - Gender Context: ${userPreferences.gender}.
 
       ### RULES
-      - You MUST select at least 1 Top, 1 Bottom, and 1 Shoes and prefer layering.
-      - **CRITICAL SEASONAL RULE**: If the season is 'Autumn' or 'Winter', you MUST prioritize warmth (layers, hoodies, jackets) even if the temperature seems mild (e.g. 18°C - 25°C). Users in these regions feel cold easily. Do NOT suggest simple t-shirts without layers for Autumn/Winter unless it is > 25°C.
-      - Outerwear and Accessories are recommended if its a cold season.
-      - MANDATORY: You MUST include these locked Item IDs if provided: ${JSON.stringify(lockedItems)}.
-      - **ANCHORING RULE**: If items are locked, they are the ANCHORS. You must build the rest of the outfit specifically to match them.
-      - Prioritize items with 'is_favorite: true' if they fit the vibe.
+      - MUST include: 1 Top, 1 Bottom, 1 Footwear (minimum)
+      - SHOULD include: Layering pieces and accessories for complete looks
+      - For cold weather: Add outerwear/layers. Don't suggest bare t-shirts in winter.
+      - LOCKED ITEMS (MANDATORY): ${JSON.stringify(lockedItems)} - These are ANCHORS. Build around them.
+      - Prioritize 'is_favorite: true' items when they fit the aesthetic.
+      
+      ### SCORING GUIDE
+      Rate the outfit's styleScore from 1-10 (INTEGER, not decimal):
+      - 9-10: Editorial/runway-worthy, perfect harmony
+      - 7-8: Very stylish, well-coordinated
+      - 5-6: Good, wearable, nothing special
+      - 3-4: Mismatched or boring
+      - 1-2: Fashion disaster
       
       Return a strictly structured JSON object.
   `;
@@ -305,13 +337,13 @@ export async function generateAIOutfitRecommendation(
       {
         "selectedItemIds": ["id1", "id2", ...],
         "reasoning": {
-          "weatherMatch": "explanation",
-          "colorAnalysis": "explanation",
-          "historyCheck": "explanation",
-          "styleScore": number (1-10),
-          "totalInsulation": number,
-          "layeringStrategy": "explanation",
-          "occasionFit": "explanation"
+          "weatherMatch": "brief explanation",
+          "colorAnalysis": "what colors work together and why",
+          "silhouetteBalance": "how the fits complement each other",
+          "styleScore": INTEGER from 1-10 (NOT a decimal like 0.9),
+          "layeringStrategy": "layering approach",
+          "occasionFit": "why this works for the occasion",
+          "statementPiece": "which item is the hero piece"
         }
       }
   `;
@@ -380,12 +412,13 @@ export async function generateAIOutfitRecommendation(
       log.push("⚠️ AI returned incomplete outfit (missing top or bottom)");
     }
 
-    log.push(`✨ Generated outfit with score ${aiResponse.reasoning?.styleScore}/10`);
+    const normalizedScore = normalizeStyleScore(aiResponse.reasoning?.styleScore);
+    log.push(`✨ Generated outfit with score ${normalizedScore}%`);
     log.push(`Items: ${selectedItems.map(i => i.name).join(', ')}`);
 
     return {
       outfit: selectedItems,
-      validationScore: (aiResponse.reasoning?.styleScore || 0) * 10, // Convert 1-10 to 0-100
+      validationScore: normalizedScore,
       iterations: 1,
       analysisLog: log,
       reasoning: aiResponse.reasoning
