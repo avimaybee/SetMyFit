@@ -1,7 +1,8 @@
 import { removeBackground } from "@imgly/background-removal";
 import { toast } from "@/components/ui/toaster";
 
-const DEFAULT_IMGLY_DATA_PATH = 'https://cdn.jsdelivr.net/npm/@imgly/background-removal-data@latest/dist/';
+// Use unpkg CDN with pinned version - jsdelivr was returning 403 errors
+const DEFAULT_IMGLY_DATA_PATH = 'https://unpkg.com/@imgly/background-removal-data@1.4.6/dist/';
 const backgroundRemovalPublicPath = (process.env.NEXT_PUBLIC_IMGLY_PUBLIC_PATH ?? DEFAULT_IMGLY_DATA_PATH).replace(/\/?$/, '/');
 
 export interface ImageProcessOptions {

@@ -1,0 +1,135 @@
+Project Tables and Row Counts (public schema)
+Below is a neat summary of all tables found in the public schema for your project, including the reported row counts and a brief schema overview for each table. Bold key points are highlighted.
+
+Summary (table — rows)
+profiles — 1
+clothing_items — 0
+outfits — 0
+outfit_items — 0
+outfit_recommendations — 4
+recommendation_feedback — 0
+outfit_visuals — 0
+user_preferences — 0
+outfit_item_swaps — 0
+outfit_templates — 0
+Table details
+profiles (rows: 1)
+RLS: enabled
+Primary key: id
+Columns:
+id (uuid) — PK, references auth.users.id
+name (text)
+region (text)
+full_body_model_url (text)
+preferences (jsonb)
+privacy_settings (jsonb) — default: '{"data_retention_days": 365, "allow_image_generation": true, "auto_delete_old_photos": false}'
+style_preferences (jsonb) — default: '{"dress_codes": [], "cooldown_days": 3, "disliked_items": [], "preferred_styles": []}'
+gender (text) — default: 'neutral'
+clothing_items (rows: 0)
+RLS: enabled
+Primary key: id (bigint)
+Notable columns:
+user_id (uuid) — FK auth.users.id
+category, color (text)
+season_tags (enum array: spring, summer, autumn, winter)
+style_tags (enum array)
+image_url (text)
+created_at (timestamptz) — default timezone('utc', now())
+name (text) — default 'Untitled Item'
+type (user-defined enum clothing_type) — default 'Top'
+material (user-defined enum)
+insulation_value (integer) — check: 0..10, default 5
+dress_code (enum array) — default ['Casual']
+description (text)
+wear_count (integer) — default 0
+is_favorite (boolean) — default false
+tags (text[])
+outfits (rows: 0)
+RLS: enabled
+Primary key: id (bigint)
+Notable columns:
+user_id (uuid) — FK auth.users.id
+outfit_date (date)
+rendered_image_url, visual_image_url (text)
+feedback (smallint)
+created_at (timestamptz) — default timezone('utc', now())
+reasoning (text)
+weather_data (jsonb)
+visual_metadata (jsonb)
+outfit_items (rows: 0)
+RLS: enabled
+Primary key: composite (outfit_id, clothing_item_id)
+Columns:
+outfit_id (bigint) — FK outfits.id
+clothing_item_id (bigint) — FK clothing_items.id
+outfit_recommendations (rows: 4)
+RLS: enabled
+Primary key: id (bigint)
+Notable columns:
+user_id (uuid) — FK auth.users.id
+outfit_items (bigint[]), default '{}'
+weather_data (jsonb)
+confidence_score (numeric) — default 0.0
+reasoning, detailed_reasoning (text)
+missing_items (text[]), default '{}'
+created_at (timestamptz) — default now()
+recommendation_feedback (rows: 0)
+RLS: enabled
+Primary key: id (bigint)
+Columns:
+recommendation_id (bigint) — FK outfit_recommendations.id
+user_id (uuid) — FK auth.users.id
+is_liked (boolean)
+reason (text)
+created_at (timestamptz) — default timezone('utc', now())
+outfit_visuals (rows: 0)
+RLS: enabled
+Primary key: id (uuid) — default gen_random_uuid()
+Notable columns:
+user_id (uuid) — FK auth.users.id
+recommendation_id (text)
+seed (bigint)
+style, prompt_text (text)
+preview_urls, final_urls (text[])
+job_id (text) — unique
+job_status (enum: queued, processing, completed, failed) — default 'queued'
+job_error_message (text)
+preview_quality (text)
+item_ids (text[])
+silhouette (text)
+created_at, preview_generated_at, final_generated_at, updated_at (timestamptz)
+retention_days (integer) — default 90
+scheduled_deletion_at (timestamptz)
+user_opted_in_to_retain (boolean) — default true
+user_preferences (rows: 0)
+RLS: enabled
+Primary key: id (uuid) — default gen_random_uuid()
+Notable columns:
+user_id (uuid) — unique, FK auth.users.id
+preferred_silhouette (text) — default 'neutral'
+preferred_styles (text[]) — default empty array
+preferred_color_palette (text)
+saved_style_presets (jsonb) — default '[]'
+default_preview_count (smallint) — default 3
+default_preview_quality (text) — default 'medium'
+consent_to_generate (boolean) — default false
+delete_images_after_use (boolean) — default false
+created_at, updated_at (timestamptz) — default timezone('utc', now())
+outfit_item_swaps (rows: 0)
+RLS: enabled
+Primary key: id (bigint)
+Columns:
+outfit_id (bigint) — FK outfits.id
+original_item_id, swapped_item_id (bigint) — FK clothing_items.id
+swap_reason (text)
+created_at (timestamptz) — default timezone('utc', now())
+outfit_templates (rows: 0)
+RLS: enabled
+Primary key: id (text)
+Columns:
+name (text)
+description (text)
+style_tags (text[])
+cover_image (text)
+requirements (text[])
+created_at (timestamptz) — default timezone('utc', now())

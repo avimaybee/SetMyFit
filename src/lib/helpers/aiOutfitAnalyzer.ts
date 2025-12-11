@@ -52,7 +52,14 @@ const getTextModel = (() => {
 /**
  * Analyze a clothing item image to extract metadata
  * Used during onboarding to auto-populate item properties
+ * 
+ * Includes retry logic with exponential backoff for reliability
  */
+
+const AI_ANALYSIS_MAX_RETRIES = 2;
+const AI_ANALYSIS_TIMEOUT_MS = 30000; // 30 seconds
+const AI_ANALYSIS_INITIAL_DELAY_MS = 1000;
+
 export async function analyzeClothingImage(
   base64ImageData: string,
   mimeType: string = 'image/jpeg'
@@ -68,14 +75,24 @@ export async function analyzeClothingImage(
   detectedDescription?: string;
   detectedName?: string;
 }> {
-  try {
-    const requestBody = {
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: `You are an expert fashion archivist. Analyze the image of the clothing item and extract metadata into a strict JSON format.
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= AI_ANALYSIS_MAX_RETRIES; attempt++) {
+    // Exponential backoff for retries
+    if (attempt > 0) {
+      const delay = AI_ANALYSIS_INITIAL_DELAY_MS * Math.pow(2, attempt - 1);
+      console.warn(`AI analysis retry ${attempt}/${AI_ANALYSIS_MAX_RETRIES} after ${delay}ms`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+
+    try {
+      const requestBody = {
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: `You are an expert fashion archivist. Analyze the image of the clothing item and extract metadata into a strict JSON format.
 
 Respond with only valid JSON (no markdown, no code blocks).
 
@@ -91,83 +108,96 @@ Respond with only valid JSON (no markdown, no code blocks).
   "style_tags": ["casual", "formal", "sporty", "vintage", "modern", "bold", "minimalist", "streetwear", "gorpcore", "y2k"],
   "description": "Short description of the item"
 }`,
-            },
-            {
-              inlineData: {
-                mimeType,
-                data: base64ImageData,
               },
-            },
-          ],
+              {
+                inlineData: {
+                  mimeType,
+                  data: base64ImageData,
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.5,
+          topP: 0.9,
+          maxOutputTokens: 1000,
+          responseMimeType: 'application/json',
         },
-      ],
-      generationConfig: {
-        temperature: 0.5,
-        topP: 0.9,
-        maxOutputTokens: 1000,
-        responseMimeType: 'application/json',
-      },
-    };
+      };
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${config.ai.gemini.model}:generateContent?key=${config.ai.gemini.apiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
+      // Create abort controller for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), AI_ANALYSIS_TIMEOUT_MS);
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${config.ai.gemini.model}:generateContent?key=${config.ai.gemini.apiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        }
+      );
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Gemini API error: ${response.status} - ${errorData?.error?.message}`);
       }
-    );
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Gemini API error: ${response.status} - ${errorData?.error?.message}`);
+      const data = await response.json();
+
+      if (
+        !data.candidates ||
+        !data.candidates[0] ||
+        !data.candidates[0].content ||
+        !data.candidates[0].content.parts
+      ) {
+        throw new Error('Invalid response from Gemini API');
+      }
+
+      const textPart = data.candidates[0].content.parts[0];
+      const text = textPart.text as string;
+
+      // Clean up markdown if present (though we asked for none)
+      const cleanText = text.replace(/```json\n?|\n?```/g, '').trim();
+
+      const analysis = JSON.parse(cleanText);
+
+      // Success! Return the parsed result
+      return {
+        detectedType: normalizeCategoryLabel(analysis.category),
+        detectedColor: analysis.color || '#000000',
+        detectedMaterial: normalizeMaterialLabel(analysis.material),
+        detectedStyleTags: analysis.style_tags || [],
+        detectedPattern: analysis.pattern,
+        detectedFit: analysis.fit,
+        detectedSeason: analysis.season_tags,
+        detectedInsulation: analysis.formality_insulation_value,
+        detectedDescription: analysis.description,
+        detectedName: analysis.name,
+      };
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      // Don't retry on abort (timeout)
+      if (lastError.name === 'AbortError') {
+        lastError = new Error('AI analysis timed out after 30 seconds');
+        break;
+      }
+
+      console.warn(`AI analysis attempt ${attempt + 1} failed:`, lastError.message);
+      // Continue to next retry
     }
-
-    const data = await response.json();
-
-    if (
-      !data.candidates ||
-      !data.candidates[0] ||
-      !data.candidates[0].content ||
-      !data.candidates[0].content.parts
-    ) {
-      throw new Error('Invalid response from Gemini API');
-    }
-
-    const textPart = data.candidates[0].content.parts[0];
-    const text = textPart.text as string;
-
-    // Clean up markdown if present (though we asked for none)
-    const cleanText = text.replace(/```json\n?|\n?```/g, '').trim();
-
-    const analysis = JSON.parse(cleanText);
-
-    return {
-      detectedType: normalizeCategoryLabel(analysis.category),
-      detectedColor: analysis.color || '#000000',
-      detectedMaterial: normalizeMaterialLabel(analysis.material),
-      detectedStyleTags: analysis.style_tags || [],
-      detectedPattern: analysis.pattern,
-      detectedFit: analysis.fit,
-      detectedSeason: analysis.season_tags,
-      detectedInsulation: analysis.formality_insulation_value,
-      detectedDescription: analysis.description,
-      detectedName: analysis.name,
-    };
-  } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error analyzing clothing image:', error);
-    }
-    // Return safe defaults on error
-    return {
-      detectedType: 'Accessory',
-      detectedColor: '#808080',
-      detectedMaterial: 'Unknown',
-      detectedStyleTags: ['casual'],
-    };
   }
+
+  // All retries exhausted - throw error so caller can handle
+  console.error('AI analysis failed after all retries:', lastError?.message);
+  throw lastError || new Error('AI analysis failed after retries');
 }
 
 /**
@@ -313,28 +343,28 @@ export async function generateAIOutfitRecommendation(
     // The AI treats locked items as anchors, but we must guarantee their presence.
     if (lockedItems && lockedItems.length > 0) {
       const lockedIdsSet = new Set(lockedItems);
-      
+
       // 1. Identify missing locked items
       // Convert item.id to string for comparison since lockedItems are strings
       const missingLockedIds = lockedItems.filter(id => !selectedItems.some(item => String(item.id) === id));
-      
+
       if (missingLockedIds.length > 0) {
         log.push(`🔒 Enforcing ${missingLockedIds.length} locked items that AI missed.`);
-        
+
         for (const id of missingLockedIds) {
           // Convert item.id to string for comparison
           const itemToAdd = wardrobeItems.find(i => String(i.id) === id);
           if (itemToAdd) {
             // 2. Remove conflicting unlocked items of the same type to maintain outfit structure
             // We only replace if there's a conflict in the same category (e.g. swapping one Top for another)
-            const conflictIndex = selectedItems.findIndex(i => 
+            const conflictIndex = selectedItems.findIndex(i =>
               i.type === itemToAdd.type && !lockedIdsSet.has(String(i.id))
             );
-            
+
             if (conflictIndex !== -1) {
               selectedItems.splice(conflictIndex, 1);
             }
-            
+
             selectedItems.push(itemToAdd);
           }
         }

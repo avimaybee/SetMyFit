@@ -24,6 +24,12 @@ const nextConfig: NextConfig = {
     // Allow data URIs for placeholder images
     dangerouslyAllowSVG: true,
     contentDispositionType: 'inline',
+    // Cache optimized images for 31 days to reduce re-transformations
+    minimumCacheTTL: 60 * 60 * 24 * 31,
+    // Reduce device sizes to common breakpoints only (default has 8 sizes)
+    deviceSizes: [640, 1080, 1920],
+    // Limit image sizes for srcset
+    imageSizes: [128, 256, 384],
   },
 };
 
