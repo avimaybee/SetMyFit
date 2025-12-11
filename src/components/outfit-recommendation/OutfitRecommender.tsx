@@ -452,12 +452,12 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                                             <span>{reasoning?.weatherMatch}</span>
                                         </div>
                                         <div className="flex items-start gap-2">
-                                            <span className="text-purple-600 font-bold">THERMAL</span>
-                                            <span>Total Insulation: {reasoning?.totalInsulation}/10</span>
-                                        </div>
-                                        <div className="flex items-start gap-2">
                                             <span className="text-pink-600 font-bold">COLOR</span>
                                             <span>{reasoning?.colorAnalysis}</span>
+                                        </div>
+                                        <div className="flex items-start gap-2">
+                                            <span className="text-purple-600 font-bold">SILHOUETTE</span>
+                                            <span>{reasoning?.silhouetteBalance || 'Balanced proportions'}</span>
                                         </div>
                                         <div className="flex items-start gap-2">
                                             <span className="text-orange-600 font-bold">LAYERING</span>
@@ -468,8 +468,8 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                                             <span>{reasoning?.occasionFit}</span>
                                         </div>
                                         <div className="flex items-start gap-2">
-                                            <span className="text-blue-600 font-bold">HISTORY</span>
-                                            <span>{reasoning?.historyCheck}</span>
+                                            <span className="text-amber-600 font-bold">STATEMENT</span>
+                                            <span>{reasoning?.statementPiece || 'N/A'}</span>
                                         </div>
                                     </>
                                 ) : (

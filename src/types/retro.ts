@@ -34,12 +34,12 @@ export interface Outfit {
   rating?: number;
   reasoning?: {
     weatherMatch?: string;
-    totalInsulation?: number;
-    historyCheck?: string;
+    colorAnalysis?: string;
+    silhouetteBalance?: string;
     styleScore?: number;
     layeringStrategy?: string;
-    colorAnalysis?: string;
     occasionFit?: string;
+    statementPiece?: string;
   };
 }
 
@@ -60,10 +60,10 @@ export interface UserPreferences {
 }
 
 export interface OutfitTemplate {
-    id: string;
-    name: string;
-    description: string;
-    styleTags: string[];
-    coverImage: string;
-    requirements?: string[];
+  id: string;
+  name: string;
+  description: string;
+  styleTags: string[];
+  coverImage: string;
+  requirements?: string[];
 }

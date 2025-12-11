@@ -10,7 +10,7 @@ import { getCurrentSeason, getSeasonDescription } from '@/lib/helpers/seasonDete
  */
 async function fetchWeatherData(lat: number, lon: number): Promise<WeatherData | null> {
   const apiKey = process.env.OPENWEATHER_API_KEY;
-  
+
   if (!apiKey) {
     console.warn('OpenWeatherMap API key not configured');
     return null;
@@ -18,7 +18,7 @@ async function fetchWeatherData(lat: number, lon: number): Promise<WeatherData |
 
   try {
     const response = await fetch(
-      `https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&exclude=minutely,daily&appid=${apiKey}&units=metric`,
+      `https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lon}&exclude=minutely,daily&appid=${apiKey}&units=metric`,
       { next: { revalidate: 300 } } // Cache for 5 minutes
     );
 
@@ -28,7 +28,7 @@ async function fetchWeatherData(lat: number, lon: number): Promise<WeatherData |
     }
 
     const data = await response.json();
-    
+
     return {
       temperature: data.current.temp,
       feels_like: data.current.feels_like,
@@ -86,10 +86,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 }>>> {
   try {
     const supabase = await createClient();
-    
+
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 
     // Fetch real weather data
     const weatherData = await fetchWeatherData(lat, lon);
-    
+
     if (!weatherData) {
       return NextResponse.json(
         { success: false, error: 'Failed to fetch weather data. Please check OPENWEATHER_API_KEY.' },
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 
     // Create reasoning from analysis log or structured reasoning
     let reasoning = aiResult.analysisLog.join('\n');
-    
+
     if (aiResult.reasoning) {
       reasoning = `
 Style Score: ${aiResult.reasoning.styleScore}/10
@@ -184,7 +184,8 @@ Weather Match: ${aiResult.reasoning.weatherMatch}
 Color Analysis: ${aiResult.reasoning.colorAnalysis}
 Layering: ${aiResult.reasoning.layeringStrategy}
 Occasion Fit: ${aiResult.reasoning.occasionFit}
-History Check: ${aiResult.reasoning.historyCheck}
+Silhouette: ${aiResult.reasoning.silhouetteBalance || 'Balanced'}
+Statement Piece: ${aiResult.reasoning.statementPiece || 'N/A'}
       `.trim();
     }
 
@@ -194,7 +195,7 @@ History Check: ${aiResult.reasoning.historyCheck}
       .insert({
         user_id: user.id,
         outfit_items: aiResult.outfit.map(i => i.id),
-        weather_data: { 
+        weather_data: {
           temperature: weatherData.temperature,
           feels_like: weatherData.feels_like,
           weather_condition: weatherData.weather_condition,
@@ -231,9 +232,9 @@ History Check: ${aiResult.reasoning.historyCheck}
   } catch (error) {
     console.error('AI recommendation error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Internal server error. Make sure Gemini API key is configured.' 
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error. Make sure Gemini API key is configured.'
       },
       { status: 500 }
     );
@@ -252,10 +253,10 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
 }>>> {
   try {
     const supabase = await createClient();
-    
+
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -266,7 +267,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
     // Get item IDs from query params
     const searchParams = request.nextUrl.searchParams;
     const itemIdsParam = searchParams.get('item_ids');
-    
+
     if (!itemIdsParam) {
       return NextResponse.json(
         { success: false, error: 'item_ids query parameter is required' },
@@ -292,7 +293,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
 
     // Dynamically import to avoid issues
     const { validateOutfitImages } = await import('@/lib/helpers/aiOutfitAnalyzer');
-    
+
     // Validate the outfit
     const validation = await validateOutfitImages(items as IClothingItem[]);
 
@@ -308,9 +309,9 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
   } catch (error) {
     console.error('Outfit validation error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Internal server error' 
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error'
       },
       { status: 500 }
     );

@@ -225,7 +225,7 @@ Respond with only valid JSON (no markdown, no code blocks).
 }
 
 /**
- * Generate AI-powered outfit recommendation using the "Fire Fit" logic
+ * Generate AI-powered outfit recommendation
  */
 export async function generateAIOutfitRecommendation(
   wardrobeItems: IClothingItem[],
@@ -244,17 +244,17 @@ export async function generateAIOutfitRecommendation(
   reasoning?: {
     weatherMatch?: string;
     colorAnalysis?: string;
-    historyCheck?: string;
+    silhouetteBalance?: string;
     styleScore?: number;
-    totalInsulation?: number;
     layeringStrategy?: string;
     occasionFit?: string;
+    statementPiece?: string;
   };
 }> {
   const model = getTextModel();
   const log: string[] = [];
 
-  log.push('🤖 Starting AI outfit recommendation (Fire Fit Engine)...');
+  log.push('🤖 Starting AI outfit recommendation (Style Engine)...');
 
   const defaultPreferences: UserPreferences = {
     gender: 'NEUTRAL',
@@ -282,7 +282,7 @@ export async function generateAIOutfitRecommendation(
 
   const systemInstruction = `
       You are "SetMyFit", a legendary Fashion Stylist and Creative Director known for creating ICONIC looks.
-      Your mission: Generate a "FIRE FIT" - an outfit so good it turns heads and gets compliments.
+      Your mission: Generate a stylish, head-turning outfit that gets compliments.
 
       ### YOUR STYLING PHILOSOPHY
       You prioritize AESTHETICS above all. Every outfit should look like it belongs in a fashion magazine.

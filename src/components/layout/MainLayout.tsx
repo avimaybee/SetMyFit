@@ -102,12 +102,12 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
                             key={item.href}
                             href={item.href}
                             className={`
-                        flex items - center gap - 3 px - 4 py - 3 border - 2 border - black font - bold transition - all whitespace - nowrap flex - shrink - 0
-                        ${isActive(item.href)
+                                flex items-center gap-3 px-4 py-3 border-2 border-black font-bold transition-all whitespace-nowrap flex-shrink-0
+                                ${isActive(item.href)
                                     ? 'bg-black text-white translate-x-[4px] translate-y-[4px] shadow-none'
-                                    : `bg-white text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-gray-50 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`
+                                    : 'bg-white text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-gray-50 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                                 }
-`}
+                            `}
                         >
                             {item.icon}
                             <span className="font-mono uppercase tracking-tight">{item.label}</span>
@@ -140,15 +140,14 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
                             key={item.href}
                             href={item.href}
                             className={`
-                        flex flex - col items - center justify - center gap - 1 p - 2 rounded - lg transition - all w - full
-                        ${isActive(item.href)
+                                flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-all w-full
+                                ${isActive(item.href)
                                     ? 'bg-black text-white'
                                     : 'text-black hover:bg-black/5 active:scale-95'
                                 }
-`}
+                            `}
                         >
-                            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                            {React.cloneElement(item.icon as React.ReactElement<any>, { size: 18 })}
+                            {React.cloneElement(item.icon as React.ReactElement<{ size: number }>, { size: 18 })}
                             <span className="font-mono text-[9px] font-bold uppercase tracking-tight">{item.label}</span>
                         </Link>
                     ))}

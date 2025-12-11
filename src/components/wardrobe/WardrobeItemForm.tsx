@@ -471,16 +471,9 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                                     )}
                                 </RetroSelect>
                             </div>
-                        </div>
 
-                        <RetroSlider
-                            label={`Insulation Value (Warmth: ${newItemInsulation}/10)`}
-                            min="0" max="10"
-                            value={newItemInsulation}
-                            onChange={(e) => setNewItemInsulation(parseInt(e.target.value))}
-                            minLabel="Light" maxLabel="Heavy"
-                            disabled={isAnalyzing || isProcessingImage}
-                        />
+                            {/* Insulation slider hidden - no longer used by recommendation engine */}
+                        </div>
 
                         <div>
                             <label className="font-bold font-mono text-xs uppercase block mb-1 text-[var(--text)]">Seasons</label>
