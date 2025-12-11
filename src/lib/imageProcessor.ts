@@ -1,9 +1,10 @@
-import { removeBackground } from "@imgly/background-removal";
+// TEMPORARILY DISABLED: Background removal CDN has CORS issues
+// import { removeBackground } from "@imgly/background-removal";
 import { toast } from "@/components/ui/toaster";
 
-// Use unpkg CDN with pinned version - jsdelivr was returning 403 errors
-const DEFAULT_IMGLY_DATA_PATH = 'https://unpkg.com/@imgly/background-removal-data@1.4.6/dist/';
-const backgroundRemovalPublicPath = (process.env.NEXT_PUBLIC_IMGLY_PUBLIC_PATH ?? DEFAULT_IMGLY_DATA_PATH).replace(/\/?$/, '/');
+// CDN paths disabled due to CORS - both jsdelivr and unpkg block cross-origin requests
+// const DEFAULT_IMGLY_DATA_PATH = 'https://unpkg.com/@imgly/background-removal-data@1.4.6/dist/';
+// const backgroundRemovalPublicPath = (process.env.NEXT_PUBLIC_IMGLY_PUBLIC_PATH ?? DEFAULT_IMGLY_DATA_PATH).replace(/\/?$/, '/');
 
 export interface ImageProcessOptions {
     removeBackground: boolean;
@@ -90,7 +91,7 @@ export const processImageUpload = async (file: File, options: ImageProcessOption
         onProgress?.('OPTIMIZING', 10);
 
         // 1. Resize first (crucial for performance of BG removal and storage)
-        let processingBlob = await resizeImage(file, maxWidth);
+        const processingBlob = await resizeImage(file, maxWidth);
 
         onProgress?.('OPTIMIZING', 30);
 
@@ -98,17 +99,14 @@ export const processImageUpload = async (file: File, options: ImageProcessOption
         if (shouldRemoveBg) {
             onProgress?.('AI_REMOVING_BG', 40);
             try {
-                // Public Path is required when loading from CDN/External sources
-                // Switched to jsDelivr for better reliability/CORS handling than static.img.ly
-                const bgRemovedBlob = await removeBackground(processingBlob, {
-                    publicPath: backgroundRemovalPublicPath,
-                    progress: (key: string, current: number, total: number) => {
-                        // Map internal progress to our 40-80 range
-                        const percent = 40 + Math.round((current / total) * 40);
-                        onProgress?.(`AI_PROCESSING`, percent);
-                    }
-                });
-                processingBlob = bgRemovedBlob;
+                // TEMPORARILY DISABLED: Background removal CDN has CORS issues
+                // Both jsdelivr and unpkg block cross-origin requests
+                // TODO: Self-host the model files or find a CORS-friendly CDN
+                console.warn('Background removal is temporarily disabled due to CDN CORS issues');
+                onProgress?.('BG_REMOVAL_SKIPPED', 50);
+                toast('Background removal is temporarily unavailable.', { icon: 'ℹ️' });
+
+                // Skip directly to the next step with the resized image
             } catch (error) {
                 console.error("Background removal failed, falling back to original", error);
                 onProgress?.('BG_REMOVAL_FAILED', 50);
