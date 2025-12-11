@@ -278,6 +278,7 @@ async function fetchWeatherData(
       fetched_at: fetchedAt.toISOString(),
       provider: 'mock-fallback',
       is_mock: true,
+      city: 'Demo Location', // Fallback city name for mock data
     };
 
     // Generate mock hourly forecast

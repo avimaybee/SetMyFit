@@ -2,6 +2,7 @@ import { GoogleGenerativeAI, type GenerativeModel } from '@google/generative-ai'
 import { IClothingItem, OutfitValidation } from '@/lib/types';
 import { UserPreferences } from '@/types/retro';
 import { config } from '@/lib/config';
+import { waitForGeminiRateLimit } from '@/lib/rateLimiter';
 
 /**
  * Normalize AI style score to 0-100 scale
@@ -149,6 +150,9 @@ Respond with only valid JSON (no markdown, no code blocks).
       // Create abort controller for timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), AI_ANALYSIS_TIMEOUT_MS);
+
+      // Wait for rate limit before making request
+      await waitForGeminiRateLimit();
 
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${config.ai.gemini.model}:generateContent?key=${config.ai.gemini.apiKey}`,
@@ -351,6 +355,9 @@ export async function generateAIOutfitRecommendation(
   log.push('🎨 Generating outfit with Gemini 2.5 Flash...');
 
   try {
+    // Wait for rate limit before making request
+    await waitForGeminiRateLimit();
+
     const result = await model.generateContent({
       contents: [{ role: 'user', parts: [{ text: systemInstruction + "\n\n" + prompt }] }],
       generationConfig: {

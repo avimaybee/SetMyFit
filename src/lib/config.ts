@@ -35,9 +35,9 @@ export const weatherConfig = {
   // OpenWeatherMap API
   openWeather: {
     apiKey: getEnvVar('OPENWEATHER_API_KEY', false) || getEnvVar('NEXT_PUBLIC_OPENWEATHER_API_KEY', false),
-    baseUrl: 'https://api.openweathermap.org/data/3.0',
+    baseUrl: 'https://api.openweathermap.org/data/2.5', // 2.5 is free tier, 3.0 requires paid subscription
     endpoints: {
-      onecall: '/onecall',
+      onecall: '/onecall', // Note: onecall is deprecated in 2.5, but still works
       current: '/weather',
     },
   },

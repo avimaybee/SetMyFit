@@ -34,7 +34,7 @@ export default function WardrobePage() {
                     name: item.name,
                     category: mapDbTypeToUiCategory(item.type),
                     type: item.type, // Keep original type
-                    image_url: item.image_url || "https://picsum.photos/200/300?grayscale",
+                    image_url: item.image_url || "",
                     color: item.color || "Unknown",
                     style_tags: (item.style_tags || []) as string[],
                     season_tags: (item.season_tags || []) as string[],

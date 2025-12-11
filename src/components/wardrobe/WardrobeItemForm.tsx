@@ -129,7 +129,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
             material: newItemMaterial,
             insulation_value: newItemInsulation,
             season_tags: newItemSeasons.length > 0 ? newItemSeasons : ['All Season'],
-            image_url: previewUrl || 'https://picsum.photos/200/300',
+            image_url: previewUrl || '',
             style_tags: newItemStyleTags,
             pattern: newItemPattern || 'Solid',
             fit: newItemFit,

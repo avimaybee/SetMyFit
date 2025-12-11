@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Shirt, BarChart3, Clock, Settings, LayoutTemplate, Plus } from 'lucide-react';
+import { Home, Shirt, BarChart3, Clock, Settings, LayoutTemplate, Plus, User } from 'lucide-react';
 import { RetroButton } from '../retro-ui';
 import { createClient } from '@/lib/supabase/client';
 import { useAddItem } from '@/contexts/AddItemContext';
@@ -63,8 +62,8 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
                     >
                         <Plus size={20} strokeWidth={3} />
                     </button>
-                    <div className="w-8 h-8 bg-white border-2 border-black rounded-full overflow-hidden">
-                        <Image src="https://picsum.photos/100/100?grayscale" alt="User" width={32} height={32} className="w-full h-full object-cover" />
+                    <div className="w-8 h-8 bg-white border-2 border-black rounded-full overflow-hidden flex items-center justify-center">
+                        <User size={20} className="text-gray-600" />
                     </div>
                 </div>
             </header>
@@ -84,8 +83,8 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
 
                 {/* User Profile Snippet */}
                 <div className="bg-white border-2 border-black p-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gray-200 border-2 border-black rounded-none overflow-hidden relative">
-                        <Image src="https://picsum.photos/100/100?grayscale" alt="User" width={40} height={40} className="w-full h-full object-cover mix-blend-multiply" />
+                    <div className="w-10 h-10 bg-gray-200 border-2 border-black rounded-none overflow-hidden relative flex items-center justify-center">
+                        <User size={24} className="text-gray-600" />
                     </div>
                     <div className="leading-none">
                         <span className="block font-black text-sm uppercase">{userEmail}</span>
@@ -103,12 +102,12 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
                             key={item.href}
                             href={item.href}
                             className={`
-                        flex items-center gap-3 px-4 py-3 border-2 border-black font-bold transition-all whitespace-nowrap flex-shrink-0
+                        flex items - center gap - 3 px - 4 py - 3 border - 2 border - black font - bold transition - all whitespace - nowrap flex - shrink - 0
                         ${isActive(item.href)
                                     ? 'bg-black text-white translate-x-[4px] translate-y-[4px] shadow-none'
                                     : `bg-white text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-gray-50 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`
                                 }
-                    `}
+`}
                         >
                             {item.icon}
                             <span className="font-mono uppercase tracking-tight">{item.label}</span>
@@ -141,12 +140,12 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
                             key={item.href}
                             href={item.href}
                             className={`
-                        flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-all w-full
+                        flex flex - col items - center justify - center gap - 1 p - 2 rounded - lg transition - all w - full
                         ${isActive(item.href)
                                     ? 'bg-black text-white'
                                     : 'text-black hover:bg-black/5 active:scale-95'
                                 }
-                    `}
+`}
                         >
                             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                             {React.cloneElement(item.icon as React.ReactElement<any>, { size: 18 })}
