@@ -1,111 +1,125 @@
-# What2Wear: Your Personal AI Stylist
+# SetMyFit: Your Personal AI Stylist
 
-What2Wear is a context-aware, highly personalized, daily decision engine for your outfits. It's not just another weather app; it's a sophisticated AI-powered stylist that learns your preferences and helps you make the most of your wardrobe.
+SetMyFit is a context-aware, highly personalized, daily decision engine for your outfits. It's an AI-powered stylist that learns your preferences and helps you make the most of your wardrobe.
 
-## Vision
+## 🔥 Fire Fit Engine (v2.0)
 
-Our vision is to eliminate the daily "what to wear" dilemma. We aim to create a seamless and enjoyable experience for users to manage their wardrobe, discover new styles, and feel confident in their clothing choices every day. We believe that by leveraging the power of AI and machine learning, we can provide a truly personalized and valuable service to our users.
+The recommendation engine uses **Gemini 2.5 Flash** with fashion-first styling logic:
+
+- **Sandwich Rule** - Match shoe color with top for visual harmony
+- **Silhouette Theory** - Contrast fits (oversized top → slim bottom)
+- **3-Color Rule** - Max 3 main colors (neutrals don't count)
+- **Statement Piece** - Every outfit has one hero item
+- **Texture Play** - Mix materials for depth
+
+### Scoring System
+Outfits are scored 0-100% based on:
+- Color coordination
+- Silhouette balance
+- Occasion fit
+- Overall aesthetic cohesion
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Framework** | Next.js 15.5.7 |
+| **Frontend** | React 19, TypeScript, Tailwind CSS v4 |
+| **UI** | shadcn/ui, Framer Motion, Custom Retro Components |
+| **Backend** | Supabase (PostgreSQL, Auth, Storage) |
+| **AI** | Google Gemini 2.5 Flash |
+| **Weather** | OpenWeatherMap API |
+| **Deployment** | Vercel |
 
 ## Features
 
-### Core Features
+### Core
+- **Virtual Wardrobe** - Upload, categorize, and manage clothing with AI auto-tagging
+- **AI Outfit Recommendations** - Weather-aware, occasion-based outfit suggestions
+- **Outfit Logging** - Track what you wear and when
 
-*   **Virtual Wardrobe:** Easily add, categorize, and manage your clothing items. You can upload images, add details like brand, color, and material, and even track the last time you wore an item.
-*   **Context-Aware Recommendations:** Our recommendation engine takes into account multiple factors to suggest the perfect outfit:
-    *   **Weather:** Real-time weather data, including temperature, humidity, and chance of precipitation.
-*   **Personalized Suggestions:** Our machine learning models learn your style preferences over time. The more you use the app and provide feedback on the recommendations, the better it gets at suggesting outfits you'll love.
-*   **Outfit Logging:** Keep a visual diary of your daily outfits. This helps you track your style evolution and avoid repeating outfits too often.
+### Smart Features
+- **Background Removal** - Automatic image cleanup (temporarily disabled)
+- **Color Detection** - AI extracts dominant colors from clothes
+- **Wear Tracking** - See most/least worn items
+- **Season Filtering** - Smart seasonal recommendations
 
-### Advanced Features
+## API Endpoints
 
-*   **Smart Closet Analysis:** Get insights into your wardrobe, such as which items you wear the most and which ones you haven't worn in a while.
-*   **Style Discovery:** Discover new outfit combinations and styles based on your existing wardrobe.
-*   **Travel Packing Lists:** The app can help you pack for trips by suggesting a wardrobe based on your destination's weather and your planned activities.
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/wardrobe` | Add new clothing item |
+| `PATCH /api/wardrobe/[id]` | Update item (whitelisted fields) |
+| `DELETE /api/wardrobe/[id]` | Delete item + cleanup storage |
+| `POST /api/wardrobe/analyze` | AI image analysis |
+| `POST /api/recommendation` | Generate outfit recommendation |
+| `POST /api/recommendation/ai` | Fire Fit Engine recommendation |
+| `POST /api/outfit/log` | Log worn outfit (increments wear_count) |
+| `GET /api/stats` | Wardrobe analytics |
+| `GET /api/weather` | Weather data |
 
-## System Architecture
+## Database Schema
 
-What2Wear is built on a modern, scalable, and serverless architecture.
-
-*   **Frontend:** The frontend is a Next.js application built with React and TypeScript. It uses Tailwind CSS for styling and shadcn/ui for UI components. The app is designed to be fully responsive and work seamlessly on all devices.
-*   **Backend:** The backend is powered by Supabase, a backend-as-a-service platform that provides a PostgreSQL database, authentication, and instant APIs.
-*   **Serverless Functions:** We use Supabase Functions for our serverless logic, such as the daily outfit recommender and creating outfits.
-
-## Machine Learning Models
-
-Our recommendation engine uses a combination of machine learning models to provide personalized suggestions:
-
-*   **Preference Learning:** We use a preference learning model to understand your style. This model takes your feedback on recommended outfits and learns what you like and dislike.
-*   **Recommendation Engine:** The core of our recommendation system, this engine combines all the inputs (weather, user preferences) to generate the final outfit recommendations.
+Main tables in Supabase:
+- `clothing_items` - User wardrobe with RLS
+- `outfits` - Logged outfits
+- `outfit_recommendations` - AI suggestions with confidence scores
+- `profiles` - User preferences
+- `user_preferences` - Style settings
 
 ## Getting Started
 
-To get a local copy up and running, follow these simple steps.
-
 ### Prerequisites
-
-*   Node.js (v18 or later)
-*   npm
-*   Docker (for running Supabase locally)
+- Node.js v18+
+- npm
+- Supabase account (or Docker for local)
 
 ### Installation
 
-1.  Clone the repo
-    ```sh
-    git clone https://github.com/avimaybee/what2wear.git
-    ```
-2.  Install NPM packages
-    ```sh
-    cd what2wear/app
-    npm install
-    ```
-3.  Set up Supabase
-    *   Install the Supabase CLI: `npm install -g supabase`
-    *   Start the local Supabase services: `supabase start`
-    *   Copy the environment variables from the Supabase CLI output and add them to a `.env.local` file in the `app` directory.
-        ```
-        NEXT_PUBLIC_SUPABASE_URL=YOUR_SUPABASE_URL
-        NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
-        ```
+```bash
+git clone https://github.com/avimaybee/what2wear.git
+cd what2wear/app
+npm install
+```
 
-### Running the Development Server
+### Environment Variables
+
+Create `.env.local`:
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+NEXT_PUBLIC_OPENWEATHER_API_KEY=your_openweather_key
+GEMINI_API_KEY=your_gemini_key
+```
+
+### Development
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-## API Reference
-
-The API endpoints are located in `src/app/api`. Each endpoint is responsible for a specific feature:
-
-*   `/api/outfit/log`: Logs daily outfits.
-*   `/api/recommendation/[id]/feedback`: Handles feedback for recommendations.
-*   `/api/settings/profile`: Manages user profiles.
-*   `/api/wardrobe`: Manages the user's wardrobe.
-*   `/api/weather`: Fetches weather data.
-
-## Database Schema
-
-The database schema is defined in the `supabase/schema.sql` file. It includes the following tables:
-
-*   `users`: Stores user information.
-*   `wardrobe_items`: Stores information about each clothing item.
-*   `outfits`: Stores information about created outfits.
-*   `outfit_items`: A join table between `outfits` and `wardrobe_items`.
-*   `recommendations`: Stores the outfit recommendations for each user.
-*   `feedback`: Stores user feedback on recommendations.
-
-## Contributing
-
-Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
-
-1.  Fork the Project
-2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4.  Push to the Branch (`git push origin feature/AmazingFeature`)
-5.  Open a Pull Request
+Open [http://localhost:3000](http://localhost:3000)
 
 ## Deployment
 
-This app is designed to be deployed on [Vercel](https://vercel.com/), the platform from the creators of Next.js.
+Deploy to [Vercel](https://vercel.com/) - auto-deploys from GitHub.
+
+### Supabase Migrations
+
+Run these in Supabase SQL Editor after deployment:
+1. `supabase/migrations/001_fix_security_definer_view.sql`
+2. `supabase/migrations/002_fix_function_search_path.sql`
+
+## Recent Updates (Dec 2024)
+
+- ✅ Fire Fit Engine v2.0 - Fashion-first AI prompt
+- ✅ Score normalization (0-100% display)
+- ✅ Wardrobe save bug fix (schema alignment)
+- ✅ Image optimization (31-day cache, reduced transformations)
+- ✅ Security patches (Next.js CVE, Supabase functions)
+- ✅ Wear count tracking
+- ⚠️ Background removal temporarily disabled (CDN CORS)
+
+## License
+
+MIT
