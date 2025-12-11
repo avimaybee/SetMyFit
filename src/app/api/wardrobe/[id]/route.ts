@@ -3,6 +3,15 @@ import { createClient } from '@/lib/supabase/server';
 import { IClothingItem, ApiResponse } from '@/lib/types';
 import { logger } from '@/lib/logger';
 
+// Whitelist of fields that can be updated via PATCH
+// This prevents injection of protected fields like user_id, id, created_at
+const ALLOWED_UPDATE_FIELDS = [
+  'name', 'type', 'category', 'color', 'material',
+  'insulation_value', 'image_url', 'season_tags',
+  'style_tags', 'dress_code', 'is_favorite', 'description',
+  'pattern', 'fit', 'occasion'
+] as const;
+
 /**
  * GET /api/wardrobe/[id]
  * Get a specific clothing item
@@ -78,23 +87,31 @@ export async function PATCH(
   try {
     const body = await request.json();
 
-    // Normalize season_tags to lowercase to match database enum
-    if (body.season_tags) {
-      if (!Array.isArray(body.season_tags)) {
-        body.season_tags = [body.season_tags];
+    // Sanitize body - only allow whitelisted fields to prevent injection
+    const sanitizedBody: Record<string, unknown> = {};
+    for (const key of ALLOWED_UPDATE_FIELDS) {
+      if (key in body) {
+        sanitizedBody[key] = body[key];
       }
-      body.season_tags = body.season_tags.map((season: string) => season.toLowerCase());
+    }
+
+    // Normalize season_tags to lowercase to match database enum
+    if (sanitizedBody.season_tags) {
+      if (!Array.isArray(sanitizedBody.season_tags)) {
+        sanitizedBody.season_tags = [sanitizedBody.season_tags];
+      }
+      sanitizedBody.season_tags = (sanitizedBody.season_tags as string[]).map((season: string) => season.toLowerCase());
     }
 
     // Ensure dress_code is an array
-    if (body.dress_code && !Array.isArray(body.dress_code)) {
-      body.dress_code = [body.dress_code];
+    if (sanitizedBody.dress_code && !Array.isArray(sanitizedBody.dress_code)) {
+      sanitizedBody.dress_code = [sanitizedBody.dress_code];
     }
 
-    // Update the item
+    // Update the item with sanitized body
     const { data, error } = await supabase
       .from('clothing_items')
-      .update(body)
+      .update(sanitizedBody)
       .eq('id', id)
       .eq('user_id', user.id)
       .select()
@@ -144,12 +161,36 @@ export async function DELETE(
     );
   }
 
-  // Delete the item
+  // First, get the item to retrieve its image path for cleanup
+  const { data: item } = await supabase
+    .from('clothing_items')
+    .select('image_url')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single();
+
+  // Delete the item from database
   const { error } = await supabase
     .from('clothing_items')
     .delete()
     .eq('id', id)
     .eq('user_id', user.id);
+
+  // Clean up storage if item had an image (non-blocking)
+  if (!error && item?.image_url) {
+    try {
+      const url = new URL(item.image_url);
+      const pathSegments = url.pathname.split('/clothing_images/');
+      if (pathSegments.length > 1 && pathSegments[1]) {
+        const storagePath = decodeURIComponent(pathSegments[1]);
+        await supabase.storage.from('clothing_images').remove([storagePath]);
+        logger.info('Cleaned up storage for deleted item', { id, storagePath });
+      }
+    } catch (cleanupError) {
+      // Log but don't fail the deletion - storage cleanup is best-effort
+      logger.warn('Failed to cleanup storage for deleted item', { id, error: cleanupError });
+    }
+  }
 
   if (error) {
     logger.error('Error deleting wardrobe item', { error });

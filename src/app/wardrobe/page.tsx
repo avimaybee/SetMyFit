@@ -121,7 +121,7 @@ export default function WardrobePage() {
                 type: mapUiCategoryToDbType(item.category as ClothingType),
                 category: "General", // Default or derived
                 material: item.material,
-                color: "Unknown", // UI doesn't have color picker yet?
+                color: item.color || "Unknown",
                 season_tags: item.season_tags,
                 dress_code: item.dress_code,
                 image_url: imageUrl,

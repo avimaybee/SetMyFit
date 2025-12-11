@@ -6,9 +6,9 @@ import { logger } from '@/lib/logger';
 import { normalizeMaterial } from '@/lib/validation';
 
 // Allowed enums (kept here for runtime validation)
-const ALLOWED_TYPES = ['Outerwear','Top','Bottom','Footwear','Accessory','Headwear','Dress'];
-const ALLOWED_DRESS_CODES = ['Casual','Business Casual','Formal','Athletic','Loungewear'];
-const ALLOWED_SEASONS = ['spring','summer','autumn','winter','all_season'] as const;
+const ALLOWED_TYPES = ['Outerwear', 'Top', 'Bottom', 'Footwear', 'Accessory', 'Headwear', 'Dress'];
+const ALLOWED_DRESS_CODES = ['Casual', 'Business Casual', 'Formal', 'Athletic', 'Loungewear'];
+const ALLOWED_SEASONS = ['spring', 'summer', 'autumn', 'winter', 'all_season'] as const;
 type SeasonEnum = typeof ALLOWED_SEASONS[number];
 
 const normalizeSeasonTagsInput = (tags?: string[] | null): SeasonEnum[] | null => {
@@ -32,10 +32,10 @@ const normalizeSeasonTagsInput = (tags?: string[] | null): SeasonEnum[] | null =
  */
 export async function GET(_request: NextRequest): Promise<NextResponse<ApiResponse<IClothingItem[]>>> {
   const supabase = await createClient();
-  
+
   // Get authenticated user
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  
+
   if (authError || !user) {
     return NextResponse.json(
       { success: false, error: 'Unauthorized' },
@@ -100,8 +100,8 @@ export async function GET(_request: NextRequest): Promise<NextResponse<ApiRespon
   );
 
   return NextResponse.json({
-      success: true,
-      data: updatedData as IClothingItem[],
+    success: true,
+    data: updatedData as IClothingItem[],
   });
 }
 
@@ -182,7 +182,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       dressCode = validBody.dress_code as string[];
     }
 
-    // Build new item
+    // Build new item - only include columns that exist in the database schema
+    // Schema shows: user_id, name, type, category, color, material, insulation_value,
+    //   image_url, season_tags, style_tags, dress_code, description, wear_count, is_favorite
+    // Note: pattern, fit, style, occasion, last_worn_date do NOT exist in schema
     const newItem = {
       user_id: user.id,
       name: validBody.name,
@@ -195,11 +198,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       season_tags: normalizedSeasonTags,
       style_tags: validBody.style_tags || null,
       dress_code: dressCode,
-      last_worn_date: null,
-      pattern: validBody.pattern || null,
-      fit: validBody.fit || null,
-      style: validBody.style || null,
-      occasion: validBody.occasion || null,
       description: validBody.description || null,
     };
 

@@ -15,12 +15,12 @@ interface WardrobeItemFormProps {
     onAnalyzeImage?: (base64: string, options?: { signal?: AbortSignal }) => Promise<Partial<ClothingItem> | null>;
 }
 
-export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({ 
-    isOpen, 
-    onClose, 
-    onSave, 
-    initialItem, 
-    onAnalyzeImage 
+export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
+    isOpen,
+    onClose,
+    onSave,
+    initialItem,
+    onAnalyzeImage
 }) => {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -143,7 +143,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
         } else {
             onSave({ ...itemPayload, wear_count: 0, is_favorite: false, created_at: new Date().toISOString() }, resolvedFile);
         }
-        
+
         onClose();
     };
 
@@ -330,21 +330,21 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
             <div className="max-w-md w-full animate-in zoom-in-95 duration-200">
                 <RetroWindow title={initialItem ? "UPDATE_ITEM.EXE" : "NEW_ITEM_WIZARD"} onClose={onClose}>
                     <form onSubmit={handleSaveItem} className="space-y-4 p-2 max-h-[80vh] overflow-y-auto">
-                        
+
                         {/* Image Upload */}
-                        <input 
-                            type="file" 
+                        <input
+                            type="file"
                             ref={fileInputRef}
-                            onChange={handleFileSelect} 
-                            accept="image/*" 
-                            className="hidden" 
+                            onChange={handleFileSelect}
+                            accept="image/*"
+                            className="hidden"
                         />
-                        
+
                         <div className="flex justify-between items-center px-1">
                             <label className="font-bold font-mono text-xs uppercase text-[var(--text)]">Item Image</label>
                             <div className="flex items-center gap-2">
                                 <span className="font-mono text-[10px] text-[var(--text-muted)]">AI REMOVE BG:</span>
-                                <RetroToggle 
+                                <RetroToggle
                                     label=""
                                     checked={removeBgEnabled}
                                     onChange={setRemoveBgEnabled}
@@ -352,7 +352,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                             </div>
                         </div>
 
-                        <div 
+                        <div
                             onClick={triggerFileInput}
                             onDrop={handleDrop}
                             onDragOver={handleDragOver}
@@ -369,13 +369,13 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                                             src={previewUrl}
                                             alt="Preview"
                                             fill
-                                            sizes="100vw"
+                                            sizes="400px"
                                             className="object-contain bg-[var(--bg-tertiary)]"
                                             onLoadingComplete={() => setIsImageLoading(false)}
                                             onError={() => setIsImageLoading(false)}
                                         />
                                     </div>
-                                    
+
                                     {/* Scanning/Processing Overlay */}
                                     {(isAnalyzing || isProcessingImage || isImageLoading) && (
                                         <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-20 backdrop-blur-sm p-4">
@@ -398,7 +398,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                                         </div>
                                     )}
 
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={clearImage}
                                         className="absolute top-2 right-2 bg-[var(--accent-orange)] border-2 border-[var(--border)] p-1 hover:scale-110 transition-transform shadow-[2px_2px_0px_0px_var(--border)] z-10"
@@ -425,12 +425,12 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                                 </>
                             )}
                         </div>
-                        
+
                         <div>
                             <label className="font-bold font-mono text-xs uppercase block mb-1 text-[var(--text)]">Item Name {isAnalyzing && <span className="animate-pulse">...</span>}</label>
-                            <RetroInput 
-                                placeholder="e.g. Vintage Denim Jacket" 
-                                required 
+                            <RetroInput
+                                placeholder="e.g. Vintage Denim Jacket"
+                                required
                                 value={newItemName}
                                 onChange={(e) => setNewItemName(e.target.value)}
                                 disabled={isAnalyzing || isProcessingImage}
@@ -447,7 +447,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                             <div>
                                 <label className="font-bold font-mono text-xs uppercase block mb-1 text-[var(--text)]">Material</label>
                                 <RetroSelect value={newItemMaterial} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewItemMaterial(e.target.value as ClothingMaterial)} disabled={isAnalyzing || isProcessingImage}>
-                                    {materialOptions.map(m => 
+                                    {materialOptions.map(m =>
                                         <option key={m} value={m}>{m}</option>
                                     )}
                                 </RetroSelect>
@@ -458,7 +458,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                             <div>
                                 <label className="font-bold font-mono text-xs uppercase block mb-1 text-[var(--text)]">Pattern</label>
                                 <RetroSelect value={newItemPattern} onChange={(e) => setNewItemPattern(e.target.value)} disabled={isAnalyzing || isProcessingImage}>
-                                    {patternOptions.map(p => 
+                                    {patternOptions.map(p =>
                                         <option key={p} value={p}>{p}</option>
                                     )}
                                 </RetroSelect>
@@ -466,16 +466,16 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                             <div>
                                 <label className="font-bold font-mono text-xs uppercase block mb-1 text-[var(--text)]">Fit</label>
                                 <RetroSelect value={newItemFit} onChange={(e) => setNewItemFit(e.target.value)} disabled={isAnalyzing || isProcessingImage}>
-                                    {fitOptions.map(f => 
+                                    {fitOptions.map(f =>
                                         <option key={f} value={f}>{f}</option>
                                     )}
                                 </RetroSelect>
                             </div>
                         </div>
 
-                        <RetroSlider 
-                            label={`Insulation Value (Warmth: ${newItemInsulation}/10)`} 
-                            min="0" max="10" 
+                        <RetroSlider
+                            label={`Insulation Value (Warmth: ${newItemInsulation}/10)`}
+                            min="0" max="10"
                             value={newItemInsulation}
                             onChange={(e) => setNewItemInsulation(parseInt(e.target.value))}
                             minLabel="Light" maxLabel="Heavy"

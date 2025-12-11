@@ -53,22 +53,37 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error analyzing image:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to analyze image' },
-      { status: 500 }
-    );
+    // Return partial success with defaults - don't fail the whole request
+    // This allows the user to still fill in details manually
+    return NextResponse.json({
+      success: true,
+      data: {
+        name: 'New Item',
+        category: 'Accessory',
+        type: 'Accessory',
+        color: '',
+        material: 'Other',
+        season_tags: [],
+        style_tags: [],
+        insulation_value: 5,
+        pattern: 'Solid',
+        fit: 'Regular',
+      },
+      partial: true,
+      message: 'AI analysis unavailable. Please fill in details manually.'
+    });
   }
 }
 
 function mapCategoryToDbType(category?: string): ClothingType {
   const cat = category?.toLowerCase() ?? '';
-    if (cat.includes('accessory')) return 'Accessory';
-    if (cat.includes('shoe') || cat.includes('foot')) return 'Shoes';
-    if (cat.includes('head') || cat.includes('hat')) return 'Accessory';
-    if (cat.includes('outer') || cat.includes('jacket') || cat.includes('coat')) return 'Outerwear';
-    if (cat.includes('bottom') || cat.includes('pant') || cat.includes('jean')) return 'Bottom';
-    if (cat.includes('dress')) return 'Dress';
-    if (cat.includes('top') || cat.includes('shirt')) return 'Top';
-    return 'Top';
+  if (cat.includes('accessory')) return 'Accessory';
+  if (cat.includes('shoe') || cat.includes('foot')) return 'Shoes';
+  if (cat.includes('head') || cat.includes('hat')) return 'Accessory';
+  if (cat.includes('outer') || cat.includes('jacket') || cat.includes('coat')) return 'Outerwear';
+  if (cat.includes('bottom') || cat.includes('pant') || cat.includes('jean')) return 'Bottom';
+  if (cat.includes('dress')) return 'Dress';
+  if (cat.includes('top') || cat.includes('shirt')) return 'Top';
+  return 'Top';
 }
 
