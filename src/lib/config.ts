@@ -34,10 +34,9 @@ export const supabaseConfig = {
 export const weatherConfig = {
   // OpenWeatherMap API
   openWeather: {
-    apiKey: getEnvVar('OPENWEATHER_API_KEY', false) || getEnvVar('NEXT_PUBLIC_OPENWEATHER_API_KEY', false),
-    baseUrl: 'https://api.openweathermap.org/data/2.5', // 2.5 is free tier, 3.0 requires paid subscription
+    apiKey: getEnvVar('OPENWEATHER_API_KEY', false),
+    baseUrl: 'https://api.openweathermap.org/data/2.5',
     endpoints: {
-      onecall: '/onecall', // Note: onecall is deprecated in 2.5, but still works
       current: '/weather',
     },
   },
@@ -54,7 +53,7 @@ export const weatherConfig = {
 export const aiConfig = {
   gemini: {
     apiKey: getEnvVar('GEMINI_API_KEY', false),
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3-flash-preview',
   },
 
   // Learning parameters

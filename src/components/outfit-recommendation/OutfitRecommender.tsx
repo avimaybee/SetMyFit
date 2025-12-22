@@ -17,7 +17,7 @@ interface OutfitRecommenderProps {
 }
 
 interface OrganizedOutfit {
-    coreTop?: ClothingItem;
+    coreTops: ClothingItem[];  // Array to support layered tops
     coreBottom?: ClothingItem;
     coreShoes?: ClothingItem;
     outerwear?: ClothingItem;
@@ -41,7 +41,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
     const [showReasoning, setShowReasoning] = useState(true);
 
     const displaySet: OrganizedOutfit = useMemo(() => {
-        const set: OrganizedOutfit = { accessories: [] };
+        const set: OrganizedOutfit = { coreTops: [], accessories: [] };
 
         // Deep copy to avoid mutation
         // Normalize incoming items' category values so DB variations don't break UI logic
@@ -79,7 +79,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
             return { ...itm, category: resolved } as ClothingItem;
         };
 
-        const sourceItems = suggestedOutfit ? suggestedOutfit.items.map(normalizeCategory) : items.map(normalizeCategory);
+        const sourceItems = suggestedOutfit ? [...suggestedOutfit.items.map(normalizeCategory)] : [...items.map(normalizeCategory)];
 
         const extract = (cat: ClothingType) => {
             const idx = sourceItems.findIndex(i => i.category === cat);
@@ -90,8 +90,20 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
             return undefined;
         };
 
+        // Extract ALL tops (for layered looks - base tee + overshirt + jacket)
+        const extractAll = (cat: ClothingType): ClothingItem[] => {
+            const items: ClothingItem[] = [];
+            let idx = sourceItems.findIndex(i => i.category === cat);
+            while (idx !== -1) {
+                const [item] = sourceItems.splice(idx, 1);
+                items.push(item);
+                idx = sourceItems.findIndex(i => i.category === cat);
+            }
+            return items;
+        };
+
         // Priority extraction based on category
-        set.coreTop = extract('Top');
+        set.coreTops = extractAll('Top');  // Get ALL tops for layering
         set.coreBottom = extract('Bottom');
         set.coreShoes = extract('Shoes');
         set.outerwear = extract('Outerwear');
@@ -100,9 +112,12 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
         set.accessories = sourceItems.filter(i => i.category === 'Accessory');
 
         // Fallback for empty state (Home Screen initial) OR partial outfit - search normalized incoming items
-        if (items.length > 0 && (!set.coreTop || !set.coreBottom || !set.coreShoes)) {
+        if (items.length > 0 && (set.coreTops.length === 0 || !set.coreBottom || !set.coreShoes)) {
             const normalized = items.map(normalizeCategory);
-            if (!set.coreTop) set.coreTop = normalized.find(i => i.category === 'Top');
+            if (set.coreTops.length === 0) {
+                const foundTop = normalized.find(i => i.category === 'Top');
+                if (foundTop) set.coreTops = [foundTop];
+            }
             if (!set.coreBottom) set.coreBottom = normalized.find(i => i.category === 'Bottom');
             if (!set.coreShoes) set.coreShoes = normalized.find(i => i.category === 'Shoes');
         }
@@ -112,7 +127,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
 
     const getCurrentItems = () => {
         const list: ClothingItem[] = [];
-        if (displaySet.coreTop) list.push(displaySet.coreTop);
+        if (displaySet.coreTops.length > 0) list.push(...displaySet.coreTops);
         if (displaySet.coreBottom) list.push(displaySet.coreBottom);
         if (displaySet.coreShoes) list.push(displaySet.coreShoes);
         if (displaySet.outerwear) list.push(displaySet.outerwear);
@@ -183,6 +198,18 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
     const normalizedItems = items.map(normalizeCategoryForList);
     const coreCategoriesPresent = new Set(normalizedItems.filter(i => ['Top', 'Bottom', 'Shoes'].includes(i.category)).map(i => i.category));
 
+    // FIX 3: Loading state - show skeleton when wardrobe hasn't loaded yet
+    if (items.length === 0) {
+        return (
+            <RetroWindow title="OUTFIT_GEN.EXE" className="h-full flex items-center justify-center text-center p-6">
+                <div className="flex flex-col items-center gap-4">
+                    <Loader2 size={48} className="animate-spin text-[#FF99C8]" />
+                    <p className="font-mono text-sm">LOADING WARDROBE DATA...</p>
+                </div>
+            </RetroWindow>
+        );
+    }
+
     if (coreCategoriesPresent.size < 3) {
         return (
             <RetroWindow title="OUTFIT_GEN.EXE" className="h-full flex items-center justify-center text-center p-6">
@@ -195,10 +222,10 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
         );
     }
 
-    const { coreTop, coreBottom, coreShoes, outerwear, accessories } = displaySet;
+    const { coreTops, coreBottom, coreShoes, outerwear, accessories } = displaySet;
 
     // If a core slot is missing after all fallback attempts, show helpful message instead of rendering nothing
-    if (!coreTop || !coreBottom || !coreShoes) {
+    if (coreTops.length === 0 || !coreBottom || !coreShoes) {
         return (
             <RetroWindow title="OUTFIT_GEN.EXE" className="h-full flex items-center justify-center text-center p-6">
                 <div>
@@ -283,38 +310,45 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                         </div>
                     </div>
 
-                    {/* Center: Core Items */}
-                    <div className="flex flex-col gap-2 md:gap-3 items-center justify-center h-full w-full">
-                        {/* Top */}
-                        <div
-                            className="relative group w-full max-w-[160px] md:max-w-[220px] cursor-pointer transition-transform hover:-translate-y-1"
-                            onClick={() => !lockedItems.includes(coreTop.id) && openSwapModal('Top')}
-                        >
-                            <span className="absolute -top-2 left-1/2 -translate-x-1/2 z-20 font-mono text-[8px] md:text-[9px] font-bold bg-[#A0C4FF] border border-black px-1 shadow-sm">CORE TOP</span>
-                            <div className={`w-full aspect-square border-2 bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] md:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] overflow-hidden relative z-10 ${lockedItems.includes(coreTop.id) ? 'border-red-500' : 'border-black'}`}>
-                                <RetroImage src={coreTop.image_url} alt={coreTop.name || 'Top'} containerClassName="w-full h-full border-0" />
-
-                                {/* Lock Button */}
+                    {/* Center: Core Items (Tops + Bottom) */}
+                    <div className="flex flex-col gap-2 md:gap-3 items-center justify-center h-full w-full overflow-y-auto no-scrollbar py-2">
+                        {/* Tops - Render all for layered looks */}
+                        <div className="flex flex-col gap-2 w-full max-w-[160px] md:max-w-[220px]">
+                            {coreTops.map((top, index) => (
                                 <div
-                                    className="absolute top-1 left-1 bg-white border border-black p-1 z-30 hover:bg-gray-100"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onToggleLock?.(coreTop.id);
-                                    }}
+                                    key={top.id}
+                                    className="relative group w-full cursor-pointer transition-transform hover:-translate-y-1"
+                                    onClick={() => !lockedItems.includes(top.id) && openSwapModal('Top')}
                                 >
-                                    {lockedItems.includes(coreTop.id) ? <Lock size={12} className="text-red-500" /> : <Unlock size={12} className="text-gray-400" />}
-                                </div>
+                                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 z-20 font-mono text-[8px] md:text-[9px] font-bold bg-[#A0C4FF] border border-black px-1 shadow-sm">
+                                        {coreTops.length > 1 ? `LAYER ${index + 1}` : 'CORE TOP'}
+                                    </span>
+                                    <div className={`w-full ${index === 0 ? 'aspect-square' : 'aspect-[4/3]'} border-2 bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] md:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] overflow-hidden relative z-10 ${lockedItems.includes(top.id) ? 'border-red-500' : 'border-black'}`}>
+                                        <RetroImage src={top.image_url} alt={top.name || 'Top'} containerClassName="w-full h-full border-0" />
 
-                                <div className="absolute top-1 right-1 bg-[#FDFFB6] border-2 border-black p-1 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-1">
-                                    <RefreshCcw size={12} />
+                                        {/* Lock Button */}
+                                        <div
+                                            className="absolute top-1 left-1 bg-white border border-black p-1 z-30 hover:bg-gray-100"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onToggleLock?.(top.id);
+                                            }}
+                                        >
+                                            {lockedItems.includes(top.id) ? <Lock size={12} className="text-red-500" /> : <Unlock size={12} className="text-gray-400" />}
+                                        </div>
+
+                                        <div className="absolute top-1 right-1 bg-[#FDFFB6] border-2 border-black p-1 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-1">
+                                            <RefreshCcw size={12} />
+                                        </div>
+                                        <div className="absolute bottom-1 left-1 bg-white/80 backdrop-blur border border-black px-1 text-[9px] font-mono font-bold flex items-center gap-1">
+                                            <Thermometer size={8} /> {top.insulation_value}
+                                        </div>
+                                    </div>
+                                    <div className="bg-black text-white font-mono text-[9px] md:text-[10px] text-center border-2 border-black border-t-0 py-1 truncate px-2 relative z-10">
+                                        {top.name}
+                                    </div>
                                 </div>
-                                <div className="absolute bottom-1 left-1 bg-white/80 backdrop-blur border border-black px-1 text-[9px] font-mono font-bold flex items-center gap-1">
-                                    <Thermometer size={8} /> {coreTop.insulation_value}
-                                </div>
-                            </div>
-                            <div className="bg-black text-white font-mono text-[9px] md:text-[10px] text-center border-2 border-black border-t-0 py-1 truncate px-2 relative z-10">
-                                {coreTop.name}
-                            </div>
+                            ))}
                         </div>
 
                         {/* Bottom */}
