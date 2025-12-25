@@ -9,10 +9,10 @@ import { Profile, ApiResponse } from '@/lib/types';
 export async function GET(_request: NextRequest): Promise<NextResponse<ApiResponse<Profile>>> {
   try {
     const supabase = await createClient();
-    
+
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -40,9 +40,9 @@ export async function GET(_request: NextRequest): Promise<NextResponse<ApiRespon
     });
   } catch (error) {
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Internal server error' 
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error'
       },
       { status: 500 }
     );
@@ -56,10 +56,10 @@ export async function GET(_request: NextRequest): Promise<NextResponse<ApiRespon
 export async function PUT(request: NextRequest): Promise<NextResponse<ApiResponse<Profile>>> {
   try {
     const supabase = await createClient();
-    
+
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -69,10 +69,10 @@ export async function PUT(request: NextRequest): Promise<NextResponse<ApiRespons
 
     // Parse request body
     const body = await request.json();
-    
+
     // Build update object
     const updates: Partial<Profile> = {};
-    
+
     if (body.name !== undefined) updates.name = body.name;
     if (body.region !== undefined) updates.region = body.region;
     if (body.full_body_model_url !== undefined) updates.full_body_model_url = body.full_body_model_url;
@@ -100,9 +100,9 @@ export async function PUT(request: NextRequest): Promise<NextResponse<ApiRespons
     });
   } catch (error) {
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Internal server error' 
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error'
       },
       { status: 500 }
     );
@@ -116,11 +116,12 @@ export async function PUT(request: NextRequest): Promise<NextResponse<ApiRespons
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse<Profile>>> {
   try {
     const supabase = await createClient();
-    
+
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
+      console.log('POST /api/settings/profile - Auth error:', authError?.message);
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -129,76 +130,69 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 
     // Parse request body
     const body = await request.json();
-    
-    // Check if profile exists
-    const { data: existingProfile } = await supabase
+    console.log('POST /api/settings/profile - User:', user.id);
+    console.log('POST /api/settings/profile - Body:', JSON.stringify(body, null, 2));
+
+    // Build the upsert data - only include fields that exist in the table
+    const profileData: Record<string, unknown> = {
+      id: user.id,
+    };
+
+    // Handle name
+    if (body.name) {
+      profileData.name = body.name;
+    }
+
+    // Handle preferences - store in style_preferences column
+    if (body.preferences) {
+      profileData.style_preferences = body.preferences;
+      // Extract gender from preferences if present
+      if (body.preferences.gender) {
+        profileData.gender = body.preferences.gender;
+      }
+    }
+
+    // Handle direct gender field
+    if (body.gender) {
+      profileData.gender = body.gender;
+    }
+
+    console.log('POST /api/settings/profile - Upserting:', JSON.stringify(profileData, null, 2));
+
+    // Use upsert to handle both insert and update
+    const { data, error } = await supabase
       .from('profiles')
-      .select('id')
-      .eq('id', user.id)
+      .upsert(profileData, {
+        onConflict: 'id',
+        ignoreDuplicates: false
+      })
+      .select()
       .single();
 
-    if (existingProfile) {
-      // Update existing profile
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({
-          name: body.name,
-          preferences: body.preferences,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', user.id)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Profile update error:', error);
-        return NextResponse.json(
-          { success: false, error: error.message },
-          { status: 500 }
-        );
-      }
-
-      return NextResponse.json({
-        success: true,
-        data: data as Profile,
-        message: 'Profile updated successfully',
-      });
-    } else {
-      // Create new profile
-      const { data, error } = await supabase
-        .from('profiles')
-        .insert({
-          id: user.id,
-          name: body.name,
-          preferences: body.preferences,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Profile creation error:', error);
-        return NextResponse.json(
-          { success: false, error: error.message },
-          { status: 500 }
-        );
-      }
-
-      return NextResponse.json({
-        success: true,
-        data: data as Profile,
-        message: 'Profile created successfully',
-      });
+    if (error) {
+      console.error('Profile upsert error:', error);
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 }
+      );
     }
+
+    console.log('POST /api/settings/profile - Success:', data?.id);
+
+    return NextResponse.json({
+      success: true,
+      data: data as Profile,
+      message: 'Profile saved successfully',
+    });
   } catch (error) {
     console.error('POST /api/settings/profile error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Internal server error' 
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error'
       },
       { status: 500 }
     );
   }
 }
+

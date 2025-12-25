@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { RefreshCcw, ThumbsUp, CheckCircle, Sparkles, Loader2, BrainCircuit, ChevronDown, ChevronUp, Thermometer, Lock, Unlock } from 'lucide-react';
+import { RefreshCcw, ThumbsUp, CheckCircle, Sparkles, Loader2, BrainCircuit, ChevronDown, ChevronUp, Thermometer, Lock, Unlock, Upload } from 'lucide-react';
 import { RetroWindow, RetroButton, RetroBadge, RetroImage } from '../retro-ui';
 import { ClothingItem, Outfit, ClothingType } from '@/types/retro';
 
@@ -14,6 +14,8 @@ interface OutfitRecommenderProps {
     lockedItems?: string[];
     onToggleLock?: (itemId: string) => void;
     isLogging?: boolean;
+    isLoadingWardrobe?: boolean;  // NEW: Distinguish loading from empty
+    onNavigateToWardrobe?: () => void;  // NEW: Action for empty state
 }
 
 interface OrganizedOutfit {
@@ -34,7 +36,9 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
     onOutfitChange,
     lockedItems = [],
     onToggleLock,
-    isLogging = false
+    isLogging = false,
+    isLoadingWardrobe = false,
+    onNavigateToWardrobe
 }) => {
     const [isSwapping, setIsSwapping] = useState(false);
     const [activeSwapCategory, setActiveSwapCategory] = useState<ClothingType | null>(null);
@@ -198,8 +202,8 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
     const normalizedItems = items.map(normalizeCategoryForList);
     const coreCategoriesPresent = new Set(normalizedItems.filter(i => ['Top', 'Bottom', 'Shoes'].includes(i.category)).map(i => i.category));
 
-    // FIX 3: Loading state - show skeleton when wardrobe hasn't loaded yet
-    if (items.length === 0) {
+    // Show loading spinner ONLY when actually loading
+    if (isLoadingWardrobe) {
         return (
             <RetroWindow title="OUTFIT_GEN.EXE" className="h-full flex items-center justify-center text-center p-6">
                 <div className="flex flex-col items-center gap-4">
@@ -210,13 +214,59 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
         );
     }
 
+    // Empty wardrobe - show welcoming onboarding prompt
+    if (items.length === 0) {
+        return (
+            <RetroWindow title="OUTFIT_GEN.EXE" className="h-full flex items-center justify-center text-center p-6">
+                <div className="flex flex-col items-center gap-6 max-w-sm">
+                    <div className="w-20 h-20 bg-[#CAFFBF] border-2 border-black rounded-full flex items-center justify-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                        <Sparkles size={40} className="text-black" />
+                    </div>
+                    <div>
+                        <h2 className="font-black text-2xl mb-2">WELCOME!</h2>
+                        <p className="font-mono text-sm text-gray-600">
+                            Your wardrobe is empty. Upload some clothing items to get personalized AI outfit recommendations.
+                        </p>
+                    </div>
+                    <RetroButton 
+                        onClick={onNavigateToWardrobe}
+                        className="flex items-center gap-2"
+                    >
+                        <Upload size={16} /> ADD YOUR FIRST ITEM
+                    </RetroButton>
+                </div>
+            </RetroWindow>
+        );
+    }
+
     if (coreCategoriesPresent.size < 3) {
         return (
             <RetroWindow title="OUTFIT_GEN.EXE" className="h-full flex items-center justify-center text-center p-6">
-                <div>
-                    <h2 className="font-black text-xl mb-2">NOT ENOUGH CORE ITEMS</h2>
-                    <p className="font-mono text-sm mb-4">Your wardrobe needs at least one Top, one Bottom, and one pair of Shoes to generate outfits. Found: {Array.from(coreCategoriesPresent).join(', ') || 'none'}.</p>
-                    <RetroButton>GO TO WARDROBE</RetroButton>
+                <div className="flex flex-col items-center gap-4 max-w-sm">
+                    <h2 className="font-black text-xl mb-2">ALMOST THERE!</h2>
+                    <p className="font-mono text-sm mb-2">
+                        To generate complete outfits, you need at least one item from each core category:
+                    </p>
+                    <div className="flex gap-2 flex-wrap justify-center mb-2">
+                        {(['Top', 'Bottom', 'Shoes'] as ClothingType[]).map(cat => (
+                            <span 
+                                key={cat}
+                                className={`px-2 py-1 text-xs font-mono border-2 border-black ${
+                                    coreCategoriesPresent.has(cat) 
+                                        ? 'bg-[#CAFFBF]' 
+                                        : 'bg-[#FF99C8]'
+                                }`}
+                            >
+                                {cat.toUpperCase()} {coreCategoriesPresent.has(cat) ? '✓' : '✗'}
+                            </span>
+                        ))}
+                    </div>
+                    <p className="font-mono text-xs text-gray-500">
+                        Found: {Array.from(coreCategoriesPresent).join(', ') || 'none'}
+                    </p>
+                    <RetroButton onClick={onNavigateToWardrobe} className="flex items-center gap-2">
+                        <Upload size={16} /> ADD MISSING ITEMS
+                    </RetroButton>
                 </div>
             </RetroWindow>
         );

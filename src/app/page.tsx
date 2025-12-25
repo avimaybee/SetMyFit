@@ -54,26 +54,62 @@ const createRecommendationSkeleton = (): RecommendationApiPayload => ({
   },
 });
 
-const mapClothingItem = (item: IClothingItem): ClothingItem => ({
-  id: item.id.toString(),
-  name: item.name,
-  category: item.type as ClothingType,
-  type: item.category || item.type,
-  color: item.color || "Unknown",
-  image_url: item.image_url,
-  insulation_value: item.insulation_value || 0,
-  season_tags: [],
-  style_tags: [],
-  material: "Unknown",
-  dress_code: [],
-  wear_count: 0,
-  last_worn: null,
-  is_favorite: false,
-  created_at: new Date().toISOString(),
-});
+// Normalize backend type to UI-compatible ClothingType
+const normalizeToUIType = (type?: string | null): ClothingType => {
+  if (!type) return 'Top';
+  const normalized = type.toLowerCase().trim();
+
+  switch (normalized) {
+    case 'footwear':
+    case 'shoes':
+      return 'Shoes';
+    case 'outerwear':
+    case 'jacket':
+    case 'coat':
+      return 'Outerwear';
+    case 'bottom':
+    case 'bottoms':
+    case 'pants':
+    case 'trousers':
+      return 'Bottom';
+    case 'accessory':
+    case 'headwear':
+    case 'hat':
+      return 'Accessory';
+    case 'dress':
+      return 'Dress';
+    case 'top':
+    case 'tops':
+    case 'shirt':
+    default:
+      return 'Top';
+  }
+};
+
+const mapClothingItem = (item: IClothingItem): ClothingItem => {
+  const uiCategory = normalizeToUIType(item.type);
+
+  return {
+    id: item.id.toString(),
+    name: item.name,
+    category: uiCategory,           // Normalized for UI consumption
+    type: item.type || uiCategory,  // Preserve original type for debugging
+    color: item.color || "Unknown",
+    image_url: item.image_url,
+    insulation_value: item.insulation_value || 0,
+    season_tags: item.season_tags || [],
+    style_tags: item.style_tags || [],
+    material: item.material || "Unknown",
+    dress_code: Array.isArray(item.dress_code) ? item.dress_code : [],
+    wear_count: item.wear_count || 0,
+    last_worn: item.last_worn || null,
+    is_favorite: item.favorite || false,
+    created_at: item.created_at || new Date().toISOString(),
+  };
+};
 
 export default function HomePage() {
-  const _router = _useRouter();
+  const router = _useRouter();
   const [location, setLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [recommendationData, setRecommendationData] = useState<RecommendationApiPayload | null>(null);
   const [hasBootstrappedContent, setHasBootstrappedContent] = useState(false);
@@ -89,6 +125,7 @@ export default function HomePage() {
   const [isLoggingOutfit, setIsLoggingOutfit] = useState(false);
   const [isRestored, setIsRestored] = useState(false);
   const [weatherRefreshInFlight, setWeatherRefreshInFlight] = useState(false);
+  const [isWardrobeLoading, setIsWardrobeLoading] = useState(true);
 
   // Restore state from session storage on mount
   useEffect(() => {
@@ -132,6 +169,7 @@ export default function HomePage() {
   useEffect(() => {
     if (isAuthenticated) {
       const fetchWardrobe = async () => {
+        setIsWardrobeLoading(true);
         try {
           const res = await fetch('/api/wardrobe');
           const json = await res.json();
@@ -142,6 +180,8 @@ export default function HomePage() {
           }
         } catch (e) {
           console.error("Failed to fetch wardrobe", e);
+        } finally {
+          setIsWardrobeLoading(false);
         }
       };
       fetchWardrobe();
@@ -291,7 +331,8 @@ export default function HomePage() {
       } else {
         setError(data.message || "Failed to fetch recommendation");
         if (data.needsWardrobe) {
-          // Handle needs wardrobe case
+          // Don't treat this as an error - user just needs to add items
+          setHasBootstrappedContent(true);  // Stop showing skeleton
         }
       }
     } catch (_err) {
@@ -445,6 +486,10 @@ export default function HomePage() {
     });
   };
 
+  const handleNavigateToWardrobe = () => {
+    router.push('/wardrobe');
+  };
+
   useEffect(() => {
     if (recommendationData && !hasBootstrappedContent) {
       setHasBootstrappedContent(true);
@@ -478,6 +523,8 @@ export default function HomePage() {
             lockedItems={lockedItems}
             onToggleLock={handleToggleLock}
             isLogging={isLoggingOutfit}
+            isLoadingWardrobe={isWardrobeLoading}
+            onNavigateToWardrobe={handleNavigateToWardrobe}
           />
         )}
       </div>
