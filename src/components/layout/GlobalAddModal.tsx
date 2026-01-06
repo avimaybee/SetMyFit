@@ -75,6 +75,8 @@ export const GlobalAddModal: React.FC = () => {
                 insulation_value: item.insulation_value,
                 is_favorite: item.is_favorite,
                 style_tags: item.style_tags,
+                pattern: item.pattern,
+                fit: item.fit,
             };
 
             const response = await fetch("/api/wardrobe", {

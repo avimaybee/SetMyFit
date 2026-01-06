@@ -180,10 +180,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       dressCode = validBody.dress_code as string[];
     }
 
-    // Build new item - only include columns that exist in the database schema
-    // Schema shows: user_id, name, type, category, color, material, insulation_value,
-    //   image_url, season_tags, style_tags, dress_code, description, wear_count, is_favorite
-    // Note: pattern, fit, style, occasion, last_worn_date do NOT exist in schema
+    // Build new item - include all columns that exist in the database schema
     const newItem = {
       user_id: user.id,
       name: validBody.name,
@@ -192,11 +189,15 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       color: validBody.color || null,
       material: normalizedMaterial,
       insulation_value: validBody.insulation_value ?? 5,
-      image_url: validBody.image_url || null,
+      image_url: validBody.image_url,
       season_tags: normalizedSeasonTags,
       style_tags: validBody.style_tags || null,
       dress_code: dressCode,
       description: validBody.description || null,
+      pattern: validBody.pattern || null,
+      fit: validBody.fit || null,
+      style: validBody.style || null,
+      occasion: validBody.occasion || null,
     };
 
     if (process.env.NODE_ENV === 'development') {
