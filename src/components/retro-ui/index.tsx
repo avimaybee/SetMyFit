@@ -310,6 +310,7 @@ export const RetroImage: React.FC<RetroImageProps> = ({
           className={`object-cover transition-opacity duration-300 ${status === 'loaded' ? 'opacity-100' : 'opacity-0'} ${className}`}
           onLoadingComplete={() => setStatus('loaded')}
           onError={() => setStatus('error')}
+          unoptimized
         />
       </div>
 

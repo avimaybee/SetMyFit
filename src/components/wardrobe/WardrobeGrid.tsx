@@ -49,7 +49,6 @@ export const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onAddItem, on
     });
 
     const handleOpenEdit = (item: ClothingItem) => {
-        console.log('handleOpenEdit:', item.id, item);
         setEditingId(item.id);
         onOpenAdd();
     };
@@ -93,8 +92,6 @@ export const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onAddItem, on
     }
 
     const editingItem = editingId ? items.find(i => i.id === editingId) : null;
-
-    console.log('WardrobeGrid Render:', { editingId, editingItem, isAdding });
 
     return (
         <div className="flex flex-col h-full relative">

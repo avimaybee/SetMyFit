@@ -23,7 +23,7 @@ export interface Profile {
 // Clothing Item Types (Enhanced for Task 1.1)
 // ============================================================================
 
-export type ClothingType = 
+export type ClothingType =
   | 'Outerwear'
   | 'Top'
   | 'Bottom'
@@ -31,7 +31,7 @@ export type ClothingType =
   | 'Accessory'
   | 'Headwear';
 
-export type ClothingMaterial = 
+export type ClothingMaterial =
   | 'Cotton'
   | 'Wool'
   | 'Synthetic'
@@ -44,7 +44,7 @@ export type ClothingMaterial =
   | 'Polyester'
   | 'Nylon';
 
-export type DressCode = 
+export type DressCode =
   | 'Casual'
   | 'Business Casual'
   | 'Formal'
@@ -197,7 +197,7 @@ export interface RecommendationApiPayload {
     id?: string | number | null;
     outfit_visual_urls?: string[];
   };
-  weather: WeatherData;
+  weather: WeatherData | null; // Now nullable since weather is optional
   alerts: WeatherAlert[];
 }
 

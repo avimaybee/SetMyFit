@@ -10,141 +10,99 @@ interface SettingsPageProps {
 }
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout, preferences, onUpdate }) => {
-    const availableVibes = ['Streetwear', 'Vintage', 'Minimalist', 'Y2K', 'Gorpcore', 'Business', 'Techwear'];
-
-    const toggleVibe = (vibe: string) => {
-        const current = preferences.preferred_styles || [];
-        if (current.includes(vibe)) {
-            onUpdate({ preferred_styles: current.filter(v => v !== vibe) });
-        } else {
-            onUpdate({ preferred_styles: [...current, vibe] });
-        }
-    };
 
     return (
-        <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            {/* Algorithm Tuning Column */}
-            <div className="flex flex-col gap-6">
-                <RetroWindow title="ALGORITHM_TUNING.CFG" icon={<Sliders size={14} />}>
-                    <div className="space-y-6 p-2">
-                        <div className="bg-[var(--accent-yellow)] border border-[var(--border)] p-3 text-xs font-mono text-[var(--text)] mb-4">
-                            Adjusting these values will directly impact the recommendation engine&apos;s output variance.
-                        </div>
+        <div className="max-w-2xl mx-auto flex flex-col gap-6">
 
-                        <RetroSlider 
-                            label="Repeat Avoidance (Days)" 
-                            min="0" max="30" 
+            {/* Algorithm Tuning */}
+            <RetroWindow title="ALGORITHM_TUNING.CFG" icon={<Sliders size={14} />}>
+                <div className="space-y-6 p-4">
+                    <div className="bg-[var(--accent-yellow)] border border-[var(--border)] p-3 text-xs font-mono text-[var(--text)]">
+                        These settings control how the AI selects outfits from your wardrobe.
+                    </div>
+
+                    <div>
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="font-bold font-mono text-xs uppercase text-[var(--text)]">
+                                Repeat Avoidance
+                            </label>
+                            <span className="font-mono text-sm font-bold text-[var(--text)] bg-[var(--bg-secondary)] px-2 py-1 border border-[var(--border)]">
+                                {preferences.repeat_interval || 0} days
+                            </span>
+                        </div>
+                        <RetroSlider
+                            label=""
+                            min="0" max="30"
                             value={preferences.repeat_interval || 0}
                             onChange={(e) => onUpdate({ repeat_interval: parseInt(e.target.value) })}
-                            minLabel="Ignore" maxLabel="Strict"
+                            minLabel="0 days" maxLabel="30 days"
                         />
+                        <p className="text-[10px] font-mono text-[var(--text-muted)] mt-1">
+                            Avoid suggesting items worn within this many days
+                        </p>
+                    </div>
+                </div>
+            </RetroWindow>
 
-                        <RetroSlider 
-                            label="Style Flexibility" 
-                            min="0" max="100" 
-                            value={preferences.style_strictness || 50}
-                            onChange={(e) => onUpdate({ style_strictness: parseInt(e.target.value) })}
-                            minLabel="Rigid" maxLabel="Chaos"
+            {/* User Profile */}
+            <RetroWindow title="USER_PROFILE" icon={<User size={14} />}>
+                <div className="p-4 space-y-6">
+                    <div>
+                        <label className="font-bold font-mono text-xs uppercase mb-2 block text-[var(--text)]">Gender Context</label>
+                        <p className="text-[10px] font-mono text-[var(--text-muted)] mb-2">
+                            Helps AI understand fit and styling preferences
+                        </p>
+                        <div className="flex border-2 border-[var(--border)] bg-[var(--bg-secondary)]">
+                            {(['MASC', 'FEM', 'NEUTRAL'] as const).map(g => (
+                                <button
+                                    key={g}
+                                    onClick={() => onUpdate({ gender: g })}
+                                    className={`flex-1 py-3 font-mono text-xs font-bold hover:bg-gray-100/10 transition-colors ${preferences.gender === g ? 'bg-[var(--accent-pink)] text-[var(--text)]' : 'text-gray-500'}`}
+                                >
+                                    {g}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </RetroWindow>
+
+            {/* Display Settings */}
+            <RetroWindow title="DISPLAY_SETTINGS" icon={<Monitor size={14} />}>
+                <div className="p-4 space-y-4">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <span className="font-mono text-sm font-bold text-[var(--text)]">HACKER MODE</span>
+                            <p className="text-[10px] font-mono text-[var(--text-muted)]">High-contrast terminal visuals</p>
+                        </div>
+                        <RetroToggle
+                            label=""
+                            checked={preferences.theme === 'HACKER'}
+                            onChange={(c) => onUpdate({ theme: c ? 'HACKER' : 'RETRO' })}
                         />
-
-                        <div className="border-t-2 border-[var(--border)] border-dashed pt-4">
-                            <label className="font-bold font-mono text-xs uppercase mb-2 block text-[var(--text)]">Experimental Features</label>
-                            <div className="space-y-2">
-                                <RetroToggle label="Texture Matching AI" checked={true} onChange={()=>{}} />
-                                <RetroToggle label="Color Theory Enforcement" checked={true} onChange={()=>{}} />
-                            </div>
-                        </div>
                     </div>
-                </RetroWindow>
+                </div>
+            </RetroWindow>
 
-                <RetroWindow title="DISPLAY_SETTINGS" icon={<Monitor size={14} />}>
-                     <div className="p-2 space-y-4">
-                        <div className="flex justify-between items-center">
-                            <span className="font-mono text-sm text-[var(--text)]">HACKER MODE</span>
-                            <RetroToggle 
-                                label="" 
-                                checked={preferences.theme === 'HACKER'} 
-                                onChange={(c) => onUpdate({ theme: c ? 'HACKER' : 'RETRO' })}
-                            />
-                        </div>
-                        <p className="text-[10px] font-mono text-gray-500">Enables high-contrast terminal visuals.</p>
-                     </div>
-                </RetroWindow>
-            </div>
-
-            {/* Style Profile & Account Column */}
-            <div className="flex flex-col gap-6">
-                <RetroWindow title="USER_DNA_PROFILE" icon={<User size={14} />}>
-                    <div className="p-2 space-y-6">
-                        
-                        <div>
-                             <label className="font-bold font-mono text-xs uppercase mb-2 block text-[var(--text)]">Gender Context</label>
-                             <div className="flex border-2 border-[var(--border)] bg-[var(--bg-secondary)]">
-                                {(['MASC', 'FEM', 'NEUTRAL'] as const).map(g => (
-                                    <button 
-                                        key={g}
-                                        onClick={() => onUpdate({ gender: g })}
-                                        className={`flex-1 py-2 font-mono text-xs font-bold hover:bg-gray-100/10 ${preferences.gender === g ? 'bg-[var(--accent-pink)] text-[var(--text)]' : 'text-gray-500'}`}
-                                    >
-                                        {g}
-                                    </button>
-                                ))}
-                             </div>
-                        </div>
-
-                        <div>
-                            <label className="font-bold font-mono text-xs uppercase mb-2 block text-[var(--text)]">Active Aesthetics</label>
-                            <div className="flex flex-wrap gap-2">
-                                {availableVibes.map(vibe => (
-                                    <button
-                                        key={vibe}
-                                        onClick={() => toggleVibe(vibe)}
-                                        className={`
-                                            px-2 py-1 text-xs font-mono border border-[var(--border)] transition-all
-                                            ${preferences.preferred_styles?.includes(vibe) 
-                                                ? 'bg-[var(--accent-yellow)] shadow-[2px_2px_0px_0px_var(--border)] font-bold text-[var(--text)]' 
-                                                : 'bg-[var(--bg-secondary)] hover:bg-gray-100/10 text-gray-500'
-                                            }
-                                        `}
-                                    >
-                                        {vibe}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div>
-                             <label className="font-bold font-mono text-xs uppercase mb-2 block text-[var(--text)]">Core Vibe Description</label>
-                             <textarea 
-                                className="w-full h-24 border-2 border-[var(--border)] p-2 font-mono text-sm bg-[var(--bg-secondary)] text-[var(--text)] resize-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-pink)]"
-                                placeholder="Describe your ideal style (e.g., '90s grunge meets modern utility')..."
-                                defaultValue="Relaxed fits with a focus on utility and comfort. Prefer earth tones."
-                             ></textarea>
-                        </div>
+            {/* System */}
+            <RetroWindow title="SYSTEM" icon={<Database size={14} />}>
+                <div className="p-4 space-y-4">
+                    <div className="flex justify-between items-center font-mono text-xs">
+                        <span className="text-[var(--text)]">Database Status</span>
+                        <span className="text-[var(--accent-green)] font-bold">● ONLINE</span>
                     </div>
-                </RetroWindow>
-
-                <RetroWindow title="SYSTEM_OPTS" icon={<Database size={14} />}>
-                    <div className="p-2 space-y-4">
-                        <div className="flex justify-between items-center font-mono text-xs">
-                            <span className="text-[var(--text)]">Database Sync</span>
-                            <span className="text-[var(--accent-green)] font-bold">ONLINE</span>
-                        </div>
-                        <div className="flex justify-between items-center font-mono text-xs">
-                            <span className="text-[var(--text)]">Version</span>
-                            <span className="text-gray-500">v1.0.6-beta</span>
-                        </div>
-                        <div className="pt-4 border-t-2 border-[var(--border)] border-dashed">
-                            <RetroButton variant="danger" className="w-full flex items-center justify-center gap-2" onClick={onLogout}>
-                                <LogOut size={14} />
-                                DISCONNECT
-                            </RetroButton>
-                        </div>
+                    <div className="flex justify-between items-center font-mono text-xs">
+                        <span className="text-[var(--text)]">Version</span>
+                        <span className="text-[var(--text-muted)]">v2.0.0</span>
                     </div>
-                </RetroWindow>
-            </div>
+                    <div className="pt-4 border-t-2 border-[var(--border)] border-dashed">
+                        <RetroButton variant="danger" className="w-full flex items-center justify-center gap-2" onClick={onLogout}>
+                            <LogOut size={14} />
+                            SIGN OUT
+                        </RetroButton>
+                    </div>
+                </div>
+            </RetroWindow>
         </div>
     );
 };
-

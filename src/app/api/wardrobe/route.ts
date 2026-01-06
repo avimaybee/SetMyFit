@@ -135,12 +135,12 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     // Validate shape with zod
     const schema = z.object({
       name: z.string().min(1),
-      type: z.enum(ALLOWED_TYPES).optional(),
+      type: z.enum(ALLOWED_TYPES as unknown as [string, ...string[]]), // Required - database column is NOT NULL
       category: z.string().nullable().optional(),
       color: z.string().nullable().optional(),
       material: z.string().nullable().optional(),
       insulation_value: z.number().min(0).max(10).optional(),
-      image_url: z.string().optional(), // Removed .url() constraint
+      image_url: z.string().min(1), // Required - database column is NOT NULL
       season_tags: z.array(z.string()).nullable().optional(),
       style_tags: z.array(z.string()).nullable().optional(),
       dress_code: z.array(z.string()).optional(),
@@ -165,10 +165,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     // Normalize material to match database enum
     const normalizedMaterial = normalizeMaterial(validBody.material);
 
-    // Normalize type casing
-    const normalizedType = validBody.type
-      ? String(validBody.type)
-      : null;
+    // Type is now required by schema, so we can safely use it directly
+    const normalizedType = String(validBody.type);
 
     // Validate dress_code items
     let dressCode = ['Casual'];

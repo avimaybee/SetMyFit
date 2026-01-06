@@ -3,10 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter as _useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import type { RecommendationApiPayload, RecommendationDiagnostics, IClothingItem, WeatherData, WeatherAlert } from "@/lib/types";
-import { WeatherWidget, WeatherData as WidgetWeatherData } from "../components/weather-widget";
+import type { RecommendationApiPayload, RecommendationDiagnostics, IClothingItem } from "@/lib/types";
 import { OutfitRecommender, Outfit, ClothingItem, ClothingType } from "../components/outfit-recommendation";
-import { OutfitSkeleton, WeatherSkeleton } from "../components/ui/skeletons";
+import { OutfitSkeleton } from "../components/ui/skeletons";
 import { toast } from "../components/ui/toaster";
 import { MissionControl } from "../components/mission-control";
 import { SystemMsg } from "../components/system-msg";
@@ -21,29 +20,9 @@ type RecommendationApiResponse = {
 };
 
 const RECOMMENDATION_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
-const WEATHER_STALE_THRESHOLD = 15 * 60 * 1000; // 15 minutes
-
-const isWeatherDataStale = (weather?: WeatherData | null) => {
-  if (!weather) return true;
-  if (weather.is_mock) return true;
-  const timestamp = weather.timestamp ? new Date(weather.timestamp).getTime() : 0;
-  if (!Number.isFinite(timestamp) || timestamp <= 0) return true;
-  return Date.now() - timestamp > WEATHER_STALE_THRESHOLD;
-};
 
 const createRecommendationSkeleton = (): RecommendationApiPayload => ({
-  weather: {
-    temperature: 0,
-    feels_like: 0,
-    humidity: 0,
-    wind_speed: 0,
-    uv_index: 0,
-    air_quality_index: 0,
-    pollen_count: 0,
-    weather_condition: "Unknown",
-    timestamp: new Date(),
-    city: "Manual Selection",
-  },
+  weather: null,
   alerts: [],
   recommendation: {
     outfit: [],
@@ -110,21 +89,18 @@ const mapClothingItem = (item: IClothingItem): ClothingItem => {
 
 export default function HomePage() {
   const router = _useRouter();
-  const [location, setLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [recommendationData, setRecommendationData] = useState<RecommendationApiPayload | null>(null);
   const [hasBootstrappedContent, setHasBootstrappedContent] = useState(false);
   const [_error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [_userId, setUserId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [logs, setLogs] = useState<{ message: string; ts: string }[]>([]);
   const [selectedOccasion, setSelectedOccasion] = useState<string>('');
   const [lockedItems, setLockedItems] = useState<string[]>([]);
   const [allWardrobeItems, setAllWardrobeItems] = useState<ClothingItem[]>([]);
   const [rawWardrobeItems, setRawWardrobeItems] = useState<IClothingItem[]>([]);
   const [isLoggingOutfit, setIsLoggingOutfit] = useState(false);
   const [isRestored, setIsRestored] = useState(false);
-  const [weatherRefreshInFlight, setWeatherRefreshInFlight] = useState(false);
   const [isWardrobeLoading, setIsWardrobeLoading] = useState(true);
 
   // Restore state from session storage on mount
@@ -189,28 +165,8 @@ export default function HomePage() {
   }, [isAuthenticated]);
 
   const emitClientLog = useCallback((message: string, context?: Record<string, unknown>) => {
-    const entry = {
-      message,
-      ts: new Date().toISOString(),
-    };
-    setLogs(prev => [...prev.slice(-50), entry]); // Keep last 50 logs
     if (context) console.info(`[setmyfit] ${message}`, context);
     else console.info(`[setmyfit] ${message}`);
-  }, []);
-
-  const upsertWeatherIntoRecommendation = useCallback((weather: WeatherData, alerts: WeatherAlert[] = []) => {
-    setRecommendationData(prev => {
-      const base: RecommendationApiPayload = prev || createRecommendationSkeleton();
-      const updated: RecommendationApiPayload = {
-        ...base,
-        weather,
-        alerts: alerts.length ? alerts : base.alerts,
-      };
-      sessionStorage.setItem("lastRecommendation", JSON.stringify(updated));
-      sessionStorage.setItem("lastRecommendationTimestamp", Date.now().toString());
-      return updated;
-    });
-    setHasBootstrappedContent(true);
   }, []);
 
   useEffect(() => {
@@ -225,74 +181,7 @@ export default function HomePage() {
     checkAuth();
   }, []);
 
-  const requestLocation = useCallback(() => {
-    setError(null);
-    emitClientLog('location:request:start');
-
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const coords = {
-            lat: position.coords.latitude,
-            lon: position.coords.longitude,
-          };
-          emitClientLog('location:request:success', coords);
-          setLocation(coords);
-          localStorage.setItem("userLocation", JSON.stringify(coords));
-        },
-        (error) => {
-          let errorMsg = "Location access denied";
-          if (error.code === 1) errorMsg = "Location permission denied";
-          if (error.code === 2) errorMsg = "Location unavailable";
-          if (error.code === 3) errorMsg = "Location timeout";
-          emitClientLog('location:request:error', { code: error.code, message: errorMsg });
-
-          const defaultLocation = { lat: 40.7128, lon: -74.0060 };
-          setLocation(defaultLocation);
-          toast(`${errorMsg}. Using New York instead.`, { icon: "⚠️" });
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-    } else {
-      const defaultLocation = { lat: 40.7128, lon: -74.0060 };
-      setLocation(defaultLocation);
-      toast("Geolocation not supported. Using New York.", { icon: "📍" });
-    }
-  }, [emitClientLog]);
-
-  useEffect(() => {
-    requestLocation();
-  }, [requestLocation]);
-
-  const refreshWeather = useCallback(async () => {
-    if (!location || weatherRefreshInFlight) return;
-    setWeatherRefreshInFlight(true);
-    emitClientLog('weather:refresh:start', { location });
-
-    try {
-      const params = new URLSearchParams({
-        lat: location.lat.toString(),
-        lon: location.lon.toString(),
-      });
-      const res = await fetch(`/api/weather?${params.toString()}`, { cache: 'no-store' });
-      const payload = await res.json();
-
-      if (res.ok && payload.success && payload.data?.weather) {
-        upsertWeatherIntoRecommendation(payload.data.weather as WeatherData, payload.data.alerts || []);
-        emitClientLog('weather:refresh:success', { provider: payload.data.weather.provider });
-      } else {
-        emitClientLog('weather:refresh:error', { status: res.status, body: payload });
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      emitClientLog('weather:refresh:error', { error: message });
-    } finally {
-      setWeatherRefreshInFlight(false);
-    }
-  }, [emitClientLog, location, upsertWeatherIntoRecommendation, weatherRefreshInFlight]);
-
   const fetchRecommendation = useCallback(async () => {
-    if (!location) return;
     setHasBootstrappedContent(true);
     setIsGenerating(true);
     try {
@@ -305,7 +194,6 @@ export default function HomePage() {
       }
 
       const payload = {
-        ...location,
         occasion: selectedOccasion,
         lockedItems: lockedItems
       };
@@ -319,12 +207,6 @@ export default function HomePage() {
       const data: RecommendationApiResponse = await res.json();
 
       if (data.success && data.data) {
-        console.log('🔍 Recommendation response received:', {
-          hasWeather: !!data.data.weather,
-          weatherData: data.data.weather,
-          weatherTemp: data.data.weather?.temperature,
-          weatherCity: data.data.weather?.city,
-        });
         setRecommendationData(data.data);
         sessionStorage.setItem("lastRecommendation", JSON.stringify(data.data));
         sessionStorage.setItem("lastRecommendationTimestamp", Date.now().toString());
@@ -340,7 +222,7 @@ export default function HomePage() {
     } finally {
       setIsGenerating(false);
     }
-  }, [location, selectedOccasion, lockedItems]);
+  }, [selectedOccasion, lockedItems]);
 
   const handleLogOutfit = useCallback(async (items: ClothingItem[]) => {
     if (!items.length || isLoggingOutfit) return;
@@ -377,35 +259,10 @@ export default function HomePage() {
   }, [emitClientLog, isLoggingOutfit]);
 
   useEffect(() => {
-    if (isRestored && location && !recommendationData && isAuthenticated) {
+    if (isRestored && !recommendationData && isAuthenticated) {
       fetchRecommendation();
     }
-  }, [isRestored, location, fetchRecommendation, recommendationData, isAuthenticated]);
-
-  useEffect(() => {
-    if (!isRestored || !location || !isAuthenticated) return;
-    if (weatherRefreshInFlight) return;
-    if (!isWeatherDataStale(recommendationData?.weather)) return;
-    refreshWeather();
-  }, [isRestored, location, isAuthenticated, recommendationData, refreshWeather, weatherRefreshInFlight]);
-
-  // Map data to new UI types
-  const weatherData: WidgetWeatherData = {
-    temp: recommendationData?.weather?.temperature || 0,
-    condition: recommendationData?.weather?.weather_condition || "Unknown",
-    city: recommendationData?.weather?.city || "Current Location",
-    humidity: recommendationData?.weather?.humidity || 0,
-    wind: recommendationData?.weather?.wind_speed || 0,
-  };
-
-  // Debug: Log what the widget is actually receiving
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🎨 Weather Widget Data:', {
-      raw: recommendationData?.weather,
-      mapped: weatherData,
-      usingFallback: !recommendationData?.weather?.temperature,
-    });
-  }
+  }, [isRestored, fetchRecommendation, recommendationData, isAuthenticated]);
 
   let parsedReasoning = {
     weatherMatch: recommendationData?.recommendation?.reasoning || "AI Optimized",
@@ -427,13 +284,6 @@ export default function HomePage() {
       parsedReasoning.layeringStrategy = recommendationData.recommendation.detailed_reasoning;
     }
   }
-
-  const _suggestedOutfit: Outfit | null = recommendationData?.recommendation ? {
-    id: recommendationData.recommendation.id?.toString() || "temp-id",
-    outfit_date: new Date().toISOString(),
-    items: recommendationData.recommendation.outfit.map(mapClothingItem),
-    reasoning: parsedReasoning
-  } : null;
 
   const handleOutfitChange = (newItems: ClothingItem[]) => {
     // Map UI items back to IClothingItem using rawWardrobeItems
@@ -512,7 +362,7 @@ export default function HomePage() {
               id: "generated",
               outfit_date: new Date().toISOString(),
               items: recommendationData.recommendation.outfit.map(mapClothingItem),
-              weather_snapshot: weatherData as unknown as Record<string, unknown>,
+              weather_snapshot: {},
               reasoning: parsedReasoning
             } : null}
             isGenerating={isGenerating}
@@ -532,21 +382,9 @@ export default function HomePage() {
       {/* Right Panel: Widgets */}
       <div className="flex flex-col gap-4 h-full">
 
-        {/* Weather Widget */}
-        <div className="h-48">
-          {!shouldShowSkeleton ? (
-            <WeatherWidget data={weatherData} />
-          ) : (
-            <WeatherSkeleton />
-          )}
-        </div>
-
         {/* System Messages */}
         <div className="flex-1">
           <SystemMsg
-            logs={logs}
-            location={weatherData?.city}
-            season="Autumn"
             itemCount={allWardrobeItems.length}
           />
         </div>

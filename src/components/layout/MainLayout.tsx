@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Shirt, BarChart3, Clock, Settings, LayoutTemplate, Plus, User } from 'lucide-react';
+import { Home, Shirt, BarChart3, Clock, Settings, Plus, User } from 'lucide-react';
 import { RetroButton } from '../retro-ui';
 import { createClient } from '@/lib/supabase/client';
 import { useAddItem } from '@/contexts/AddItemContext';
@@ -32,7 +32,6 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
     const navItems = [
         { href: '/', icon: <Home size={20} />, label: 'Home', color: 'text-blue-600' },
         { href: '/wardrobe', icon: <Shirt size={20} />, label: 'Wardrobe', color: 'text-pink-500' },
-        { href: '/templates', icon: <LayoutTemplate size={20} />, label: 'Plans', color: 'text-purple-500' },
         { href: '/stats', icon: <BarChart3 size={20} />, label: 'Stats', color: 'text-green-600' },
         { href: '/history', icon: <Clock size={20} />, label: 'Logs', color: 'text-yellow-600' },
         { href: '/settings', icon: <Settings size={20} />, label: 'Config', color: 'text-orange-500' },
@@ -53,7 +52,7 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
             {/* MOBILE: Top Header */}
             <header className="md:hidden sticky top-0 z-40 bg-[#FF6B6B] border-b-2 border-black p-3 flex justify-between items-center shadow-md">
                 <h1 className="font-black text-xl text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,1)] tracking-tighter flex items-center gap-1" style={{ WebkitTextStroke: '1px black' }}>
-                    SET<span className="text-[#FDFFB6]">MY</span>FIT <span className="text-[10px] font-mono mt-1 ml-1 opacity-80">v1.0.5</span>
+                    SET<span className="text-[#FDFFB6]">MY</span>FIT <span className="text-[10px] font-mono mt-1 ml-1 opacity-80">v2.0.0</span>
                 </h1>
                 <div className="flex items-center gap-3">
                     <button
@@ -76,7 +75,7 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
                         SET<span className="text-[#FDFFB6]">MY</span>FIT
                     </h1>
                     <p className="text-xs font-mono font-bold mt-2 border-t-2 border-black pt-1 flex justify-between">
-                        <span>v1.0.5</span>
+                        <span>v2.0.0</span>
                         <span>[BETA]</span>
                     </p>
                 </div>

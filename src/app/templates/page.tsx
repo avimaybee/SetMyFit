@@ -14,7 +14,7 @@ export default function TemplatesPage() {
       try {
         const response = await fetch("/api/templates");
         const result = await response.json();
-        
+
         if (result.success) {
           // Map DB fields to UI fields using a safe record type (avoid `any`)
           const raw = result.data as Array<Record<string, unknown>>;
@@ -43,7 +43,6 @@ export default function TemplatesPage() {
   }, []);
 
   const handleApply = (template: OutfitTemplate) => {
-    console.log("Applying template:", template);
     toast.success(`Applied template: ${template.name}`);
   };
 
@@ -57,9 +56,9 @@ export default function TemplatesPage() {
 
   return (
     <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-primary)] min-h-screen text-[var(--text)]">
-        <div className="max-w-7xl mx-auto">
-            <TemplatesPageComponent templates={templates} onApply={handleApply} />
-        </div>
+      <div className="max-w-7xl mx-auto">
+        <TemplatesPageComponent templates={templates} onApply={handleApply} />
+      </div>
     </div>
   );
 }

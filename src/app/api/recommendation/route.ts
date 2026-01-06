@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { IClothingItem, WeatherData, ClothingType, RecommendationDiagnostics, RecommendationApiPayload } from '@/lib/types';
+import { IClothingItem, ClothingType, RecommendationDiagnostics, RecommendationApiPayload } from '@/lib/types';
 import { generateAIOutfitRecommendation } from '@/lib/helpers/aiOutfitAnalyzer';
 import { resolveInsulationValue, filterByLastWorn } from '@/lib/helpers/clothingHelpers';
 
@@ -213,7 +213,7 @@ const describeDetectedTypes = (items: Array<{ normalizedType: ClothingType | nul
 
 /**
  * POST /api/recommendation
- * Generate outfit recommendation based on weather and user wardrobe
+ * Generate outfit recommendation based on user wardrobe and preferences
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
@@ -229,13 +229,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const validatedData = await validateBody(request, recommendationRequestSchema) as { lat: number; lon: number; occasion?: string; lockedItems?: string[] };
-    const { lat, lon, occasion = "", lockedItems = [] } = validatedData;
+    const validatedData = await validateBody(request, recommendationRequestSchema) as { occasion?: string; lockedItems?: string[] };
+    const { occasion = "", lockedItems = [] } = validatedData;
 
     if (process.env.NODE_ENV === 'development') {
-      console.log('🎯 Generating recommendation for:', { lat, lon, occasion, lockedItems });
+      console.log('🎯 Generating recommendation for:', { occasion, lockedItems });
     }
-    const { payload, diagnostics } = await generateRecommendation(user.id, lat, lon, occasion, lockedItems, request);
+    const { payload, diagnostics } = await generateRecommendation(user.id, occasion, lockedItems);
     if (process.env.NODE_ENV === 'development') {
       console.log('✓ Recommendation generated successfully');
     }
@@ -290,15 +290,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
 /**
  * Generate fresh outfit recommendation
- * Extracted to separate function for better organization
+ * Uses season detection and user preferences (no weather dependency)
  */
 async function generateRecommendation(
   userId: string,
-  lat: number,
-  lon: number,
   occasion: string,
-  lockedItems: string[],
-  request: NextRequest
+  lockedItems: string[]
 ): Promise<{ payload: RecommendationApiPayload; diagnostics: RecommendationDiagnostics }> {
   const supabase = await createClient();
   const requestId = generateRequestId('rec');
@@ -321,7 +318,6 @@ async function generateRecommendation(
   };
 
   // Fetch user's wardrobe
-  // Explicitly select columns to avoid fetching unnecessary large data
   const { data: wardrobeItems, error: wardrobeError } = await supabase
     .from('clothing_items')
     .select(`
@@ -363,19 +359,6 @@ async function generateRecommendation(
     missingInsulation: missingInsulationCount,
   });
 
-  // Log normalized items for debugging
-  if (process.env.NODE_ENV === 'development') {
-    console.log('=== Wardrobe Items Debug ===');
-    console.log('Total items:', wardrobeItems.length);
-    console.log('Normalized items:', normalizedWardrobeItems.map(item => ({
-      id: item.id,
-      name: item.name,
-      rawType: item.rawType,
-      rawCategory: item.rawCategory,
-      normalizedType: item.normalizedType
-    })));
-  }
-
   const itemsNeedingBackfill = normalizedWardrobeItems.filter(item => (!item.rawType || !item.rawType.trim()) && item.normalizedType);
   if (itemsNeedingBackfill.length > 0) {
     diagnostics.warnings.push(`Backfilling ${itemsNeedingBackfill.length} wardrobe items missing explicit type labels.`);
@@ -383,32 +366,22 @@ async function generateRecommendation(
   }
 
   if (itemsNeedingBackfill.length > 0) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`Backfilling ${itemsNeedingBackfill.length} items with missing types`);
-    }
     try {
-      const results = await Promise.all(itemsNeedingBackfill.map(item =>
+      await Promise.all(itemsNeedingBackfill.map(item =>
         supabase
           .from('clothing_items')
           .update({ type: item.normalizedType })
           .eq('id', item.id)
           .eq('user_id', userId)
       ));
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Backfill results:', results.map(r => ({ error: r.error, count: r.count })));
-        pushEvent('wardrobe:autoFixTypes:completed', {
-          updated: results.reduce((sum, r) => sum + (r.count ?? 0), 0),
-        });
-      }
 
-      // CRITICAL: Refetch the items after backfilling to get the updated types
+      // Refetch items after backfilling
       const { data: updatedWardrobeItems, error: refetchError } = await supabase
         .from('clothing_items')
         .select('*')
         .eq('user_id', userId);
 
       if (!refetchError && updatedWardrobeItems) {
-        // Re-normalize with the updated data
         normalizedWardrobeItems = (updatedWardrobeItems as DBClothingRow[]).map((item) => {
           const normalizedType = deriveClothingType(item as DBClothingRow);
           return {
@@ -418,15 +391,6 @@ async function generateRecommendation(
             rawCategory: (item.category ?? null) as string | null,
           } as DBClothingRow & { normalizedType: ClothingType | null; rawType: string | null; rawCategory: string | null };
         });
-
-        if (process.env.NODE_ENV === 'development') {
-          console.log('Re-fetched items after backfill:', normalizedWardrobeItems.map(item => ({
-            id: item.id,
-            name: item.name,
-            rawType: item.rawType,
-            normalizedType: item.normalizedType
-          })));
-        }
         pushEvent('wardrobe:autoFixTypes:refetched');
       }
     } catch (updateError) {
@@ -438,10 +402,6 @@ async function generateRecommendation(
   const hasTop = normalizedWardrobeItems.some(item => item.normalizedType === 'Top' || item.normalizedType === 'Outerwear');
   const hasBottom = normalizedWardrobeItems.some(item => item.normalizedType === 'Bottom');
   const hasFootwear = normalizedWardrobeItems.some(item => item.normalizedType === 'Footwear');
-
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Category check:', { hasTop, hasBottom, hasFootwear });
-  }
 
   const missingCategories: string[] = [];
   if (!hasTop) missingCategories.push('Top or Outerwear');
@@ -471,38 +431,12 @@ async function generateRecommendation(
     error.customMessage = missingItemsMessageParts.join(' ');
     throw error;
   }
-  // Fetch weather data
-  const weatherUrl = new URL('/api/weather', request.url);
-  weatherUrl.searchParams.set('lat', lat.toString());
-  weatherUrl.searchParams.set('lon', lon.toString());
 
-  const weatherResponse = await fetch(weatherUrl.toString(), {
-    headers: request.headers,
-  });
-
-  if (!weatherResponse.ok) {
-    throw new Error('Failed to fetch weather data');
-  }
-
-  const weatherData = await weatherResponse.json();
-  const weather: WeatherData = weatherData.data.weather;
-  const alerts = weatherData.data.alerts;
-
-  // Detect current season based on date and latitude
-  const currentSeason = getCurrentSeason(new Date(), lat);
+  // Get current season (no weather API needed)
+  const currentSeason = getCurrentSeason(new Date());
   const seasonDescription = getSeasonDescription(currentSeason, new Date().getMonth());
 
-  // Add season context to weather data for AI recommendations
-  const weatherWithSeason = {
-    ...weather,
-    season: currentSeason,
-    season_description: seasonDescription,
-  };
-
-  pushEvent('weather:fetched', {
-    provider: 'openWeather',
-    alerts: alerts?.length ?? 0,
-    feelsLike: weather.feels_like,
+  pushEvent('season:detected', {
     season: currentSeason,
     seasonDescription,
   });
@@ -561,37 +495,27 @@ async function generateRecommendation(
   }) as IClothingItem[];
 
   // Apply Freshness Rule: Filter out recently worn items
-  // This prevents outfit repetition unless the item is a Favorite or Locked
   const freshItems = filterByLastWorn(availableItems);
 
   // Re-inject Locked Items if they were filtered out by the freshness rule
-  // "Locks override logic" - User Requirement
   if (lockedItems && lockedItems.length > 0) {
     const lockedIds = new Set(lockedItems);
     const lockedButFiltered = availableItems.filter(item =>
       lockedIds.has(String(item.id)) && !freshItems.some(fresh => fresh.id === item.id)
     );
-    // Add locked items back
     freshItems.push(...lockedButFiltered);
   }
 
   // SAFETY NET: Ensure we haven't filtered out ALL items of a core category
-  // If we have, add them back (ignoring freshness) so the AI at least has options
   const coreTypes: ClothingType[] = ['Top', 'Bottom', 'Footwear'];
 
   for (const type of coreTypes) {
     const hasType = freshItems.some(i => i.type === type || (type === 'Top' && i.type === 'Outerwear'));
 
     if (!hasType) {
-      // Find items of this type from the original available list
       const backfill = availableItems.filter(i => i.type === type || (type === 'Top' && i.type === 'Outerwear'));
 
       if (backfill.length > 0) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`⚠️ Freshness rule depleted all ${type}s. Backfilling ${backfill.length} items.`);
-        }
-        // Add them back to freshItems
-        // We use a Set to avoid duplicates if we already added some via lockedItems
         const currentIds = new Set(freshItems.map(i => i.id));
         const uniqueBackfill = backfill.filter(i => !currentIds.has(i.id));
         freshItems.push(...uniqueBackfill);
@@ -599,34 +523,20 @@ async function generateRecommendation(
     }
   }
 
-  // Final assignment
   availableItems = freshItems;
 
-  // Generate the recommendation
-  const filterCounts = summary.filterCounts ?? {};
-  summary.filterCounts = filterCounts;
-
-  // Calculate Target Insulation Score (The "Comfort Formula")
-  // Formula: (Baseline 24°C - CurrentTemp) / 2.5 step
-  // 24°C = Level 0-1. Every 2.5°C drop adds 1 point.
-  const targetInsulation = Math.max(1, Math.ceil((27 - weatherWithSeason.feels_like) / 2.5));
-
-  // Use the new AI-powered recommendation engine
-  const weatherContextString = `
-    Condition: ${weatherWithSeason.weather_condition}
-    Temperature: ${weatherWithSeason.temperature}°C (Feels like ${weatherWithSeason.feels_like}°C)
-    Target Insulation Score: ~${targetInsulation} (Calculated based on 24°C baseline)
-    Humidity: ${weatherWithSeason.humidity}%
-    Wind: ${weatherWithSeason.wind_speed} km/h
-    Season: ${weatherWithSeason.season} (${weatherWithSeason.season_description})
+  // Build context for AI recommendation (season-based, no weather)
+  const contextString = `
+    Season: ${currentSeason} (${seasonDescription})
+    Occasion: ${occasion || 'General Day-to-Day'}
   `.trim();
 
   const aiRecommendation = await generateAIOutfitRecommendation(
     availableItems,
     {
-      weather: weatherContextString,
+      weather: contextString,
       occasion: occasion || 'General Day-to-Day',
-      season: weatherWithSeason.season || 'Unknown',
+      season: currentSeason || 'Unknown',
       userPreferences: {
         styles: userPreferences.styles,
         colors: userPreferences.colors,
@@ -641,16 +551,16 @@ async function generateRecommendation(
     confidence: aiRecommendation.validationScore / 100,
   });
 
-  // Store recommendation in database for feedback tracking
+  // Store recommendation in database
   const { data: savedRecommendation, error: saveError } = await supabase
     .from('outfit_recommendations')
     .insert({
       user_id: userId,
       outfit_items: aiRecommendation.outfit.map((i: IClothingItem) => i.id),
-      weather_data: weather,
+      weather_data: null, // No weather data anymore
       confidence_score: aiRecommendation.validationScore / 100,
       reasoning: aiRecommendation.reasoning?.weatherMatch || "AI Optimized",
-      detailed_reasoning: JSON.stringify(aiRecommendation.reasoning), // Store full structured reasoning as JSON string
+      detailed_reasoning: JSON.stringify(aiRecommendation.reasoning),
       missing_items: [],
       created_at: new Date().toISOString(),
     })
@@ -661,8 +571,7 @@ async function generateRecommendation(
     logger.error('Failed to save recommendation', { error: saveError });
   }
 
-  // Transform recommendation data to match frontend expectations
-  // Ensure clothing item image URLs are safe to use by the client (signed URLs for storage)
+  // Generate signed URLs for images
   const SIGNED_URL_TTL = 60 * 60; // 1 hour
 
   const outfitWithSignedUrls = await Promise.all(
@@ -684,29 +593,26 @@ async function generateRecommendation(
           }
         } catch (e) {
           logger.error(`Error creating signed URL for recommendation item ${item.id}:`, { error: e });
-          // fallthrough to return original item
         }
       }
       return item;
     })
   );
 
-  // AI image generation feature removed - focusing on core outfit recommendation
-
   const transformedData: RecommendationApiPayload = {
     recommendation: {
       outfit: outfitWithSignedUrls,
       confidence_score: aiRecommendation.validationScore / 100,
       reasoning: aiRecommendation.reasoning?.weatherMatch || "AI Optimized",
-      detailed_reasoning: JSON.stringify(aiRecommendation.reasoning), // Pass full structured reasoning
+      detailed_reasoning: JSON.stringify(aiRecommendation.reasoning),
       missing_items: [],
-      dress_code: 'Casual', // Default, could be enhanced from context
-      weather_alerts: alerts || [],
+      dress_code: 'Casual',
+      weather_alerts: [],
       id: savedRecommendation?.id,
       outfit_visual_urls: [],
     },
-    weather: weather,
-    alerts: alerts || [],
+    weather: null,
+    alerts: [],
   };
 
   pushEvent('response:ready', {
@@ -718,7 +624,7 @@ async function generateRecommendation(
 
 /**
  * GET /api/recommendation
- * Returns the most recent recommendation payload so refreshes do not auto-regenerate outfits.
+ * Returns the most recent recommendation payload
  */
 export async function GET(_request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
@@ -767,7 +673,7 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
             }
           }
         } catch (_err) {
-          // Ignore parsing issues and fall back to raw URL
+          // Ignore parsing issues
         }
       }
       return item;
@@ -786,7 +692,7 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
       id: recommendation.id,
       outfit_visual_urls: [],
     },
-    weather: recommendation.weather_data as WeatherData,
+    weather: null,
     alerts: [],
   };
 

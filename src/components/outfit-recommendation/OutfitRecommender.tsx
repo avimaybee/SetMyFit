@@ -228,7 +228,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                             Your wardrobe is empty. Upload some clothing items to get personalized AI outfit recommendations.
                         </p>
                     </div>
-                    <RetroButton 
+                    <RetroButton
                         onClick={onNavigateToWardrobe}
                         className="flex items-center gap-2"
                     >
@@ -249,13 +249,12 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                     </p>
                     <div className="flex gap-2 flex-wrap justify-center mb-2">
                         {(['Top', 'Bottom', 'Shoes'] as ClothingType[]).map(cat => (
-                            <span 
+                            <span
                                 key={cat}
-                                className={`px-2 py-1 text-xs font-mono border-2 border-black ${
-                                    coreCategoriesPresent.has(cat) 
-                                        ? 'bg-[#CAFFBF]' 
+                                className={`px-2 py-1 text-xs font-mono border-2 border-black ${coreCategoriesPresent.has(cat)
+                                        ? 'bg-[#CAFFBF]'
                                         : 'bg-[#FF99C8]'
-                                }`}
+                                    }`}
                             >
                                 {cat.toUpperCase()} {coreCategoriesPresent.has(cat) ? '✓' : '✗'}
                             </span>
@@ -470,8 +469,11 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                                         </div>
                                     </>
                                 ) : (
-                                    <div className="w-16 h-16 md:w-24 md:h-24 border-2 border-black border-dashed flex items-center justify-center opacity-20 bg-white/50 hover:opacity-50 hover:bg-white transition-all">
-                                        <span className="text-[8px] font-mono text-center">+ ADD</span>
+                                    <div
+                                        className="w-16 h-16 md:w-24 md:h-24 border-2 border-black border-dashed flex items-center justify-center opacity-40 bg-white/50 hover:opacity-80 hover:bg-white transition-all cursor-pointer"
+                                        onClick={() => openSwapModal('Outerwear')}
+                                    >
+                                        <span className="text-[8px] font-mono text-center font-bold">+ ADD</span>
                                     </div>
                                 )}
                             </div>

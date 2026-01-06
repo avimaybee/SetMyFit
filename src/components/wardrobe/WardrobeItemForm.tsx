@@ -96,8 +96,14 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
     useEffect(() => {
         if (!previewUrl) {
             setIsImageLoading(false);
+        } else if (isImageLoading) {
+            // Failsafe: clear loading state after 5 seconds
+            const timeout = setTimeout(() => {
+                setIsImageLoading(false);
+            }, 5000);
+            return () => clearTimeout(timeout);
         }
-    }, [previewUrl]);
+    }, [previewUrl, isImageLoading]);
 
     const resetForm = () => {
         setPreviewUrl(null);

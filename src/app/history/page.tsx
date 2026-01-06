@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import { Calendar, RotateCcw, Star, Tag, Trash2 } from "lucide-react";
+import { Calendar, Star, Tag, Trash2 } from "lucide-react";
 import { IClothingItem } from "@/lib/types";
 import { RetroButton, RetroWindow } from "@/components/retro-ui";
 import { ListSkeleton } from "@/components/ui/skeletons";
@@ -89,10 +89,6 @@ export default function HistoryPage() {
     }
   }, []);
 
-  const handleWearAgain = useCallback(() => {
-    toast("Re-run recommendation coming soon", { icon: "🧠" });
-  }, []);
-
   return (
     <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-primary)] min-h-screen text-[var(--text)]">
       <div className="max-w-5xl mx-auto space-y-6">
@@ -134,6 +130,7 @@ export default function HistoryPage() {
                                   fill
                                   sizes="(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 20vw"
                                   className="object-cover"
+                                  unoptimized
                                 />
                               </div>
                             ))}
@@ -190,8 +187,8 @@ export default function HistoryPage() {
                             </div>
                           </div>
                           <div className="mt-auto pt-3 border-t-2 border-[var(--border)] border-dashed flex justify-end gap-3">
-                            <RetroButton className="flex items-center gap-2 text-xs py-1.5" variant="primary" onClick={handleWearAgain}>
-                              <RotateCcw size={12} /> WEAR THIS AGAIN
+                            <RetroButton className="flex items-center gap-2 text-xs py-1.5" variant="danger" onClick={() => handleDelete(entry.id)} disabled={deletingId === entry.id}>
+                              <Trash2 size={12} /> DELETE LOG
                             </RetroButton>
                           </div>
                         </div>
