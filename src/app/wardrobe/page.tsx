@@ -138,7 +138,11 @@ export default function WardrobePage() {
                 body: JSON.stringify(payload)
             });
 
-            if (!response.ok) throw new Error("Failed to create item");
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error("API Error Response:", errorData);
+                throw new Error(errorData.error || "Failed to create item");
+            }
 
             toast.success("Item added to wardrobe.");
             closeGlobalAdd();
@@ -146,7 +150,8 @@ export default function WardrobePage() {
 
         } catch (err) {
             console.error("Error adding item:", err);
-            toast.error("Failed to add item.");
+            const errorMessage = err instanceof Error ? err.message : "Failed to add item";
+            toast.error(errorMessage);
         } finally {
             if (uploadToastId) {
                 toast.dismiss(uploadToastId);

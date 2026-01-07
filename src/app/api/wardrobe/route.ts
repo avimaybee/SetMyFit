@@ -211,9 +211,17 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       .single();
 
     if (error) {
-      logger.error('Error creating wardrobe item', { requestId, error });
+      logger.error('Error creating wardrobe item', { requestId, error: error.message, code: error.code, hint: error.hint, details: error.details });
+      console.error('[WARDROBE API ERROR]', JSON.stringify({ message: error.message, code: error.code, hint: error.hint, details: error.details }, null, 2));
       return NextResponse.json(
-        { success: false, error: error.message, message: `Server error (requestId: ${requestId})` },
+        {
+          success: false,
+          error: error.message,
+          code: error.code,
+          hint: error.hint,
+          details: error.details,
+          message: `Server error (requestId: ${requestId})`
+        },
         { status: 500 }
       );
     }
