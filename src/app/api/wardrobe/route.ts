@@ -8,22 +8,29 @@ import { normalizeMaterial } from '@/lib/validation';
 // Allowed enums (kept here for runtime validation)
 const ALLOWED_TYPES = ['Outerwear', 'Top', 'Bottom', 'Footwear', 'Accessory', 'Headwear', 'Dress'];
 const ALLOWED_DRESS_CODES = ['Casual', 'Business Casual', 'Formal', 'Athletic', 'Loungewear'];
-const ALLOWED_SEASONS = ['spring', 'summer', 'autumn', 'winter', 'all_season'] as const;
+// Database only supports these four seasons - NOT 'all_season'
+const ALLOWED_SEASONS = ['spring', 'summer', 'autumn', 'winter'] as const;
 type SeasonEnum = typeof ALLOWED_SEASONS[number];
+// All four seasons array for when 'all_season' is requested
+const ALL_SEASONS: SeasonEnum[] = [...ALLOWED_SEASONS];
 
 const normalizeSeasonTagsInput = (tags?: string[] | null): SeasonEnum[] | null => {
   if (!tags || !tags.length) return null;
-  const normalized: SeasonEnum[] = [];
+  const normalizedSet = new Set<SeasonEnum>();
   for (const raw of tags) {
     if (!raw) continue;
     let token = raw.trim().toLowerCase().replace(/[\s-]+/g, '_');
     if (token === 'fall') token = 'autumn';
-    if (token === 'allseason') token = 'all_season';
+    // Convert 'all_season' variants to all four valid seasons
+    if (token === 'all_season' || token === 'allseason') {
+      ALL_SEASONS.forEach(s => normalizedSet.add(s));
+      continue;
+    }
     if ((ALLOWED_SEASONS as readonly string[]).includes(token)) {
-      normalized.push(token as SeasonEnum);
+      normalizedSet.add(token as SeasonEnum);
     }
   }
-  return normalized.length ? normalized : null;
+  return normalizedSet.size > 0 ? Array.from(normalizedSet) : null;
 };
 
 /**
@@ -160,7 +167,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 
     const validBody = parsed.data;
 
-    const normalizedSeasonTags = normalizeSeasonTagsInput(validBody.season_tags) ?? ['all_season'];
+    // Default to all four seasons if none provided (instead of invalid 'all_season')
+    const normalizedSeasonTags = normalizeSeasonTagsInput(validBody.season_tags) ?? ALL_SEASONS;
 
     // Normalize material to match database enum
     const normalizedMaterial = normalizeMaterial(validBody.material);
@@ -181,6 +189,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     }
 
     // Build new item - include all columns that exist in the database schema
+    // Note: style_tags is set to null because the database uses an enum that may not match
+    // the AI-generated values. The style is stored in the 'style' text field instead.
     const newItem = {
       user_id: user.id,
       name: validBody.name,
@@ -191,7 +201,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       insulation_value: validBody.insulation_value ?? 5,
       image_url: validBody.image_url,
       season_tags: normalizedSeasonTags,
-      style_tags: validBody.style_tags || null,
+      // TODO: style_tags is set to null because DB has enum constraint that AI values don't match.
+      // Future fix: Either update DB enum to accept AI values, or create a normalization function
+      // similar to normalizeSeasonTagsInput for style_tags.
+      style_tags: null,
       dress_code: dressCode,
       description: validBody.description || null,
       pattern: validBody.pattern || null,
