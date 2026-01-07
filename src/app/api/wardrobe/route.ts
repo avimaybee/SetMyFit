@@ -12,24 +12,25 @@ const ALLOWED_DRESS_CODES = ['Casual', 'Business Casual', 'Formal', 'Athletic', 
 const ALLOWED_SEASONS = ['spring', 'summer', 'autumn', 'winter'] as const;
 type SeasonEnum = typeof ALLOWED_SEASONS[number];
 // All four seasons array for when 'all_season' is requested
-const ALL_SEASONS: SeasonEnum[] = ['spring', 'summer', 'autumn', 'winter'];
+const ALL_SEASONS: SeasonEnum[] = [...ALLOWED_SEASONS];
 
 const normalizeSeasonTagsInput = (tags?: string[] | null): SeasonEnum[] | null => {
   if (!tags || !tags.length) return null;
-  const normalized: SeasonEnum[] = [];
+  const normalizedSet = new Set<SeasonEnum>();
   for (const raw of tags) {
     if (!raw) continue;
     let token = raw.trim().toLowerCase().replace(/[\s-]+/g, '_');
     if (token === 'fall') token = 'autumn';
-    // Convert 'all_season' or 'all season' to all four valid seasons
-    if (token === 'all_season' || token === 'allseason' || token === 'all') {
-      return ALL_SEASONS;
+    // Convert 'all_season' variants to all four valid seasons
+    if (token === 'all_season' || token === 'allseason') {
+      ALL_SEASONS.forEach(s => normalizedSet.add(s));
+      continue;
     }
     if ((ALLOWED_SEASONS as readonly string[]).includes(token)) {
-      normalized.push(token as SeasonEnum);
+      normalizedSet.add(token as SeasonEnum);
     }
   }
-  return normalized.length ? normalized : null;
+  return normalizedSet.size > 0 ? Array.from(normalizedSet) : null;
 };
 
 /**
@@ -200,7 +201,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       insulation_value: validBody.insulation_value ?? 5,
       image_url: validBody.image_url,
       season_tags: normalizedSeasonTags,
-      style_tags: null, // Set to null - DB has enum constraint that AI values may not match
+      // TODO: style_tags is set to null because DB has enum constraint that AI values don't match.
+      // Future fix: Either update DB enum to accept AI values, or create a normalization function
+      // similar to normalizeSeasonTagsInput for style_tags.
+      style_tags: null,
       dress_code: dressCode,
       description: validBody.description || null,
       pattern: validBody.pattern || null,
