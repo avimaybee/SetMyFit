@@ -43,7 +43,7 @@ export default function WardrobePage() {
                     dress_code: (item.dress_code || []) as string[],
                     wear_count: item.wear_count || 0,
                     last_worn: item.last_worn || null,
-                    is_favorite: item.is_favorite || false,
+                    is_favorite: item.favorite || false,
                     created_at: item.created_at
                 }));
                 setItems(mappedItems);

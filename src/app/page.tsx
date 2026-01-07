@@ -380,17 +380,17 @@ export default function HomePage() {
       </div>
 
       {/* Right Panel: Widgets */}
-      <div className="flex flex-col gap-4 h-full">
+      <div className="flex flex-col gap-4">
 
         {/* System Messages */}
-        <div className="flex-1">
+        <div>
           <SystemMsg
             itemCount={allWardrobeItems.length}
           />
         </div>
 
         {/* Mission Control */}
-        <div className="flex-1 min-h-[200px]">
+        <div>
           <MissionControl
             selectedOccasion={selectedOccasion}
             onOccasionChange={(occ) => {

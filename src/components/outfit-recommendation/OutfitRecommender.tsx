@@ -205,10 +205,76 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
     // Show loading spinner ONLY when actually loading
     if (isLoadingWardrobe) {
         return (
-            <RetroWindow title="OUTFIT_GEN.EXE" className="h-full flex items-center justify-center text-center p-6">
-                <div className="flex flex-col items-center gap-4">
-                    <Loader2 size={48} className="animate-spin text-[#FF99C8]" />
-                    <p className="font-mono text-sm">LOADING WARDROBE DATA...</p>
+            <RetroWindow title="OUTFIT_GEN.EXE" className="h-full flex flex-col" headerColor="bg-[#FF99C8]">
+                {/* Status Bar */}
+                <div className="flex flex-row justify-between items-center bg-white border-2 border-black p-2 mb-4 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] gap-2">
+                    <div className="flex items-center gap-2">
+                        <Loader2 size={16} className="animate-spin text-[#FF99C8]" />
+                        <p className="font-mono text-[10px] md:text-sm font-bold tracking-tight text-gray-500">
+                            INITIALIZING...
+                        </p>
+                    </div>
+                    <div className="h-6 w-12 bg-gray-200 animate-pulse rounded" />
+                </div>
+
+                {/* Main Canvas with Skeleton */}
+                <div className="flex-1 bg-[#f0f0f0] border-2 border-black relative p-4 flex items-center justify-center min-h-[350px]">
+                    <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '16px 16px' }}></div>
+
+                    <div className="relative z-10 grid grid-cols-[70px_1fr_80px] md:grid-cols-[120px_1fr_120px] gap-4 items-center w-full h-full animate-pulse">
+                        {/* Left - Accessories skeleton */}
+                        <div className="h-full border-2 border-black/10 bg-black/5 rounded-lg p-2 flex flex-col gap-3 justify-center">
+                            <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-300 border-2 border-black/20 self-center" />
+                            <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-300 border-2 border-black/20 self-center" />
+                        </div>
+
+                        {/* Center - Core Items skeleton */}
+                        <div className="flex flex-col gap-3 items-center w-full">
+                            <div className="w-full max-w-[160px] md:max-w-[200px]">
+                                <div className="w-full aspect-square bg-gray-300 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]" />
+                                <div className="h-6 bg-black/30 border-2 border-black border-t-0" />
+                            </div>
+                            <div className="w-full max-w-[160px] md:max-w-[200px]">
+                                <div className="w-full aspect-[4/5] bg-gray-300 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]" />
+                                <div className="h-6 bg-black/30 border-2 border-black border-t-0" />
+                            </div>
+                        </div>
+
+                        {/* Right - Layer & Shoes skeleton */}
+                        <div className="flex flex-col h-full justify-between py-4 items-end">
+                            <div className="flex flex-col items-end gap-1">
+                                <div className="w-16 h-16 md:w-24 md:h-24 bg-gray-300 border-2 border-black/20 shadow-[3px_3px_0px_0px_rgba(0,0,0,0.1)]" />
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                                <div className="w-20 h-20 md:w-28 md:h-28 bg-gray-300 border-2 border-black/20 shadow-[3px_3px_0px_0px_rgba(0,0,0,0.1)]" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Overlay loading message */}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                        <div className="bg-white border-2 border-black p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center gap-3">
+                            <Loader2 size={32} className="animate-spin text-[#FF99C8]" />
+                            <p className="font-mono text-sm font-bold">LOADING WARDROBE DATA...</p>
+                            <div className="w-32 h-2 border border-black bg-gray-200 overflow-hidden">
+                                <div className="h-full bg-[#CAFFBF] animate-[loading_1.5s_ease-in-out_infinite]" style={{ width: '60%' }} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Logic Gate skeleton */}
+                <div className="bg-[#e5e5e5] border-2 border-black mt-2">
+                    <div className="p-2 bg-white flex items-center gap-2">
+                        <div className="h-4 w-4 bg-gray-300 animate-pulse" />
+                        <div className="h-4 w-32 bg-gray-200 animate-pulse" />
+                    </div>
+                </div>
+
+                {/* Footer Controls skeleton */}
+                <div className="grid grid-cols-2 gap-3 mt-4">
+                    <div className="h-12 bg-gray-200 border-2 border-black animate-pulse" />
+                    <div className="h-12 bg-gray-200 border-2 border-black animate-pulse" />
                 </div>
             </RetroWindow>
         );
@@ -252,8 +318,8 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                             <span
                                 key={cat}
                                 className={`px-2 py-1 text-xs font-mono border-2 border-black ${coreCategoriesPresent.has(cat)
-                                        ? 'bg-[#CAFFBF]'
-                                        : 'bg-[#FF99C8]'
+                                    ? 'bg-[#CAFFBF]'
+                                    : 'bg-[#FF99C8]'
                                     }`}
                             >
                                 {cat.toUpperCase()} {coreCategoriesPresent.has(cat) ? '✓' : '✗'}

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, Tooltip, Cell, PieChart, Pie } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, PieChart, Pie } from 'recharts';
 import { RetroWindow, RetroBox } from '@/components/retro-ui';
 import { Award, TrendingUp, Activity, Shirt, Palette, Calendar, AlertTriangle } from 'lucide-react';
 import { ClothingItem, Outfit } from '@/types/retro';
@@ -159,12 +159,20 @@ export const StatsPage: React.FC<StatsPageProps> = ({ items, _history }) => {
                     <div className="p-4 flex flex-col gap-2 h-full">
                         <div className="h-56 w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={analytics.chartData} layout="vertical">
+                                <BarChart data={analytics.chartData} layout="vertical" margin={{ left: 10, right: 20 }}>
                                     <XAxis
                                         type="number"
                                         tick={{ fill: 'var(--text)', fontFamily: 'monospace', fontSize: 10 }}
                                         axisLine={{ stroke: 'var(--border)', strokeWidth: 2 }}
                                         tickLine={false}
+                                    />
+                                    <YAxis
+                                        type="category"
+                                        dataKey="name"
+                                        tick={{ fill: 'var(--text)', fontFamily: 'monospace', fontSize: 10 }}
+                                        axisLine={{ stroke: 'var(--border)', strokeWidth: 2 }}
+                                        tickLine={false}
+                                        width={70}
                                     />
                                     <Tooltip
                                         contentStyle={{

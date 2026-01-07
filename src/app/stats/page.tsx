@@ -6,6 +6,7 @@ import { StatsPage as StatsPageComponent } from "@/components/stats/StatsPage";
 import { ClothingItem, Outfit, ClothingType } from "@/types/retro";
 import { IClothingItem } from "@/types";
 import { toast } from "@/components/ui/toaster";
+import { StatsSkeleton } from "@/components/ui/skeletons";
 
 export default function StatsPage() {
   const [items, setItems] = useState<ClothingItem[]>([]);
@@ -41,7 +42,7 @@ export default function StatsPage() {
           dress_code: (item.dress_code || []) as string[],
           wear_count: item.wear_count || 0,
           last_worn: item.last_worn || null,
-          is_favorite: item.is_favorite || false,
+          is_favorite: item.favorite || false,
           created_at: item.created_at
         }));
         setItems(mappedItems);
@@ -111,9 +112,7 @@ export default function StatsPage() {
     <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-primary)] min-h-screen text-[var(--text)]">
       <div className="max-w-7xl mx-auto">
         {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--border)]"></div>
-          </div>
+          <StatsSkeleton />
         ) : (
           <StatsPageComponent items={items} _history={_history} />
         )}

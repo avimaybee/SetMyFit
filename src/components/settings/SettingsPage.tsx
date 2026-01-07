@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { RetroWindow, RetroButton, RetroSlider, RetroToggle } from '@/components/retro-ui';
 import { Sliders, User, Database, LogOut, Monitor } from 'lucide-react';
 import { UserPreferences } from '@/types/retro';
@@ -10,6 +10,22 @@ interface SettingsPageProps {
 }
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout, preferences, onUpdate }) => {
+    // Local state for slider to prevent toast spam during dragging
+    const [localRepeatInterval, setLocalRepeatInterval] = useState(preferences.repeat_interval || 0);
+    const pendingUpdateRef = useRef<number | null>(null);
+
+    // Sync local state when preferences change from outside
+    useEffect(() => {
+        setLocalRepeatInterval(preferences.repeat_interval || 0);
+    }, [preferences.repeat_interval]);
+
+    // Save the slider value when user finishes sliding
+    const handleSliderCommit = () => {
+        if (pendingUpdateRef.current !== null && pendingUpdateRef.current !== preferences.repeat_interval) {
+            onUpdate({ repeat_interval: pendingUpdateRef.current });
+        }
+        pendingUpdateRef.current = null;
+    };
 
     return (
         <div className="max-w-2xl mx-auto flex flex-col gap-6">
@@ -27,14 +43,20 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout, preference
                                 Repeat Avoidance
                             </label>
                             <span className="font-mono text-sm font-bold text-[var(--text)] bg-[var(--bg-secondary)] px-2 py-1 border border-[var(--border)]">
-                                {preferences.repeat_interval || 0} days
+                                {localRepeatInterval} days
                             </span>
                         </div>
                         <RetroSlider
                             label=""
                             min="0" max="30"
-                            value={preferences.repeat_interval || 0}
-                            onChange={(e) => onUpdate({ repeat_interval: parseInt(e.target.value) })}
+                            value={localRepeatInterval}
+                            onChange={(e) => {
+                                const value = parseInt(e.target.value);
+                                setLocalRepeatInterval(value);
+                                pendingUpdateRef.current = value;
+                            }}
+                            onMouseUp={handleSliderCommit}
+                            onTouchEnd={handleSliderCommit}
                             minLabel="0 days" maxLabel="30 days"
                         />
                         <p className="text-[10px] font-mono text-[var(--text-muted)] mt-1">

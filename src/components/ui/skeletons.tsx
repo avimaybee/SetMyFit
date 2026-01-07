@@ -93,3 +93,116 @@ export const ListSkeleton = () => (
         ))}
     </div>
 );
+
+export const StatsSkeleton = () => (
+    <div className="space-y-6 animate-pulse">
+        {/* Top Stats Row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[0, 1, 2, 3].map((i) => (
+                <RetroBox key={i} color={['bg-[var(--accent-blue)]', 'bg-[var(--accent-green)]', 'bg-[var(--accent-pink)]', 'bg-[var(--accent-orange)]'][i]} className="flex flex-col justify-between min-h-[100px]">
+                    <div className="flex justify-between items-start">
+                        <div className="w-5 h-5 bg-black/20 rounded" />
+                        <div className="h-3 w-16 bg-black/20 rounded" />
+                    </div>
+                    <div className="h-8 w-16 bg-black/20 rounded mt-2" />
+                    <div className="h-3 w-12 bg-black/20 rounded" />
+                </RetroBox>
+            ))}
+        </div>
+
+        {/* Charts Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Category Chart Skeleton */}
+            <div className="border-2 border-[var(--border)] bg-[var(--bg-main)] shadow-[8px_8px_0px_0px_var(--border)]">
+                <div className="bg-[var(--accent-orange)] border-b-2 border-[var(--border)] p-2 flex justify-between items-center">
+                    <div className="h-4 w-40 bg-black/20 rounded" />
+                    <div className="flex gap-1">
+                        <div className="w-5 h-5 bg-black/20 border border-black/30" />
+                        <div className="w-5 h-5 bg-black/20 border border-black/30" />
+                        <div className="w-5 h-5 bg-black/20 border border-black/30" />
+                    </div>
+                </div>
+                <div className="p-4 h-56 flex flex-col gap-3">
+                    {[0, 1, 2, 3].map((i) => (
+                        <div key={i} className="flex items-center gap-2">
+                            <div className="w-12 h-4 bg-gray-200" />
+                            <div className="flex-1 h-6 bg-gray-200 rounded" style={{ width: `${80 - i * 15}%` }} />
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Color Palette Skeleton */}
+            <div className="border-2 border-[var(--border)] bg-[var(--bg-main)] shadow-[8px_8px_0px_0px_var(--border)]">
+                <div className="bg-[var(--accent-orange)] border-b-2 border-[var(--border)] p-2 flex justify-between items-center">
+                    <div className="h-4 w-32 bg-black/20 rounded" />
+                    <div className="flex gap-1">
+                        <div className="w-5 h-5 bg-black/20 border border-black/30" />
+                        <div className="w-5 h-5 bg-black/20 border border-black/30" />
+                        <div className="w-5 h-5 bg-black/20 border border-black/30" />
+                    </div>
+                </div>
+                <div className="p-4 space-y-3">
+                    {[0, 1, 2, 3, 4].map((i) => (
+                        <div key={i} className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-gray-300 border-2 border-[var(--border)]" />
+                            <div className="flex-1">
+                                <div className="flex justify-between mb-1">
+                                    <div className="h-4 w-20 bg-gray-200" />
+                                    <div className="h-4 w-12 bg-gray-200" />
+                                </div>
+                                <div className="h-2 bg-gray-200 w-full" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+
+        {/* Bottom Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* MVP Item */}
+            <RetroBox color="bg-[var(--accent-yellow)]" className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-black/10 rounded-full border-2 border-[var(--border)]" />
+                <div className="flex-1 space-y-2">
+                    <div className="h-3 w-16 bg-black/20 rounded" />
+                    <div className="h-5 w-32 bg-black/20 rounded" />
+                    <div className="h-4 w-20 bg-black/20 rounded" />
+                </div>
+            </RetroBox>
+
+            {/* Quick Stats */}
+            <div className="border-2 border-[var(--border)] bg-[var(--bg-main)] shadow-[8px_8px_0px_0px_var(--border)]">
+                <div className="bg-[var(--accent-orange)] border-b-2 border-[var(--border)] p-2">
+                    <div className="h-4 w-24 bg-black/20 rounded" />
+                </div>
+                <div className="p-3 space-y-3">
+                    {[0, 1, 2, 3].map((i) => (
+                        <div key={i} className="flex justify-between border-b border-[var(--border)] border-dashed pb-2">
+                            <div className="h-4 w-20 bg-gray-200" />
+                            <div className="h-4 w-12 bg-gray-200" />
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Materials */}
+            <div className="border-2 border-[var(--border)] bg-[var(--bg-main)] shadow-[8px_8px_0px_0px_var(--border)]">
+                <div className="bg-[var(--accent-orange)] border-b-2 border-[var(--border)] p-2">
+                    <div className="h-4 w-28 bg-black/20 rounded" />
+                </div>
+                <div className="p-3 space-y-2">
+                    {[0, 1, 2].map((i) => (
+                        <div key={i} className="flex justify-between">
+                            <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 bg-gray-300 border border-[var(--border)]" />
+                                <div className="h-4 w-16 bg-gray-200" />
+                            </div>
+                            <div className="h-4 w-8 bg-gray-200" />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    </div>
+);

@@ -3,7 +3,7 @@
  * These interfaces align with the backend API data structures
  */
 
-export type ClothingType = 
+export type ClothingType =
   | 'Outerwear'
   | 'Top'
   | 'Bottom'
@@ -11,7 +11,7 @@ export type ClothingType =
   | 'Accessory'
   | 'Headwear';
 
-export type ClothingMaterial = 
+export type ClothingMaterial =
   | 'Cotton'
   | 'Wool'
   | 'Synthetic'
@@ -24,7 +24,7 @@ export type ClothingMaterial =
   | 'Polyester'
   | 'Nylon';
 
-export type DressCode = 
+export type DressCode =
   | 'Casual'
   | 'Business Casual'
   | 'Formal'
@@ -56,6 +56,7 @@ export interface IClothingItem {
   description?: string | null; // Detailed AI description for outfit matching
   wear_count: number; // Added to match schema
   is_favorite: boolean; // Added to match schema
+  favorite?: boolean; // Returned by API due to Supabase alias
   tags: string[]; // Added to match schema
 }
 
