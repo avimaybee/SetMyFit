@@ -1,12 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { persistSession, signIn, signUp } from "@/lib/firebase/client";
+import { persistSession, signIn, signUp, isFirebaseConfigured } from "@/lib/firebase/client";
 import { apiFetch } from "@/lib/api";
+import { FirebaseConfigError } from "@/components/auth/ConfigError";
 import { LoginPage } from "@/components/auth/LoginPage";
 import { toast } from "@/components/ui/toaster";
 
 export default function SignInPage() {
+  if (!isFirebaseConfigured()) {
+    return <FirebaseConfigError />;
+  }
+  return <SignInForm />;
+}
+
+function SignInForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);

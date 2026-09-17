@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Home, Shirt, BarChart3, Clock, Settings, Plus, User, Layers } from 'lucide-react';
 import { RetroButton } from '../retro-ui';
-import { onAuthChange, persistSession, clearSession } from '@/lib/firebase/client';
+import { onAuthChange, persistSession, clearSession, isFirebaseConfigured } from '@/lib/firebase/client';
 import { apiFetch } from '@/lib/api';
+import { FirebaseConfigError } from '@/components/auth/ConfigError';
 import { useAddItem } from '@/contexts/AddItemContext';
 import { GlobalAddModal } from './GlobalAddModal';
 
@@ -21,6 +22,7 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
     const { openGlobalAdd } = useAddItem();
 
     useEffect(() => {
+        if (!isFirebaseConfigured()) return;
         // Global auth gate: redirect signed-out users, refresh the
         // session cookie, and send users without a profile to onboarding.
         const unsubscribe = onAuthChange(async (fbUser) => {
@@ -69,6 +71,11 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
     };
 
     // Auth and onboarding render chrome-less: no sidebar/nav to escape from.
+    // A missing Firebase build config fails closed with an explanation,
+    // never a blank "Application error" crash.
+    if (!isFirebaseConfigured()) {
+        return <FirebaseConfigError />;
+    }
     if (pathname.startsWith('/auth') || pathname === '/onboarding') {
         return <>{children}</>;
     }

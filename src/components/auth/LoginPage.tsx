@@ -56,6 +56,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                                     type="email" 
                                     placeholder="ENTER EMAIL..." 
                                     required 
+                                    autoComplete="email"
                                     maxLength={254}
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
@@ -68,6 +69,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                                         type={showPassword ? "text" : "password"} 
                                         placeholder="••••••••" 
                                         required 
+                                        autoComplete={isSignUp ? "new-password" : "current-password"}
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         className="pr-10"

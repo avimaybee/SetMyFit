@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="4" y="4" width="56" height="56" fill="#FF6B6B" stroke="#000" stroke-width="4"/>
+  <text x="32" y="26" text-anchor="middle" font-family="monospace" font-weight="900" font-size="14" fill="#fff">SET</text>
+  <text x="32" y="42" text-anchor="middle" font-family="monospace" font-weight="900" font-size="14" fill="#FDFFB6">MY</text>
+  <text x="32" y="56" text-anchor="middle" font-family="monospace" font-weight="900" font-size="12" fill="#fff">FIT</text>
+</svg>

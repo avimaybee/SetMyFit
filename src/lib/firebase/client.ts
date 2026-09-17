@@ -16,11 +16,38 @@ import {
 
 let app: FirebaseApp | null = null;
 
+/** True when the public Firebase config is present (baked at build time). */
+export function isFirebaseConfigured(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
+      process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN &&
+      process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID &&
+      process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+  );
+}
+
+function missingFirebaseKeys(): string[] {
+  const required = [
+    'NEXT_PUBLIC_FIREBASE_API_KEY',
+    'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
+    'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
+    'NEXT_PUBLIC_FIREBASE_APP_ID',
+  ] as const;
+  return required.filter((key) => !process.env[key]);
+}
+
 export function firebaseApp(): FirebaseApp {
   if (app) return app;
   if (getApps().length > 0) {
     app = getApps()[0];
     return app;
+  }
+  const missing = missingFirebaseKeys();
+  if (missing.length > 0) {
+    throw new Error(
+      `Firebase is not configured (missing: ${missing.join(', ')}). ` +
+        'Set the NEXT_PUBLIC_FIREBASE_* build variables and redeploy.'
+    );
   }
   app = initializeApp({
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
