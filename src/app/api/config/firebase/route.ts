@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { serverEnv } from '@/lib/serverEnv';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,20 +8,23 @@ export const dynamic = 'force-dynamic';
  * Public Firebase *web* config (client SDK keys). These values ship inside
  * the client JS bundle anyway, so exposing them is safe — this just lets the
  * browser fetch them at RUNTIME instead of requiring build-time inlining.
- * Reads server env, which on Cloudflare Workers includes dashboard
- * Variables (runtime), unlike NEXT_PUBLIC_* inlining during `next build`.
+ *
+ * Reads via serverEnv(): Cloudflare request env first (live dashboard
+ * Variables — immune to Next's NEXT_PUBLIC_* build inlining), then
+ * process.env (local dev).
  */
 export async function GET() {
-  const data = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || '',
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '',
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || '',
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '',
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '',
-  };
+  const [apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId] =
+    await Promise.all([
+      serverEnv('NEXT_PUBLIC_FIREBASE_API_KEY'),
+      serverEnv('NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'),
+      serverEnv('NEXT_PUBLIC_FIREBASE_PROJECT_ID'),
+      serverEnv('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'),
+      serverEnv('NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'),
+      serverEnv('NEXT_PUBLIC_FIREBASE_APP_ID'),
+    ]);
 
-  if (!data.apiKey || !data.authDomain || !data.projectId || !data.appId) {
+  if (!apiKey || !authDomain || !projectId || !appId) {
     return NextResponse.json(
       { success: false, error: 'Firebase web config is not set on the server.' },
       { status: 503 }
@@ -28,7 +32,10 @@ export async function GET() {
   }
 
   return NextResponse.json(
-    { success: true, data },
+    {
+      success: true,
+      data: { apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId },
+    },
     { headers: { 'Cache-Control': 'no-store' } }
   );
 }
