@@ -1,103 +1,82 @@
 /**
- * Rate Limiter Utility for API calls
- * Implements a simple sliding window rate limiter
+ * Gemini call wrapper — 429/5xx-aware retry with exponential backoff + jitter.
+ *
+ * Replaces the old preemptive in-memory rate limiter, which is wrong on
+ * serverless (per-isolate counters = no real limiting) and burns billable
+ * CPU time by sleeping inside workers. Now we just call the API and back
+ * off only when it actually tells us to slow down.
  */
 
-interface RateLimiterConfig {
-    maxRequests: number;
-    windowMs: number;
+export interface GeminiRetryOptions {
+  maxRetries?: number;
+  initialDelayMs?: number;
+  maxDelayMs?: number;
+  timeoutMs?: number;
 }
 
-interface RateLimiterState {
-    requests: number[];
-}
-
-// In-memory store for rate limiting (per API)
-const rateLimiters: Map<string, RateLimiterState> = new Map();
-
-/**
- * Check if a request should be allowed based on rate limit
- * @param key Unique identifier for the rate limiter (e.g., 'gemini', 'openweather')
- * @param config Rate limit configuration
- * @returns Object with allowed status and wait time if not allowed
- */
-export function checkRateLimit(
-    key: string,
-    config: RateLimiterConfig
-): { allowed: boolean; waitMs: number; remaining: number } {
-    const now = Date.now();
-
-    // Get or create state for this key
-    let state = rateLimiters.get(key);
-    if (!state) {
-        state = { requests: [] };
-        rateLimiters.set(key, state);
-    }
-
-    // Remove expired requests (outside the window)
-    const windowStart = now - config.windowMs;
-    state.requests = state.requests.filter(timestamp => timestamp > windowStart);
-
-    // Check if we're at the limit
-    if (state.requests.length >= config.maxRequests) {
-        const oldestRequest = state.requests[0];
-        const waitMs = oldestRequest + config.windowMs - now;
-        return {
-            allowed: false,
-            waitMs: Math.max(0, waitMs),
-            remaining: 0
-        };
-    }
-
-    // Allow the request and record it
-    state.requests.push(now);
-
-    return {
-        allowed: true,
-        waitMs: 0,
-        remaining: config.maxRequests - state.requests.length
-    };
-}
-
-/**
- * Wait for rate limit to clear (async helper)
- */
-export async function waitForRateLimit(
-    key: string,
-    config: RateLimiterConfig
-): Promise<void> {
-    const result = checkRateLimit(key, config);
-
-    if (!result.allowed && result.waitMs > 0) {
-        console.log(`[RateLimit] ${key}: Waiting ${result.waitMs}ms before retry...`);
-        await new Promise(resolve => setTimeout(resolve, result.waitMs));
-        // Re-check after waiting
-        return waitForRateLimit(key, config);
-    }
-}
-
-// Pre-configured rate limiters for common APIs
-export const RATE_LIMITS = {
-    gemini: {
-        maxRequests: 5,
-        windowMs: 60 * 1000, // 5 requests per minute
-    },
-    openweather: {
-        maxRequests: 30,
-        windowMs: 60 * 1000, // 30 requests per minute
-    },
+const DEFAULTS = {
+  maxRetries: 2,
+  initialDelayMs: 1000,
+  maxDelayMs: 15000,
+  timeoutMs: 30000,
 } as const;
 
-/**
- * Gemini-specific rate limit check
- */
-export function checkGeminiRateLimit(): { allowed: boolean; waitMs: number; remaining: number } {
-    return checkRateLimit('gemini', RATE_LIMITS.gemini);
+/** True for errors worth retrying: 429, 5xx, timeouts, network blips. */
+export function isRetryableError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const err = error as { status?: unknown; code?: unknown; name?: unknown; message?: unknown };
+
+  if (typeof err.status === 'number' && (err.status === 429 || err.status >= 500)) return true;
+  // @google/genai ApiError also exposes numeric `code`
+  if (typeof err.code === 'number' && (err.code === 429 || err.code >= 500)) return true;
+
+  const name = String(err.name ?? '');
+  const message = String(err.message ?? '').toLowerCase();
+  if (name === 'AbortError' || name === 'TimeoutError') return true;
+  if (/(fetch failed|network|econnreset|etimedout|socket hang up|429|rate limit|overloaded|unavailable)/.test(message)) {
+    return true;
+  }
+  return false;
 }
 
-/**
- * Wait for Gemini rate limit to clear
- */
-export async function waitForGeminiRateLimit(): Promise<void> {
-    return waitForRateLimit('gemini', RATE_LIMITS.gemini);
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Race a promise against a timeout (named AbortError-style so retries catch it). */
+export function withTimeout<T>(promise: Promise<T>, ms: number, label = 'Gemini request'): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error(`${label} timed out after ${ms}ms`);
+      error.name = 'TimeoutError';
+      reject(error);
+    }, ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
+export async function withGeminiRetry<T>(
+  fn: () => Promise<T>,
+  options: GeminiRetryOptions = {}
+): Promise<T> {
+  const { maxRetries, initialDelayMs, maxDelayMs, timeoutMs } = { ...DEFAULTS, ...options };
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) {
+      const backoff = Math.min(initialDelayMs * Math.pow(2, attempt - 1), maxDelayMs);
+      const jitter = Math.random() * 500;
+      console.warn(`[Gemini] retry ${attempt}/${maxRetries} after ${Math.round(backoff + jitter)}ms`);
+      await sleep(backoff + jitter);
+    }
+    try {
+      return await withTimeout(fn(), timeoutMs);
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableError(error) || attempt === maxRetries) break;
+      console.warn('[Gemini] retryable error:', error instanceof Error ? error.message : String(error));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }

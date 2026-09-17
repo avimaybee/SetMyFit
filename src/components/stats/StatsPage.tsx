@@ -7,6 +7,7 @@ import { ClothingItem, Outfit } from '@/types/retro';
 interface StatsPageProps {
     items: ClothingItem[];
     _history?: Outfit[];
+    onNavigateToWardrobe?: () => void;
 }
 
 // We will use CSS variables for colors so they switch with theme
@@ -18,7 +19,7 @@ const CHART_COLORS = [
     'var(--accent-orange)'
 ];
 
-export const StatsPage: React.FC<StatsPageProps> = ({ items, _history }) => {
+export const StatsPage: React.FC<StatsPageProps> = ({ items, _history, onNavigateToWardrobe }) => {
 
     // Calculate Analytics on the fly
     const analytics = useMemo(() => {
@@ -107,6 +108,14 @@ export const StatsPage: React.FC<StatsPageProps> = ({ items, _history }) => {
                 <p className="font-mono text-sm text-[var(--text-muted)] text-center max-w-xs">
                     Add items to your wardrobe and log some outfits to see your statistics here.
                 </p>
+                {onNavigateToWardrobe && (
+                    <button
+                        onClick={onNavigateToWardrobe}
+                        className="mt-2 bg-[var(--text)] text-[var(--bg-main)] font-mono text-xs font-bold px-4 py-2 border-2 border-[var(--border)] shadow-[4px_4px_0px_0px_var(--border)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all"
+                    >
+                        ADD YOUR FIRST ITEM
+                    </button>
+                )}
             </div>
         );
     }
@@ -236,7 +245,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ items, _history }) => {
                     <div className="p-3 bg-[var(--bg-secondary)] border-2 border-[var(--border)] rounded-full shadow-[2px_2px_0px_0px_var(--border)]">
                         <Award size={32} className="text-[var(--text)]" />
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                         <h3 className="font-mono text-xs uppercase font-bold text-[var(--text-muted)]">MVP Item</h3>
                         <p className="font-black text-lg tracking-tight text-[var(--text)] truncate">
                             {analytics.maxWearItem?.name || "N/A"}

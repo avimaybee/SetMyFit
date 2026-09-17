@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthUser, unauthorized } from '@/lib/auth';
+import { boolInt, dbFirst, nowIso, toJson } from '@/lib/db';
+import { buildR2Key, r2Configured, r2PublicUrl, r2Put } from '@/lib/r2';
 import { logger } from '@/lib/logger';
 import { analyzeClothingImage } from '@/lib/helpers/aiOutfitAnalyzer';
 
 /**
  * POST /api/wardrobe/upload-batch
- * 
+ *
  * Batch upload wardrobe items from onboarding.
  * Accepts multipart form data with files and metadata.
  * Analyzes each image with AI to extract colors, type, and characteristics.
- * Creates clothing items in the database.
+ * Uploads images to R2 and creates clothing items in D1.
  */
 
 interface UploadedItemMetadata {
@@ -22,14 +24,13 @@ interface UploadedItemMetadata {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // Authenticate user
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getAuthUser(request);
+    if (!user) return unauthorized();
 
-    if (!user) {
+    if (!r2Configured()) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized', message: 'User not authenticated' },
-        { status: 401 }
+        { success: false, error: 'Image storage is not configured', message: 'Set R2_* env vars.' },
+        { status: 500 }
       );
     }
 
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     logger.info('Processing batch wardrobe upload', {
-      userId: user.id,
+      userId: user.uid,
       fileCount: files.length,
     });
 
@@ -73,11 +74,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // Get metadata if provided
         const metadataJson = formData.get(`metadata_${i}`) as string | null;
         let metadata: UploadedItemMetadata = {};
-        
+
         if (metadataJson) {
           try {
             metadata = JSON.parse(metadataJson) as UploadedItemMetadata;
-          } catch (_e) {
+          } catch {
             logger.warn(`Failed to parse metadata for file ${i}`);
           }
         }
@@ -104,62 +105,43 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           // Continue with defaults extracted from metadata or hardcoded
         }
 
-        // Upload image to Supabase Storage
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.jpg`;
-        const storagePath = `wardrobe/${user.id}/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('clothing-images')
-          .upload(storagePath, Buffer.from(arrayBuffer), {
-            contentType: 'image/jpeg',
-            cacheControl: '3600',
-          });
-
-        if (uploadError) {
-          throw uploadError;
-        }
-
-        // Generate public URL for the image
-        const { data: publicUrlData } = supabase.storage
-          .from('clothing-images')
-          .getPublicUrl(storagePath);
-
-        const imageUrl = publicUrlData?.publicUrl || '';
+        // Upload image to R2
+        const key = buildR2Key(user.uid, file.type || 'image/jpeg');
+        await r2Put(key, Buffer.from(arrayBuffer), file.type || 'image/jpeg');
+        const imageUrl = r2PublicUrl(key);
 
         // Create clothing item in database
         const itemName = metadata.name || file.name.replace(/\.[^/.]+$/, '');
-        
-        const { data: createdItem, error: createError } = await supabase
-          .from('clothing_items')
-          .insert([
-            {
-              user_id: user.id,
-              name: itemName,
-              image_url: imageUrl,
-              type: analysisResult.detectedType,
-              color: analysisResult.detectedColor,
-              material: analysisResult.detectedMaterial,
-              style_tags: analysisResult.detectedStyleTags,
-              pattern: 'solid', // Default pattern
-              fit: 'regular', // Default fit
-              dress_code: ['casual'], // Default dress code
-              insulation_value: 5, // Default insulation
-              last_worn: null,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            },
-          ])
-          .select();
 
-        if (createError) {
-          throw createError;
-        }
+        const createdItem = await dbFirst(
+          `INSERT INTO clothing_items
+            (user_id, name, image_url, type, color, material, style_tags,
+             pattern, fit, dress_code, insulation_value, last_worn, created_at, is_favorite)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           RETURNING *`,
+          [
+            user.uid,
+            itemName,
+            imageUrl,
+            analysisResult.detectedType,
+            analysisResult.detectedColor,
+            analysisResult.detectedMaterial,
+            toJson(analysisResult.detectedStyleTags),
+            'solid',
+            'regular',
+            toJson(['casual']),
+            5,
+            null,
+            nowIso(),
+            boolInt(false),
+          ]
+        );
 
-        if (createdItem && createdItem.length > 0) {
-          createdItems.push(createdItem[0]);
+        if (createdItem) {
+          createdItems.push(createdItem);
           logger.info('Clothing item created', {
-            userId: user.id,
-            itemId: createdItem[0].id,
+            userId: user.uid,
+            itemId: createdItem.id,
             itemName,
           });
         }
@@ -189,7 +171,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (error: unknown) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     logger.error('Error in wardrobe upload-batch:', { error: errorMsg });
-    
+
     return NextResponse.json(
       {
         success: false,

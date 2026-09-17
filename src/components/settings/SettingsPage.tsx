@@ -98,7 +98,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout, preference
                             <p className="text-[10px] font-mono text-[var(--text-muted)]">High-contrast terminal visuals</p>
                         </div>
                         <RetroToggle
-                            label=""
+                            label="Hacker mode"
                             checked={preferences.theme === 'HACKER'}
                             onChange={(c) => onUpdate({ theme: c ? 'HACKER' : 'RETRO' })}
                         />

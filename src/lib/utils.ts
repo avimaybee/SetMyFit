@@ -83,7 +83,7 @@ const decodeBase64ToBytes = (base64: string): Uint8Array => {
 };
 
 /**
- * Convert a data URL into a File so it can be uploaded via Supabase Storage
+ * Convert a data URL into a File so it can be uploaded via /api/uploads (R2)
  */
 export function dataUrlToFile(dataUrl: string, preferredFileName?: string): File {
   if (typeof File === "undefined" || typeof Blob === "undefined") {

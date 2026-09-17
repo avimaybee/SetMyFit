@@ -28,22 +28,6 @@ const TYPE_INSULATION_BASELINE: Record<IClothingItem['type'], number> = {
 
 const clampInsulation = (value: number) => Math.min(10, Math.max(0, value));
 
-const SEASON_SYNONYMS: Record<string, string> = {
-  fall: 'autumn',
-  autumn: 'autumn',
-  spring: 'spring',
-  summer: 'summer',
-  winter: 'winter',
-};
-
-const normalizeSeasonName = (season?: string | null): string => {
-  if (!season) {
-    return '';
-  }
-  const key = season.trim().toLowerCase();
-  return SEASON_SYNONYMS[key] ?? key;
-};
-
 export function resolveInsulationValue(item: Partial<IClothingItem>): number {
   const raw = item.insulation_value;
   if (typeof raw === 'number' && Number.isFinite(raw)) {
@@ -60,48 +44,6 @@ export function resolveInsulationValue(item: Partial<IClothingItem>): number {
   }
 
   return MATERIAL_INSULATION_PRESETS.default;
-}
-
-/**
- * Filter items by season suitability
- * Prioritizes items tagged for the current season, but doesn't completely exclude others
- */
-export function filterBySeason<T extends IClothingItem>(
-  items: T[],
-  currentSeason: string
-): { seasonal: T[]; neutral: T[]; offSeason: T[] } {
-  const normalizedSeason = normalizeSeasonName(currentSeason);
-
-  if (!normalizedSeason) {
-    return {
-      seasonal: [],
-      neutral: items,
-      offSeason: [],
-    };
-  }
-
-  const seasonal: T[] = [];
-  const neutral: T[] = [];
-  const offSeason: T[] = [];
-
-  for (const item of items) {
-    if (!item.season_tags || item.season_tags.length === 0) {
-      neutral.push(item);
-      continue;
-    }
-
-    const normalizedTags = item.season_tags
-      .map(tag => normalizeSeasonName(tag))
-      .filter(Boolean);
-
-    if (normalizedTags.includes(normalizedSeason)) {
-      seasonal.push(item);
-    } else {
-      offSeason.push(item);
-    }
-  }
-
-  return { seasonal, neutral, offSeason };
 }
 
 /**

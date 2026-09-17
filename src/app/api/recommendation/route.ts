@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthUser, unauthorized } from '@/lib/auth';
+import { dbAll, dbFirst, mapClothingItem, mapProfile, mapRecommendation, nowIso, toJson } from '@/lib/db';
 import { IClothingItem, ClothingType, RecommendationDiagnostics, RecommendationApiPayload } from '@/lib/types';
 import { generateAIOutfitRecommendation } from '@/lib/helpers/aiOutfitAnalyzer';
 import { resolveInsulationValue, filterByLastWorn } from '@/lib/helpers/clothingHelpers';
@@ -11,7 +12,7 @@ import { validateBody, recommendationRequestSchema } from '@/lib/validation';
 import { logger, generateRequestId } from '@/lib/logger';
 import { getCurrentSeason, getSeasonDescription } from '@/lib/helpers/seasonDetector';
 
-// DB row type used for items fetched from Supabase
+// DB row type used for items fetched from D1
 type DBClothingRow = Partial<IClothingItem> & {
   id?: number;
   category?: string | null;
@@ -216,17 +217,8 @@ const describeDetectedTypes = (items: Array<{ normalizedType: ClothingType | nul
  * Generate outfit recommendation based on user wardrobe and preferences
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const supabase = await createClient();
-
-  // Get authenticated user
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
-      { status: 401 }
-    );
-  }
+  const user = await getAuthUser(request);
+  if (!user) return unauthorized();
 
   try {
     const validatedData = await validateBody(request, recommendationRequestSchema) as { occasion?: string; lockedItems?: string[] };
@@ -235,7 +227,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (process.env.NODE_ENV === 'development') {
       console.log('🎯 Generating recommendation for:', { occasion, lockedItems });
     }
-    const { payload, diagnostics } = await generateRecommendation(user.id, occasion, lockedItems);
+    const { payload, diagnostics } = await generateRecommendation(user.uid, occasion, lockedItems);
     if (process.env.NODE_ENV === 'development') {
       console.log('✓ Recommendation generated successfully');
     }
@@ -297,7 +289,6 @@ async function generateRecommendation(
   occasion: string,
   lockedItems: string[]
 ): Promise<{ payload: RecommendationApiPayload; diagnostics: RecommendationDiagnostics }> {
-  const supabase = await createClient();
   const requestId = generateRequestId('rec');
   const diagnostics: RecommendationDiagnostics = {
     requestId,
@@ -318,18 +309,15 @@ async function generateRecommendation(
   };
 
   // Fetch user's wardrobe
-  const { data: wardrobeItems, error: wardrobeError } = await supabase
-    .from('clothing_items')
-    .select(`
-      id, name, type, category, color, material, insulation_value, 
-      last_worn, image_url, season_tags, style_tags, dress_code, 
-      created_at, pattern, fit, style, occasion, description, favorite:is_favorite
-    `)
-    .eq('user_id', userId);
-
-  if (wardrobeError) {
-    throw new Error('Failed to fetch wardrobe items');
-  }
+  const wardrobeRows = await dbAll(
+    `SELECT id, name, type, category, color, material, insulation_value,
+      last_worn, image_url, season_tags, style_tags, dress_code,
+      created_at, pattern, fit, style, occasion, description, is_favorite,
+      wear_count
+     FROM clothing_items WHERE user_id = ?`,
+    [userId]
+  );
+  const wardrobeItems = wardrobeRows.map(mapClothingItem);
 
   // Handle empty wardrobe gracefully - this is expected for new users
   if (!wardrobeItems || wardrobeItems.length === 0) {
@@ -368,21 +356,17 @@ async function generateRecommendation(
   if (itemsNeedingBackfill.length > 0) {
     try {
       await Promise.all(itemsNeedingBackfill.map(item =>
-        supabase
-          .from('clothing_items')
-          .update({ type: item.normalizedType })
-          .eq('id', item.id)
-          .eq('user_id', userId)
+        dbFirst(
+          'UPDATE clothing_items SET type = ? WHERE id = ? AND user_id = ? RETURNING id',
+          [item.normalizedType, Number(item.id), userId]
+        )
       ));
 
       // Refetch items after backfilling
-      const { data: updatedWardrobeItems, error: refetchError } = await supabase
-        .from('clothing_items')
-        .select('*')
-        .eq('user_id', userId);
+      const updatedRows = await dbAll('SELECT * FROM clothing_items WHERE user_id = ?', [userId]);
 
-      if (!refetchError && updatedWardrobeItems) {
-        normalizedWardrobeItems = (updatedWardrobeItems as DBClothingRow[]).map((item) => {
+      if (updatedRows.length > 0) {
+        normalizedWardrobeItems = (updatedRows.map(mapClothingItem) as unknown as DBClothingRow[]).map((item) => {
           const normalizedType = deriveClothingType(item as DBClothingRow);
           return {
             ...(item as DBClothingRow),
@@ -442,11 +426,8 @@ async function generateRecommendation(
   });
 
   // Fetch user preferences
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('preferences')
-    .eq('id', userId)
-    .single();
+  const profileRow = await dbFirst('SELECT preferences FROM profiles WHERE id = ?', [userId]);
+  const profile = profileRow ? mapProfile(profileRow) : null;
 
   // Convert preference scores to arrays of items with positive scores
   const userPreferences: Record<string, string[]> = {
@@ -552,52 +533,30 @@ async function generateRecommendation(
   });
 
   // Store recommendation in database
-  const { data: savedRecommendation, error: saveError } = await supabase
-    .from('outfit_recommendations')
-    .insert({
-      user_id: userId,
-      outfit_items: aiRecommendation.outfit.map((i: IClothingItem) => i.id),
-      weather_data: null, // No weather data anymore
-      confidence_score: aiRecommendation.validationScore / 100,
-      reasoning: aiRecommendation.reasoning?.weatherMatch || "AI Optimized",
-      detailed_reasoning: JSON.stringify(aiRecommendation.reasoning),
-      missing_items: [],
-      created_at: new Date().toISOString(),
-    })
-    .select()
-    .single();
-
-  if (saveError) {
+  let savedRecommendation: { id: number } | null = null;
+  try {
+    const savedRow = await dbFirst(
+      `INSERT INTO outfit_recommendations
+        (user_id, outfit_items, weather_data, confidence_score, reasoning, detailed_reasoning, missing_items, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+      [
+        userId,
+        toJson(aiRecommendation.outfit.map((i: IClothingItem) => i.id)),
+        null, // No weather data anymore
+        aiRecommendation.validationScore / 100,
+        aiRecommendation.reasoning?.weatherMatch || "AI Optimized",
+        JSON.stringify(aiRecommendation.reasoning),
+        toJson([]),
+        nowIso(),
+      ]
+    );
+    savedRecommendation = savedRow ? { id: Number(savedRow.id) } : null;
+  } catch (saveError) {
     logger.error('Failed to save recommendation', { error: saveError });
   }
 
-  // Generate signed URLs for images
-  const SIGNED_URL_TTL = 60 * 60; // 1 hour
-
-  const outfitWithSignedUrls = await Promise.all(
-    aiRecommendation.outfit.map(async (item) => {
-      if (item.image_url) {
-        try {
-          const url = new URL(item.image_url);
-          const pathSegments = url.pathname.split('/clothing_images/');
-
-          if (pathSegments.length > 1 && pathSegments[1]) {
-            const path = pathSegments[1];
-            const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-              .from('clothing_images')
-              .createSignedUrl(path, SIGNED_URL_TTL);
-
-            if (!signedUrlError && signedUrlData?.signedUrl) {
-              return { ...item, image_url: signedUrlData.signedUrl };
-            }
-          }
-        } catch (e) {
-          logger.error(`Error creating signed URL for recommendation item ${item.id}:`, { error: e });
-        }
-      }
-      return item;
-    })
-  );
+  // R2 image URLs are public and stable — no signed URLs needed.
+  const outfitWithSignedUrls = aiRecommendation.outfit;
 
   const transformedData: RecommendationApiPayload = {
     recommendation: {
@@ -626,65 +585,39 @@ async function generateRecommendation(
  * GET /api/recommendation
  * Returns the most recent recommendation payload
  */
-export async function GET(_request: NextRequest): Promise<NextResponse> {
-  const supabase = await createClient();
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const user = await getAuthUser(request);
+  if (!user) return unauthorized();
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
-      { status: 401 }
-    );
-  }
+  const recRow = await dbFirst(
+    'SELECT * FROM outfit_recommendations WHERE user_id = ? ORDER BY created_at DESC LIMIT 1',
+    [user.uid]
+  );
 
-  const { data: recommendation, error: recError } = await supabase
-    .from('outfit_recommendations')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
-
-  if (recError || !recommendation) {
+  if (!recRow) {
     return NextResponse.json(
       { success: false, error: 'No recommendations found' },
       { status: 404 }
     );
   }
 
-  const { data: items } = await supabase
-    .from('clothing_items')
-    .select('*')
-    .in('id', recommendation.outfit_items);
+  const recommendation = mapRecommendation(recRow);
 
-  const SIGNED_URL_TTL = 60 * 60;
-  const outfitWithSignedUrls = await Promise.all(
-    (items || []).map(async (item) => {
-      if (item.image_url) {
-        try {
-          const url = new URL(item.image_url);
-          const pathSegments = url.pathname.split('/clothing_images/');
-          if (pathSegments.length > 1 && pathSegments[1]) {
-            const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-              .from('clothing_images')
-              .createSignedUrl(pathSegments[1], SIGNED_URL_TTL);
-            if (!signedUrlError && signedUrlData?.signedUrl) {
-              return { ...item, image_url: signedUrlData.signedUrl };
-            }
-          }
-        } catch (_err) {
-          // Ignore parsing issues
-        }
-      }
-      return item;
-    })
-  );
+  let items: IClothingItem[] = [];
+  if (recommendation.outfit_items.length > 0) {
+    const placeholders = recommendation.outfit_items.map(() => '?').join(',');
+    const itemRows = await dbAll(
+      `SELECT * FROM clothing_items WHERE id IN (${placeholders})`,
+      recommendation.outfit_items
+    );
+    items = itemRows.map(mapClothingItem) as unknown as IClothingItem[];
+  }
 
   const payload: RecommendationApiPayload = {
     recommendation: {
-      outfit: outfitWithSignedUrls as IClothingItem[],
+      outfit: items,
       confidence_score: recommendation.confidence_score,
-      reasoning: recommendation.reasoning,
+      reasoning: recommendation.reasoning ?? '',
       detailed_reasoning: recommendation.detailed_reasoning || null,
       missing_items: recommendation.missing_items || [],
       dress_code: 'Casual',

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { uploadClothingImage } from "@/lib/supabase/storage";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { currentUser } from "@/lib/firebase/client";
+import { apiFetch } from "@/lib/api";
+import { uploadClothingImage } from "@/lib/uploads";
 import { WardrobeGrid } from "@/components/wardrobe/WardrobeGrid";
 import { ClothingItem, ClothingType } from "@/types/retro";
 import { IClothingItem } from "@/types";
@@ -14,17 +15,24 @@ import { ListSkeleton } from "@/components/ui/skeletons";
 export default function WardrobePage() {
     const [items, setItems] = useState<ClothingItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadFailed, setLoadFailed] = useState(false);
     const { isGlobalAddOpen, openGlobalAdd, closeGlobalAdd } = useAddItem();
+    // Serialize saves + favorite toggles to prevent duplicates and races.
+    const savingRef = useRef(false);
+    const favoriteInFlightRef = useRef<Set<string>>(new Set());
 
     const fetchWardrobe = useCallback(async () => {
         try {
             setLoading(true);
-            const supabase = createClient();
-            const { data: { session } } = await supabase.auth.getSession();
+            setLoadFailed(false);
+            const fbUser = await currentUser();
+            if (!fbUser) return;
 
-            if (!session) return;
-
-            const response = await fetch("/api/wardrobe");
+            const response = await apiFetch("/api/wardrobe");
+            if (response.status === 401) {
+                toast.error("Session expired. Please sign in again.");
+                return;
+            }
             if (!response.ok) throw new Error("Failed to fetch wardrobe");
 
             const data = await response.json();
@@ -50,6 +58,7 @@ export default function WardrobePage() {
             }
         } catch (err) {
             console.error("Error fetching wardrobe:", err);
+            setLoadFailed(true);
             toast.error("Failed to load wardrobe items.");
         } finally {
             setLoading(false);
@@ -80,11 +89,13 @@ export default function WardrobePage() {
     };
 
     const handleAddItem = async (item: Partial<ClothingItem>, file?: File) => {
+        // Double-clicking SAVE must not create two items.
+        if (savingRef.current) return;
+        savingRef.current = true;
         let uploadToastId: string | null = null;
         try {
-            const supabase = createClient();
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
+            const fbUser = await currentUser();
+            if (!fbUser) {
                 toast.error("You must be logged in.");
                 return;
             }
@@ -104,7 +115,7 @@ export default function WardrobePage() {
 
             if (uploadFile) {
                 uploadToastId = toast.loading('UPLOADING IMAGE... 0%');
-                const uploadResult = await uploadClothingImage(uploadFile, session.user.id, {
+                const uploadResult = await uploadClothingImage(uploadFile, fbUser.uid, {
                     onProgress: (percent) => {
                         if (!uploadToastId) return;
                         toast.loading(`UPLOADING IMAGE... ${percent}%`, { id: uploadToastId });
@@ -132,7 +143,7 @@ export default function WardrobePage() {
                 fit: item.fit,
             };
 
-            const response = await fetch("/api/wardrobe", {
+            const response = await apiFetch("/api/wardrobe", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -153,6 +164,7 @@ export default function WardrobePage() {
             const errorMessage = err instanceof Error ? err.message : "Failed to add item";
             toast.error(errorMessage);
         } finally {
+            savingRef.current = false;
             if (uploadToastId) {
                 toast.dismiss(uploadToastId);
             }
@@ -161,12 +173,13 @@ export default function WardrobePage() {
 
     const handleUpdateItem = async (item: Partial<ClothingItem>, file?: File) => {
         if (!item.id) return;
+        if (savingRef.current) return;
+        savingRef.current = true;
 
         let uploadToastId: string | null = null;
         try {
-            const supabase = createClient();
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
+            const fbUser = await currentUser();
+            if (!fbUser) {
                 toast.error("You must be logged in.");
                 return;
             }
@@ -186,7 +199,7 @@ export default function WardrobePage() {
 
             if (uploadFile) {
                 uploadToastId = toast.loading('UPLOADING IMAGE... 0%');
-                const uploadResult = await uploadClothingImage(uploadFile, session.user.id, {
+                const uploadResult = await uploadClothingImage(uploadFile, fbUser.uid, {
                     onProgress: (percent) => {
                         if (!uploadToastId) return;
                         toast.loading(`UPLOADING IMAGE... ${percent}%`, { id: uploadToastId });
@@ -210,7 +223,7 @@ export default function WardrobePage() {
                 style_tags: item.style_tags
             };
 
-            const response = await fetch(`/api/wardrobe/${item.id}`, {
+            const response = await apiFetch(`/api/wardrobe/${item.id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -224,6 +237,7 @@ export default function WardrobePage() {
             console.error("Error updating item:", err);
             toast.error("Failed to update item.");
         } finally {
+            savingRef.current = false;
             if (uploadToastId) {
                 toast.dismiss(uploadToastId);
             }
@@ -231,30 +245,36 @@ export default function WardrobePage() {
     };
 
     const handleDelete = async (id: string) => {
+        // Snapshot for revert: the API may fail after we optimistically remove.
+        const snapshot = items;
+        setItems(prev => prev.filter(i => i.id !== id));
         try {
-            const response = await fetch(`/api/wardrobe/${id}`, { method: "DELETE" });
+            const response = await apiFetch(`/api/wardrobe/${id}`, { method: "DELETE" });
             if (!response.ok) throw new Error("Failed to delete item");
-
-            setItems(prev => prev.filter(i => i.id !== id));
             toast.success("Item deleted.");
         } catch (err) {
             console.error("Error deleting item:", err);
+            setItems(snapshot);
             toast.error("Failed to delete item.");
         }
     };
 
     const handleToggleFavorite = async (id: string) => {
+        // Serialize per item so rapid toggles can't revert to a stale value.
+        if (favoriteInFlightRef.current.has(id)) return;
         const item = items.find(i => i.id === id);
         if (!item) return;
+        const next = !item.is_favorite;
+        favoriteInFlightRef.current.add(id);
 
         // Optimistic update
-        setItems(prev => prev.map(i => i.id === id ? { ...i, is_favorite: !i.is_favorite } : i));
+        setItems(prev => prev.map(i => i.id === id ? { ...i, is_favorite: next } : i));
 
         try {
-            const response = await fetch(`/api/wardrobe/${id}`, {
+            const response = await apiFetch(`/api/wardrobe/${id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ is_favorite: !item.is_favorite })
+                body: JSON.stringify({ is_favorite: next })
             });
             if (!response.ok) throw new Error("Failed to update favorite status");
         } catch (err) {
@@ -262,13 +282,15 @@ export default function WardrobePage() {
             // Revert
             setItems(prev => prev.map(i => i.id === id ? { ...i, is_favorite: item.is_favorite } : i));
             toast.error("Failed to update favorite.");
+        } finally {
+            favoriteInFlightRef.current.delete(id);
         }
     };
 
     const handleAnalyzeImage = async (base64: string, options?: { signal?: AbortSignal }): Promise<Partial<ClothingItem> | null> => {
         try {
             const { base64: payload, mimeType } = parseDataUrl(base64, "image/webp");
-            const response = await fetch("/api/wardrobe/analyze", {
+            const response = await apiFetch("/api/wardrobe/analyze", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ image: payload, mimeType }),
@@ -290,10 +312,22 @@ export default function WardrobePage() {
     };
 
     return (
-        <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-primary)] min-h-screen text-[var(--text)]">
+        <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-main)] min-h-screen text-[var(--text)]">
+            <h1 className="sr-only">Wardrobe</h1>
             <div className="max-w-7xl mx-auto">
                 {loading ? (
                     <ListSkeleton />
+                ) : loadFailed && items.length === 0 ? (
+                    <div className="bg-white border-2 border-black p-8 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                        <p className="font-mono font-bold">WARDROBE_LOAD_FAILED</p>
+                        <p className="font-mono text-xs mt-2 text-gray-600">Check your connection and try again.</p>
+                        <button
+                            onClick={fetchWardrobe}
+                            className="mt-4 bg-black text-white font-mono text-xs px-4 py-2 border-2 border-black hover:bg-gray-800"
+                        >
+                            RETRY
+                        </button>
+                    </div>
                 ) : (
                     <WardrobeGrid
                         items={items}

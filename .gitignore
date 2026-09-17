@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# local dev database (SQLite fallback when D1 is not configured)
+/.data/
+
 # vercel
 .vercel
 

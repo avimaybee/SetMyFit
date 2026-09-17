@@ -1,11 +1,14 @@
 /**
  * Feature Verification Endpoint
- * 
+ *
  * Checks which features are actually working in the system
  */
 
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAuthUser } from '@/lib/auth';
+import { dbAll, isD1Configured } from '@/lib/db';
+import { isAdminConfigured } from '@/lib/firebase/admin';
+import { r2Configured } from '@/lib/r2';
 import { logger } from '@/lib/logger';
 
 interface FeatureStatus {
@@ -15,23 +18,31 @@ interface FeatureStatus {
   lastChecked: string;
 }
 
-export async function GET(): Promise<NextResponse<{ features: FeatureStatus[] }>> {
+export async function GET(request: NextRequest): Promise<NextResponse<{ features: FeatureStatus[] }>> {
   const features: FeatureStatus[] = [];
   const now = new Date().toISOString();
 
-  // Check 1: Supabase Connection
+  // Check 1: Firebase Auth
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    features.push({
-      name: 'Supabase Auth',
-      status: user ? 'working' : 'partial',
-      notes: user ? 'Authenticated' : 'Not authenticated (expected if not logged in)',
-      lastChecked: now,
-    });
+    if (!isAdminConfigured()) {
+      features.push({
+        name: 'Firebase Auth',
+        status: 'not_working',
+        notes: 'FIREBASE_* environment variables not set',
+        lastChecked: now,
+      });
+    } else {
+      const user = await getAuthUser(request);
+      features.push({
+        name: 'Firebase Auth',
+        status: user ? 'working' : 'partial',
+        notes: user ? 'Authenticated' : 'Not authenticated (expected if not logged in)',
+        lastChecked: now,
+      });
+    }
   } catch (error) {
     features.push({
-      name: 'Supabase Auth',
+      name: 'Firebase Auth',
       status: 'not_working',
       notes: String(error),
       lastChecked: now,
@@ -74,9 +85,8 @@ export async function GET(): Promise<NextResponse<{ features: FeatureStatus[] }>
     });
   }
 
-  // Check 4: Database Tables
+  // Check 4: Database (D1 or local SQLite)
   try {
-    const supabase = await createClient();
     const tables = [
       'clothing_items',
       'outfit_recommendations',
@@ -86,8 +96,9 @@ export async function GET(): Promise<NextResponse<{ features: FeatureStatus[] }>
 
     let allTablesExist = true;
     for (const table of tables) {
-      const { error } = await supabase.from(table).select('count', { count: 'exact' }).limit(1);
-      if (error) {
+      try {
+        await dbAll(`SELECT * FROM ${table} LIMIT 1`, []);
+      } catch {
         allTablesExist = false;
         break;
       }
@@ -96,7 +107,9 @@ export async function GET(): Promise<NextResponse<{ features: FeatureStatus[] }>
     features.push({
       name: 'Database Schema',
       status: allTablesExist ? 'working' : 'partial',
-      notes: allTablesExist ? 'All tables exist' : 'Some tables may be missing',
+      notes: allTablesExist
+        ? (isD1Configured() ? 'All tables exist (Cloudflare D1)' : 'All tables exist (local SQLite)')
+        : 'Some tables may be missing',
       lastChecked: now,
     });
   } catch (error) {
@@ -108,39 +121,33 @@ export async function GET(): Promise<NextResponse<{ features: FeatureStatus[] }>
     });
   }
 
-  // Check 5: Core Features Status
+  // Check 5: R2 storage
+  features.push({
+    name: 'R2 Image Storage',
+    status: r2Configured() ? 'working' : 'not_working',
+    notes: r2Configured() ? 'R2 bucket configured' : 'R2_* environment variables not set',
+    lastChecked: now,
+  });
+
+  // Check 6: Core Features Status
   features.push({
     name: 'Wardrobe Management',
     status: 'working',
-    notes: 'Upload, analyze with Gemini, store in Supabase',
+    notes: 'Upload to R2, analyze with Gemini, store in D1',
     lastChecked: now,
   });
 
   features.push({
     name: 'AI Recommendations',
     status: 'working',
-    notes: 'Generates outfits using Gemini 2.5 Flash with weather integration',
-    lastChecked: now,
-  });
-
-  features.push({
-    name: 'Natural Language Processing',
-    status: 'working',
-    notes: 'Parses swap, regenerate, and style change commands with regex patterns',
-    lastChecked: now,
-  });
-
-  features.push({
-    name: 'Outfit Visual Generation',
-    status: 'working',
-    notes: 'Calls gemini-2.5-flash-image API to generate silhouette renders',
+    notes: 'Generates outfits using Gemini with weather integration',
     lastChecked: now,
   });
 
   features.push({
     name: 'Feedback Learning',
     status: 'working',
-    notes: 'NEW: Processes likes/dislikes to learn user preferences',
+    notes: 'Processes likes/dislikes to learn user preferences',
     lastChecked: now,
   });
 
@@ -154,7 +161,7 @@ export async function GET(): Promise<NextResponse<{ features: FeatureStatus[] }>
   features.push({
     name: 'User Authentication',
     status: 'working',
-    notes: 'Supabase Auth with session management',
+    notes: 'Firebase Auth with session management',
     lastChecked: now,
   });
 

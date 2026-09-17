@@ -1,13 +1,13 @@
 /**
  * Feedback Processor
- * 
+ *
  * Processes user feedback (likes/dislikes) on outfit recommendations
  * and adjusts recommendation weights accordingly.
- * 
+ *
  * This makes the AI learn what the user likes over time.
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { dbFirst, nowIso, parseJson, toJson } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import type { IClothingItem } from '@/lib/types';
 
@@ -36,7 +36,8 @@ export interface FeedbackAnalysis {
 }
 
 /**
- * Process user feedback and adjust recommendation weights
+ * Process user feedback and adjust recommendation weights.
+ * Callers must authenticate the user (via getAuthUser) before invoking.
  */
 export async function processFeedback(input: FeedbackInput): Promise<{
   success: boolean;
@@ -44,28 +45,24 @@ export async function processFeedback(input: FeedbackInput): Promise<{
   error?: string;
 }> {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user || user.id !== input.userId) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
     // 1. Save feedback to database
-    const { error: feedbackError } = await supabase
-      .from('recommendation_feedback')
-      .insert({
-        user_id: input.userId,
-        recommendation_id: input.recommendationId,
-        is_liked: input.isLiked,
-        reason: input.reason,
-        weather_conditions: input.weather,
-        created_at: new Date().toISOString(),
-      });
-
-    if (feedbackError) {
+    try {
+      await dbFirst(
+        `INSERT INTO recommendation_feedback
+          (user_id, recommendation_id, is_liked, reason, weather_conditions, created_at)
+         VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
+        [
+          input.userId,
+          Number(input.recommendationId),
+          input.isLiked ? 1 : 0,
+          input.reason ?? null,
+          toJson(input.weather ?? null),
+          nowIso(),
+        ]
+      );
+    } catch (feedbackError) {
       logger.error('Failed to save feedback', { error: feedbackError });
-      return { success: false, error: feedbackError.message };
+      return { success: false, error: feedbackError instanceof Error ? feedbackError.message : 'Failed to save feedback' };
     }
 
     // 2. Analyze feedback to extract preferences
@@ -156,21 +153,13 @@ function analyzeFeedback(input: FeedbackInput): FeedbackAnalysis {
  */
 async function updateUserPreferences(userId: string, analysis: FeedbackAnalysis): Promise<void> {
   try {
-    const supabase = await createClient();
-
-    // Fetch user preferences from profiles table
-    const { data: profile, error: fetchError } = await supabase
-      .from('profiles')
-      .select('preferences')
-      .eq('id', userId)
-      .single();
-
-    if (fetchError) {
-      logger.warn('Could not fetch user profile for preferences', { error: fetchError });
+    const profile = await dbFirst('SELECT preferences FROM profiles WHERE id = ?', [userId]);
+    if (!profile) {
+      logger.warn('Could not fetch user profile for preferences', { userId });
       return;
     }
 
-    const existingPrefs = profile?.preferences || {};
+    const existingPrefs = parseJson<Record<string, Record<string, number>>>(profile.preferences, {});
 
     // Merge with new preferences
     const updatedPreferences = {
@@ -190,13 +179,13 @@ async function updateUserPreferences(userId: string, analysis: FeedbackAnalysis)
     };
 
     // Save updated preferences
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ preferences: updatedPreferences })
-      .eq('id', userId);
+    const updated = await dbFirst(
+      'UPDATE profiles SET preferences = ?, updated_at = ? WHERE id = ? RETURNING id',
+      [toJson(updatedPreferences), nowIso(), userId]
+    );
 
-    if (updateError) {
-      logger.error('Failed to update user preferences', { error: updateError });
+    if (!updated) {
+      logger.error('Failed to update user preferences', { userId });
     } else {
       logger.info('User preferences updated successfully', { userId });
     }
@@ -234,80 +223,4 @@ function mergePreferences(
   });
 
   return merged;
-}
-
-/**
- * Get user's learned preferences
- */
-export async function getUserPreferences(userId: string): Promise<{
-  colors: string[];
-  styles: string[];
-  materials: string[];
-}> {
-  try {
-    const supabase = await createClient();
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('preferences')
-      .eq('id', userId)
-      .single();
-
-    if (error) {
-      logger.warn('Could not fetch user preferences', { error });
-      return { colors: [], styles: [], materials: [] };
-    }
-
-    const prefs = data?.preferences as Record<string, Record<string, number>> || {};
-
-    // Extract arrays of preferred items (those with positive scores), sorted by score
-    return {
-      colors: Object.entries((prefs.colors as Record<string, number>) || {})
-        .filter(([_, score]) => (score as number) > 0)
-        .sort((a, b) => (b[1] as number) - (a[1] as number))
-        .slice(0, 5)
-        .map(([color]) => color),
-      styles: Object.entries((prefs.styles as Record<string, number>) || {})
-        .filter(([_, score]) => (score as number) > 0)
-        .sort((a, b) => (b[1] as number) - (a[1] as number))
-        .slice(0, 5)
-        .map(([style]) => style),
-      materials: Object.entries((prefs.materials as Record<string, number>) || {})
-        .filter(([_, score]) => (score as number) > 0)
-        .sort((a, b) => (b[1] as number) - (a[1] as number))
-        .slice(0, 5)
-        .map(([material]) => material),
-    };
-  } catch (error) {
-    logger.error('Error getting user preferences', { error });
-    return { colors: [], styles: [], materials: [] };
-  }
-}
-
-/**
- * Calculate feedback score boost for recommendation
- * Used to adjust scores for items matching user preferences
- */
-export function calculatePreferenceBoost(
-  item: IClothingItem,
-  userPreferences: ReturnType<typeof getUserPreferences> extends Promise<infer T> ? T : never
-): number {
-  let boost = 0;
-
-  // Color preference boost
-  if (item.color && userPreferences.colors.includes(item.color.toLowerCase())) {
-    boost += 0.15;
-  }
-
-  // Style preference boost
-  if (item.style && userPreferences.styles.includes(item.style.toLowerCase())) {
-    boost += 0.15;
-  }
-
-  // Material preference boost
-  if (item.material && userPreferences.materials.includes(item.material.toLowerCase())) {
-    boost += 0.15;
-  }
-
-  return boost;
 }

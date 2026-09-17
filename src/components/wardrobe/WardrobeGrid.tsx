@@ -68,11 +68,13 @@ export const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onAddItem, on
     };
 
     const confirmDelete = () => {
-        if (itemToDelete) {
-            setDeletingId(itemToDelete);
+        // Guard: the confirm button stays clickable during the animation delay.
+        if (itemToDelete && !deletingId) {
+            const targetId = itemToDelete;
+            setDeletingId(targetId);
             // Wait for animation before removing from state
             setTimeout(() => {
-                onDelete(itemToDelete);
+                onDelete(targetId);
                 setItemToDelete(null);
                 setDeletingId(null);
             }, 500);
@@ -101,7 +103,8 @@ export const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onAddItem, on
                     <Search size={18} className="text-[var(--text)] opacity-50 mr-3 md:w-[22px] md:h-[22px]" />
                     <input
                         type="text"
-                        placeholder="SEARCH DATABASE..."
+                        placeholder="SEARCH WARDROBE..."
+                        aria-label="Search wardrobe"
                         className="w-full h-full bg-transparent outline-none font-mono font-bold text-sm md:text-lg placeholder:text-[var(--text)]/50 text-[var(--text)]"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -109,8 +112,9 @@ export const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onAddItem, on
                 </div>
                 <div className="flex gap-2 w-full md:w-auto">
                     <div className="h-10 md:h-12 px-3 bg-[var(--bg-secondary)] border-2 border-[var(--border)] flex items-center justify-center gap-2 flex-1 md:flex-auto">
-                        <ArrowUpDown size={16} className="text-[var(--text)]" />
+                        <ArrowUpDown size={16} className="text-[var(--text)]" aria-hidden="true" />
                         <select
+                            aria-label="Sort wardrobe"
                             className="bg-transparent font-mono text-xs font-bold outline-none uppercase text-[var(--text)]"
                             value={sortMethod}
                             onChange={(e) => setSortMethod(e.target.value as SortMethod)}
@@ -172,7 +176,9 @@ export const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onAddItem, on
                                     e.stopPropagation();
                                     onToggleFavorite(item.id);
                                 }}
-                                className="absolute top-2 right-2 z-20 transition-transform hover:scale-110"
+                                aria-label={item.is_favorite ? `Unfavorite ${item.name}` : `Favorite ${item.name}`}
+                                aria-pressed={item.is_favorite}
+                                className="absolute top-2 right-2 z-20 transition-transform hover:scale-110 p-2 -m-1"
                             >
                                 <Heart size={18} className={item.is_favorite ? "fill-red-500 text-red-500" : "text-black/50 fill-white"} />
                             </button>
@@ -184,8 +190,8 @@ export const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onAddItem, on
                                         e.stopPropagation();
                                         setItemToDelete(item.id);
                                     }}
-                                    className="bg-[var(--accent-orange)] border-2 border-[var(--border)] p-1 transition-colors hover:bg-red-500"
-                                    title="Delete Item"
+                                    className="bg-[var(--accent-orange)] border-2 border-[var(--border)] p-2 transition-colors hover:bg-red-500"
+                                    aria-label={`Delete ${item.name}`}
                                 >
                                     <Trash2 size={12} className="text-white" />
                                 </button>
@@ -195,8 +201,8 @@ export const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onAddItem, on
                                         e.stopPropagation();
                                         handleOpenEdit(item);
                                     }}
-                                    className="bg-[var(--bg-secondary)] border-2 border-[var(--border)] p-1 transition-colors hover:bg-[var(--accent-yellow)]"
-                                    title="Edit Item"
+                                    className="bg-[var(--bg-secondary)] border-2 border-[var(--border)] p-2 transition-colors hover:bg-[var(--accent-yellow)]"
+                                    aria-label={`Edit ${item.name}`}
                                 >
                                     <Pencil size={12} className="text-[var(--text)]" />
                                 </button>
@@ -265,7 +271,7 @@ export const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onAddItem, on
                         <RetroWindow title="CONFIRM_DELETION.SYS" onClose={() => setItemToDelete(null)} className="bg-[var(--accent-orange)]" icon={<AlertTriangle size={14} />}>
                             <div className="p-4 bg-[var(--bg-secondary)] flex flex-col gap-4 text-center text-[var(--text)]">
                                 <h3 className="font-black text-lg">PERMANENT DELETE?</h3>
-                                <p className="font-mono text-xs text-[var(--text-muted)]">This item will be removed from the wardrobe matrix forever. This action cannot be undone.</p>
+                                <p className="font-mono text-xs text-[var(--text-muted)]">This item will be removed from your wardrobe forever. This action cannot be undone.</p>
                                 <div className="grid grid-cols-2 gap-2 mt-2">
                                     <RetroButton variant="neutral" onClick={() => setItemToDelete(null)}>CANCEL</RetroButton>
                                     <RetroButton variant="danger" onClick={confirmDelete}>DELETE</RetroButton>

@@ -1,6 +1,17 @@
 import path from "path";
 import type { NextConfig } from "next";
 
+// R2 public hostname for next/image (parsed from env, with r2.dev fallback).
+// Set R2_PUBLIC_URL (or NEXT_PUBLIC_R2_PUBLIC_URL) to your bucket's public URL.
+const r2PublicUrl =
+  process.env.R2_PUBLIC_URL || process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "";
+let r2Hostname: string | null = null;
+try {
+  if (r2PublicUrl) r2Hostname = new URL(r2PublicUrl).hostname;
+} catch {
+  r2Hostname = null;
+}
+
 const nextConfig: NextConfig = {
   // When Turbopack infers the workspace root incorrectly in monorepos or nested projects,
   // setting `turbopack.root` ensures the build uses the correct directory.
@@ -9,10 +20,10 @@ const nextConfig: NextConfig = {
   },
   images: {
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "tddifonhdaloweyadnop.supabase.co",
-      },
+      // Cloudflare R2 public bucket(s)
+      ...(r2Hostname ? [{ protocol: "https" as const, hostname: r2Hostname }] : []),
+      { protocol: "https" as const, hostname: "*.r2.dev" },
+      { protocol: "https" as const, hostname: "*.r2.cloudflarestorage.com" },
       {
         hostname: "placehold.co",
       },

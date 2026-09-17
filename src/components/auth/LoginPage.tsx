@@ -34,7 +34,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
                         <div className="space-y-4">
                             <div className="bg-[#A0C4FF] border-2 border-black p-3 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer hover:bg-[#8eb4ff] transition-colors"
-                                 onClick={() => setIsSignUp(!isSignUp)}>
+                                 onClick={() => { if (!loading) setIsSignUp(!isSignUp); }}>
                                 <p className="font-mono text-xs font-bold text-black">
                                     {isSignUp ? "REGISTERING NEW USER" : "USER LOGIN"}
                                 </p>
@@ -56,6 +56,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                                     type="email" 
                                     placeholder="ENTER EMAIL..." 
                                     required 
+                                    maxLength={254}
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                 />
@@ -74,6 +75,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
+                                        aria-label={showPassword ? "Hide password" : "Show password"}
+                                        aria-pressed={showPassword}
                                         className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black"
                                     >
                                         {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -92,10 +95,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                         <RetroButton type="submit" disabled={loading} className="w-full py-3">
                             {loading ? 'AUTHENTICATING...' : (isSignUp ? 'INITIALIZE USER' : 'ENTER SYSTEM')}
                         </RetroButton>
-
-                        <div className="text-center">
-                             <button type="button" className="text-xs font-mono underline text-gray-500 hover:text-black">FORGOT CREDENTIALS?</button>
-                        </div>
                     </form>
                 </RetroWindow>
             </div>

@@ -4,7 +4,7 @@ SetMyFit is a context-aware, highly personalized, daily decision engine for your
 
 ## 🔥 Fire Fit Engine (v2.0)
 
-The recommendation engine uses **Gemini 2.5 Flash** with fashion-first styling logic:
+The recommendation engine uses **Gemini 3.5 Flash-Lite** with fashion-first styling logic:
 
 - **Sandwich Rule** - Match shoe color with top for visual harmony
 - **Silhouette Theory** - Contrast fits (oversized top → slim bottom)
@@ -26,10 +26,12 @@ Outfits are scored 0-100% based on:
 | **Framework** | Next.js 15.5.7 |
 | **Frontend** | React 19, TypeScript, Tailwind CSS v4 |
 | **UI** | shadcn/ui, Framer Motion, Custom Retro Components |
-| **Backend** | Supabase (PostgreSQL, Auth, Storage) |
-| **AI** | Google Gemini 2.5 Flash |
-| **Weather** | OpenWeatherMap API |
-| **Deployment** | Vercel |
+| **Backend** | Cloudflare D1 (SQLite) + Next.js API routes |
+| **Auth** | Firebase Auth (email/password, Admin SDK verification) |
+| **Storage** | Cloudflare R2 (S3-compatible, public URLs) |
+| **AI** | Google Gemini (`@google/genai` SDK, enforced JSON schemas, vision validation) |
+| **Weather** | OpenWeatherMap Current Weather (free tier) |
+| **Deployment** | Cloudflare Workers (`@opennextjs/cloudflare`, `nodejs_compat` flag) |
 
 ## Features
 
@@ -60,19 +62,22 @@ Outfits are scored 0-100% based on:
 
 ## Database Schema
 
-Main tables in Supabase:
-- `clothing_items` - User wardrobe with RLS
-- `outfits` - Logged outfits
+D1 tables (see `db/schema.sql`, applied via `wrangler d1 execute --file`):
+- `clothing_items` - User wardrobe (Firebase UID in `user_id`, no RLS — filtered in code)
+- `outfits` + `outfit_items` - Logged outfits
 - `outfit_recommendations` - AI suggestions with confidence scores
-- `profiles` - User preferences
-- `user_preferences` - Style settings
+- `recommendation_feedback` - Likes/dislikes for preference learning
+- `profiles` - User preferences (auto-created at onboarding)
+- `outfit_templates` - Seeded public templates
+- Local dev without Cloudflare creds uses `.data/local.db` (auto-migrated SQLite).
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js v18+
+- Node.js v22+
 - npm
-- Supabase account (or Docker for local)
+- Firebase project (email/password auth enabled) + service-account key
+- Cloudflare account (or nothing — local dev falls back to SQLite)
 
 ### Installation
 
@@ -80,17 +85,17 @@ Main tables in Supabase:
 git clone https://github.com/avimaybee/what2wear.git
 cd what2wear/app
 npm install
+cp .env.example .env.local  # then fill in Firebase + Cloudflare values
 ```
+
+Local dev with zero Cloudflare setup works out of the box (SQLite at
+`.data/local.db`). To use real D1/R2 locally, set the `CLOUDFLARE_*`/`R2_*`
+vars in `.env.local`.
 
 ### Environment Variables
 
-Create `.env.local`:
-```
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-NEXT_PUBLIC_OPENWEATHER_API_KEY=your_openweather_key
-GEMINI_API_KEY=your_gemini_key
-```
+See `.env.example` for the full list (`NEXT_PUBLIC_FIREBASE_*`,
+`FIREBASE_*`, `CLOUDFLARE_*`, `R2_*`, `GEMINI_API_KEY`, `OPENWEATHER_API_KEY`).
 
 ### Development
 
@@ -100,15 +105,20 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000)
 
-## Deployment
+## Deployment (Cloudflare Workers — you deploy it yourself)
 
-Deploy to [Vercel](https://vercel.com/) - auto-deploys from GitHub.
+```bash
+wrangler d1 create setmyfit-db            # put id in wrangler.toml + secrets
+wrangler d1 execute setmyfit-db --remote --file=db/schema.sql
+wrangler r2 bucket create setmyfit-images # then enable public access, note R2_PUBLIC_URL
+npm run deploy                            # opennextjs-cloudflare build && deploy
+```
 
-### Supabase Migrations
-
-Run these in Supabase SQL Editor after deployment:
-1. `supabase/migrations/001_fix_security_definer_view.sql`
-2. `supabase/migrations/002_fix_function_search_path.sql`
+`npm run preview` runs the workerd build locally (accurate to production).
+Put all `FIREBASE_*`, `CLOUDFLARE_*`, `R2_*`, `GEMINI_API_KEY`,
+`OPENWEATHER_API_KEY` secrets via `wrangler secret put` (or the dashboard)
+and the `NEXT_PUBLIC_*` build vars via `.env.production` or dashboard.
+(`@cloudflare/next-on-pages` is deprecated — do not use it.)
 
 ## Recent Updates (Dec 2024)
 

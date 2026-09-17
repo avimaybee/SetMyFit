@@ -1,7 +1,7 @@
 import React from 'react';
 import { RetroWindow, RetroButton, RetroImage } from '@/components/retro-ui';
 import { OutfitTemplate } from '@/types/retro';
-import { Wand2, ArrowRight, Layers, AlertCircle } from 'lucide-react';
+import { Wand2, ArrowRight, Layers } from 'lucide-react';
 
 interface TemplatesPageProps {
     templates: (OutfitTemplate & { requirements?: string[] })[];
@@ -10,15 +10,15 @@ interface TemplatesPageProps {
 
 export const TemplatesPage: React.FC<TemplatesPageProps> = ({ templates, onApply }) => {
     return (
-        <RetroWindow title="STYLE_BLUEPRINTS.LIB" className="h-full" icon={<Wand2 size={14} />}>
+        <RetroWindow title="STYLE_TEMPLATES.LIB" className="h-full" icon={<Wand2 size={14} />}>
             <div className="p-2">
-                <div className="bg-[var(--accent-blue)] border-2 border-[var(--border)] p-4 mb-6 flex items-center gap-4 shadow-[4px_4px_0px_0px_var(--border)]">
+                <div className="bg-[var(--accent-blue)] border-2 border-[var(--border)] p-4 mb-6 flex flex-col sm:flex-row sm:items-center gap-4 shadow-[4px_4px_0px_0px_var(--border)]">
                     <div className="bg-[var(--bg-secondary)] p-2 border-2 border-[var(--border)] rounded-full">
                          <Layers size={24} className="text-[var(--text)]" />
                     </div>
                     <div>
-                        <h2 className="font-black text-xl mb-1 uppercase tracking-tight text-[var(--text)]">Recipe Database</h2>
-                        <p className="font-mono text-xs text-[var(--text)] font-bold opacity-80">Select a blueprint to configure the generator constraints.</p>
+                        <h2 className="font-black text-xl mb-1 uppercase tracking-tight text-[var(--text)]">Template Library</h2>
+                        <p className="font-mono text-xs text-[var(--text)] font-bold opacity-80">Select a template to set the generator mission profile.</p>
                     </div>
                 </div>
 
@@ -34,7 +34,7 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ templates, onApply
                                      <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(var(--text) 1px, transparent 1px)', backgroundSize: '8px 8px' }}></div>
                                      
                                      <span className="font-mono text-xs font-bold z-10 relative px-2 text-[var(--text)]">{template.id.toUpperCase()}_V1.0</span>
-                                     <div className="flex gap-1 z-10 relative">
+                                      <div className="flex flex-wrap gap-1 z-10 relative">
                                          {template.styleTags.map(tag => (
                                              <span key={tag} className="text-[9px] border border-[var(--border)] px-1 bg-[var(--bg-main)] uppercase font-bold text-[var(--text)]">{tag}</span>
                                          ))}
@@ -73,19 +73,12 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ templates, onApply
                                         className="w-full flex items-center justify-center gap-2 text-sm font-bold mt-2"
                                         variant="primary"
                                     >
-                                        LOAD BLUEPRINT <ArrowRight size={14} />
+                                        LOAD TEMPLATE <ArrowRight size={14} />
                                     </RetroButton>
                                 </div>
                             </div>
                         </div>
                     ))}
-                </div>
-                
-                <div className="mt-8 text-center">
-                     <button className="font-mono text-xs text-[var(--text-muted)] hover:text-[var(--text)] underline flex items-center justify-center gap-1 mx-auto">
-                        <AlertCircle size={12} />
-                        Need a custom formula? Create New Template
-                     </button>
                 </div>
             </div>
         </RetroWindow>

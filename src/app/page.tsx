@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter as _useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { onAuthChange } from "@/lib/firebase/client";
+import { apiFetch } from "@/lib/api";
 import type { RecommendationApiPayload, RecommendationDiagnostics, IClothingItem } from "@/lib/types";
 import { OutfitRecommender, Outfit, ClothingItem, ClothingType } from "../components/outfit-recommendation";
 import { OutfitSkeleton } from "../components/ui/skeletons";
@@ -91,22 +92,33 @@ export default function HomePage() {
   const router = _useRouter();
   const [recommendationData, setRecommendationData] = useState<RecommendationApiPayload | null>(null);
   const [hasBootstrappedContent, setHasBootstrappedContent] = useState(false);
-  const [_error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [_userId, setUserId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedOccasion, setSelectedOccasion] = useState<string>('');
   const [lockedItems, setLockedItems] = useState<string[]>([]);
   const [allWardrobeItems, setAllWardrobeItems] = useState<ClothingItem[]>([]);
   const [rawWardrobeItems, setRawWardrobeItems] = useState<IClothingItem[]>([]);
   const [isLoggingOutfit, setIsLoggingOutfit] = useState(false);
+  const [outfitCount, setOutfitCount] = useState(0);
+  const [lastOutfitDate, setLastOutfitDate] = useState<string | null>(null);
   const [isRestored, setIsRestored] = useState(false);
   const [isWardrobeLoading, setIsWardrobeLoading] = useState(true);
 
-  // Restore state from session storage on mount
+  // sessionStorage keys are namespaced per user so two accounts on one
+  // browser never see each other's recommendations or locks.
+  const storageKey = useCallback(
+    (base: string) => `setmyfit:${userId ?? 'anon'}:${base}`,
+    [userId]
+  );
+
+  // Restore state from session storage once the user is known
   useEffect(() => {
-    const cached = sessionStorage.getItem("lastRecommendation");
-    const cachedTimestampRaw = sessionStorage.getItem("lastRecommendationTimestamp");
+    if (!userId) return;
+    const keyOf = (base: string) => `setmyfit:${userId}:${base}`;
+    const cached = sessionStorage.getItem(keyOf("lastRecommendation"));
+    const cachedTimestampRaw = sessionStorage.getItem(keyOf("lastRecommendationTimestamp"));
     const cachedTimestamp = cachedTimestampRaw ? Number(cachedTimestampRaw) : NaN;
     const cacheIsExpired = !Number.isFinite(cachedTimestamp) || Date.now() - cachedTimestamp > RECOMMENDATION_CACHE_TTL;
 
@@ -116,52 +128,104 @@ export default function HomePage() {
         setHasBootstrappedContent(true);
       } catch (e) {
         console.error("Failed to parse cached recommendation", e);
-        sessionStorage.removeItem("lastRecommendation");
-        sessionStorage.removeItem("lastRecommendationTimestamp");
+        sessionStorage.removeItem(keyOf("lastRecommendation"));
+        sessionStorage.removeItem(keyOf("lastRecommendationTimestamp"));
       }
     } else if (cacheIsExpired) {
-      sessionStorage.removeItem("lastRecommendation");
-      sessionStorage.removeItem("lastRecommendationTimestamp");
+      sessionStorage.removeItem(keyOf("lastRecommendation"));
+      sessionStorage.removeItem(keyOf("lastRecommendationTimestamp"));
     }
 
     // Restore locked items
-    const cachedLocks = sessionStorage.getItem("lockedItems");
+    const cachedLocks = sessionStorage.getItem(keyOf("lockedItems"));
     if (cachedLocks) {
       try {
-        setLockedItems(JSON.parse(cachedLocks));
+        const parsed = JSON.parse(cachedLocks);
+        if (Array.isArray(parsed)) setLockedItems(parsed.filter((id) => typeof id === 'string'));
       } catch (e) {
         console.error("Failed to parse cached locks", e);
       }
     }
 
+    // Apply a template blueprint loaded from /templates (one-shot).
+    const pendingRaw = sessionStorage.getItem(keyOf("pendingTemplate"));
+    if (pendingRaw) {
+      sessionStorage.removeItem(keyOf("pendingTemplate"));
+      try {
+        const pending = JSON.parse(pendingRaw) as { occasion?: string; templateName?: string };
+        if (pending.occasion) {
+          setSelectedOccasion(pending.occasion);
+          toast(`Template loaded${pending.templateName ? `: ${pending.templateName}` : ''} → ${pending.occasion}.`);
+        }
+      } catch (e) {
+        console.error("Failed to parse pending template", e);
+      }
+    }
+
     setIsRestored(true);
-  }, []);
+  }, [userId]);
 
   // Persist locked items whenever they change
   useEffect(() => {
-    sessionStorage.setItem("lockedItems", JSON.stringify(lockedItems));
-  }, [lockedItems]);
+    if (!userId) return;
+    try {
+      sessionStorage.setItem(`setmyfit:${userId}:lockedItems`, JSON.stringify(lockedItems));
+    } catch {
+      // Storage full/unavailable — non-fatal.
+    }
+  }, [lockedItems, userId]);
+
+  const fetchWardrobe = useCallback(async () => {
+    setIsWardrobeLoading(true);
+    try {
+      const res = await apiFetch('/api/wardrobe');
+      if (res.status === 401) {
+        router.push('/auth/sign-in');
+        return;
+      }
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        const typed = json.data as IClothingItem[];
+        setRawWardrobeItems(typed);
+        setAllWardrobeItems(typed.map(mapClothingItem));
+        // Prune locks pointing at deleted items so counts/ reinjection stay valid.
+        const validIds = new Set(typed.map((item) => String(item.id)));
+        setLockedItems((prev) => prev.filter((id) => validIds.has(id)));
+      }
+    } catch (e) {
+      console.error("Failed to fetch wardrobe", e);
+    } finally {
+      setIsWardrobeLoading(false);
+    }
+  }, [router]);
 
   useEffect(() => {
     if (isAuthenticated) {
-      const fetchWardrobe = async () => {
-        setIsWardrobeLoading(true);
-        try {
-          const res = await fetch('/api/wardrobe');
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data)) {
-            const typed = json.data as IClothingItem[];
-            setRawWardrobeItems(typed);
-            setAllWardrobeItems(typed.map(mapClothingItem));
-          }
-        } catch (e) {
-          console.error("Failed to fetch wardrobe", e);
-        } finally {
-          setIsWardrobeLoading(false);
-        }
-      };
       fetchWardrobe();
     }
+  }, [isAuthenticated, fetchWardrobe]);
+
+  // Widget data for SystemMsg (best-effort; never blocks the generator).
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    (async () => {
+      try {
+        const res = await apiFetch('/api/stats');
+        const json = await res.json().catch(() => ({}));
+        if (res.ok && json.success) setOutfitCount(Number(json.data?.totalOutfits ?? 0));
+      } catch {
+        // Non-fatal widget data.
+      }
+      try {
+        const res = await apiFetch('/api/outfits/history?limit=1');
+        const json = await res.json().catch(() => ({}));
+        if (res.ok && json.success && Array.isArray(json.data) && json.data[0]?.outfit_date) {
+          setLastOutfitDate(json.data[0].outfit_date);
+        }
+      } catch {
+        // Non-fatal widget data.
+      }
+    })();
   }, [isAuthenticated]);
 
   const emitClientLog = useCallback((message: string, context?: Record<string, unknown>) => {
@@ -170,51 +234,56 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
+    const unsubscribe = onAuthChange((fbUser) => {
+      if (fbUser) {
         setIsAuthenticated(true);
-        setUserId(session.user.id);
+        setUserId(fbUser.uid);
+      } else {
+        setIsAuthenticated(false);
+        setUserId(null);
       }
-    };
-    checkAuth();
+    });
+    return unsubscribe;
   }, []);
 
   const fetchRecommendation = useCallback(async () => {
     setHasBootstrappedContent(true);
     setIsGenerating(true);
+    setError(null);
     try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        setError("Please sign in to get outfit recommendations");
-        return;
-      }
-
       const payload = {
         occasion: selectedOccasion,
         lockedItems: lockedItems
       };
 
-      const res = await fetch("/api/recommendation", {
+      const res = await apiFetch("/api/recommendation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
+      if (res.status === 401) {
+        setError("Please sign in to get outfit recommendations");
+        router.push('/auth/sign-in');
+        return;
+      }
+
       const data: RecommendationApiResponse = await res.json();
 
       if (data.success && data.data) {
         setRecommendationData(data.data);
-        sessionStorage.setItem("lastRecommendation", JSON.stringify(data.data));
-        sessionStorage.setItem("lastRecommendationTimestamp", Date.now().toString());
+        try {
+          sessionStorage.setItem(storageKey("lastRecommendation"), JSON.stringify(data.data));
+          sessionStorage.setItem(storageKey("lastRecommendationTimestamp"), Date.now().toString());
+        } catch {
+          // Storage full/unavailable — non-fatal.
+        }
       } else {
         setError(data.message || "Failed to fetch recommendation");
         if (data.needsWardrobe) {
           // Don't treat this as an error - user just needs to add items
           setHasBootstrappedContent(true);  // Stop showing skeleton
+          toast("Your wardrobe needs a few more pieces for full recommendations.");
         }
       }
     } catch (_err) {
@@ -222,17 +291,27 @@ export default function HomePage() {
     } finally {
       setIsGenerating(false);
     }
-  }, [selectedOccasion, lockedItems]);
+  }, [selectedOccasion, lockedItems, router, storageKey]);
 
   const handleLogOutfit = useCallback(async (items: ClothingItem[]) => {
-    if (!items.length || isLoggingOutfit) return;
+    if (isLoggingOutfit) return;
+    if (!items.length) {
+      toast.error("Nothing to log — generate or pick an outfit first.");
+      return;
+    }
     setIsLoggingOutfit(true);
     const itemIds = items
       .map((item) => Number.parseInt(item.id, 10))
       .filter((id) => Number.isFinite(id)) as number[];
 
+    if (itemIds.length === 0) {
+      toast.error("Couldn't log this outfit — item references look invalid.");
+      setIsLoggingOutfit(false);
+      return;
+    }
+
     try {
-      const response = await fetch('/api/outfit/log', {
+      const response = await apiFetch('/api/outfit/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ item_ids: itemIds }),
@@ -249,6 +328,8 @@ export default function HomePage() {
 
       toast.success('Outfit logged successfully');
       emitClientLog('outfit:log:success', { outfitId: payload.data?.outfit_id });
+      // Refresh wear counts / last-worn so stats and wardrobe stay accurate.
+      fetchWardrobe();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       toast.error('Failed to log outfit');
@@ -256,7 +337,33 @@ export default function HomePage() {
     } finally {
       setIsLoggingOutfit(false);
     }
-  }, [emitClientLog, isLoggingOutfit]);
+  }, [emitClientLog, isLoggingOutfit, fetchWardrobe]);
+
+  const handleFeedback = useCallback(async (isLiked: boolean, reason?: string) => {
+    const recId = recommendationData?.recommendation?.id;
+    if (!recId) {
+      toast.error("No recommendation to rate yet.");
+      return;
+    }
+    try {
+      const res = await apiFetch(`/api/recommendation/${recId}/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_liked: isLiked, reason }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to record feedback');
+      }
+      toast.success(isLiked ? "Liked! Future picks will lean this way." : "Noted — steering away from this.");
+      emitClientLog('recommendation:feedback:success', { recId, isLiked });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error("Couldn't save your rating. Try again.");
+      emitClientLog('recommendation:feedback:error', { error: message });
+      throw error;
+    }
+  }, [recommendationData, emitClientLog]);
 
   useEffect(() => {
     if (isRestored && !recommendationData && isAuthenticated) {
@@ -316,9 +423,13 @@ export default function HomePage() {
         }
       };
 
-      // Persist to session storage
-      sessionStorage.setItem("lastRecommendation", JSON.stringify(updated));
-      sessionStorage.setItem("lastRecommendationTimestamp", Date.now().toString());
+      // Persist to session storage (namespaced per user)
+      try {
+        sessionStorage.setItem(storageKey("lastRecommendation"), JSON.stringify(updated));
+        sessionStorage.setItem(storageKey("lastRecommendationTimestamp"), Date.now().toString());
+      } catch {
+        // Storage full/unavailable — non-fatal.
+      }
 
       return updated;
     });
@@ -350,10 +461,21 @@ export default function HomePage() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+      <h1 className="sr-only">Outfit generator</h1>
 
       {/* Left/Center Panel: Outfit Generator */}
       <div className="lg:col-span-2 h-full">
-        {shouldShowSkeleton ? (
+        {error && !recommendationData && hasBootstrappedContent ? (
+          <div className="bg-[#FF8E72] border-2 border-black p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <p className="font-mono text-sm font-bold">GENERATION_FAILED: {error}</p>
+            <button
+              onClick={() => { setError(null); fetchRecommendation(); }}
+              className="mt-3 bg-black text-white font-mono text-xs px-4 py-2 border-2 border-black hover:bg-gray-800"
+            >
+              RETRY
+            </button>
+          </div>
+        ) : shouldShowSkeleton ? (
           <OutfitSkeleton />
         ) : (
           <OutfitRecommender
@@ -375,6 +497,8 @@ export default function HomePage() {
             isLogging={isLoggingOutfit}
             isLoadingWardrobe={isWardrobeLoading}
             onNavigateToWardrobe={handleNavigateToWardrobe}
+            recommendationId={recommendationData?.recommendation?.id ?? null}
+            onFeedback={handleFeedback}
           />
         )}
       </div>
@@ -386,6 +510,8 @@ export default function HomePage() {
         <div>
           <SystemMsg
             itemCount={allWardrobeItems.length}
+            outfitCount={outfitCount}
+            lastOutfitDate={lastOutfitDate}
           />
         </div>
 

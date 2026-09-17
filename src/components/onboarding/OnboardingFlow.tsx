@@ -2,6 +2,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { RetroWindow, RetroButton } from '@/components/retro-ui';
+import { processImageUpload } from '@/lib/imageProcessor';
+import { toast } from '@/components/ui/toaster';
 import { UserPreferences } from '@/types/retro';
 import { Upload, ArrowRight, Sparkles, CheckCircle, SkipForward } from 'lucide-react';
 
@@ -17,6 +19,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [base64Data, setBase64Data] = useState<string | null>(null);
     const [progress, setProgress] = useState(0);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const AESTHETICS = [
@@ -30,21 +33,35 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
         } else {
             if (aesthetics.length < 3) {
                 setAesthetics([...aesthetics, style]);
+            } else {
+                toast('Max 3 vibes — remove one to change.');
             }
         }
     };
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const selectedFile = e.target.files[0];
             setFile(selectedFile);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const result = reader.result as string;
-                setPreviewUrl(result);
-                setBase64Data(result);
-            };
-            reader.readAsDataURL(selectedFile);
+            try {
+                // Downscale to ≤1024px WebP (same as the wardrobe form) so the
+                // AI analysis call stays fast and cheap instead of shipping
+                // a full-res phone photo.
+                const optimized = await processImageUpload(selectedFile, {
+                    removeBackground: false,
+                });
+                setPreviewUrl(optimized);
+                setBase64Data(optimized);
+            } catch {
+                // Fallback to the raw file if optimization fails
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const result = reader.result as string;
+                    setPreviewUrl(result);
+                    setBase64Data(result);
+                };
+                reader.readAsDataURL(selectedFile);
+            }
         }
     };
 
@@ -64,7 +81,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
     }, [step]);
 
     const handleSkip = () => {
-        // Skip without uploading an item
+        // Skip without uploading an item — clear any selected file so a
+        // browsed-but-skipped photo is not uploaded anyway.
+        setFile(null);
+        setPreviewUrl(null);
+        setBase64Data(null);
         setStep(3);
     };
 
@@ -73,13 +94,19 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
         setStep(3);
     };
 
-    const handleFinalComplete = () => {
+    const handleFinalComplete = async () => {
+        if (isSubmitting) return;
+        setIsSubmitting(true);
         const prefs = { preferred_styles: aesthetics, gender };
 
-        if (file && base64Data) {
-            onComplete(prefs, { file, base64: base64Data });
-        } else {
-            onComplete(prefs);
+        try {
+            if (file && base64Data) {
+                await onComplete(prefs, { file, base64: base64Data });
+            } else {
+                await onComplete(prefs);
+            }
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -156,9 +183,19 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
             <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept="image/*" className="hidden" />
 
             <div
+                role="button"
+                tabIndex={0}
+                aria-label="Upload your first clothing item"
                 onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        fileInputRef.current?.click();
+                    }
+                }}
                 className={`
                     border-2 border-black border-dashed bg-[#f0f0f0] h-48 flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-[#e5e5e5] transition-colors relative overflow-hidden
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black
                     ${previewUrl ? 'p-0' : 'p-8'}
                 `}
             >
@@ -224,10 +261,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
             {progress === 100 && (
                 <RetroButton
                     onClick={handleFinalComplete}
+                    disabled={isSubmitting}
                     variant="secondary"
                     className="w-full animate-bounce mt-4"
                 >
-                    ENTER DASHBOARD
+                    {isSubmitting ? 'SAVING...' : 'ENTER DASHBOARD'}
                 </RetroButton>
             )}
         </div>

@@ -1,0 +1,43 @@
+# SetMyFit on Cloudflare Workers (via @opennextjs/cloudflare) + D1 + R2
+#
+# Provisioning (run once):
+#   wrangler d1 create setmyfit-db            # put the id below + in secrets
+#   wrangler d1 execute setmyfit-db --remote --file=db/schema.sql
+#   wrangler r2 bucket create setmyfit-images # then enable public access, note R2_PUBLIC_URL
+#
+# Secrets (wrangler secret put <NAME>, or dashboard > Worker > Settings):
+#   FIREBASE_PROJECT_ID / FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY
+#   CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_D1_DATABASE_ID / CLOUDFLARE_API_TOKEN
+#   R2_BUCKET / R2_PUBLIC_URL / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY
+#   GEMINI_API_KEY / OPENWEATHER_API_KEY
+#   + all NEXT_PUBLIC_* vars (bake at build time via .env.production or dashboard)
+#
+# Deploy:
+#   npm run deploy     # opennextjs-cloudflare build && deploy
+# Preview (workerd runtime, accurate to production):
+#   npm run preview
+#
+# NOTE: nodejs_compat is required (firebase-admin, @aws-sdk/client-s3).
+# NOTE: D1/R2 are accessed over HTTPS (D1 REST + S3-compatible API), so no
+# binding code is needed. Native bindings (DB/R2 below) are declared for
+# wrangler types + future use; uncomment Wrangler-side wiring as needed.
+
+name = "setmyfit"
+main = ".open-next/worker.js"
+compatibility_date = "2025-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = ".open-next/assets"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "setmyfit-db"
+database_id = "00000000-0000-0000-0000-000000000000" # TODO: replace with `wrangler d1 create` output
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "setmyfit-images"
+
+[observability]
+enabled = true

@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
+import { currentUser } from "@/lib/firebase/client";
+import { apiFetch } from "@/lib/api";
 import { StatsPage as StatsPageComponent } from "@/components/stats/StatsPage";
 import { ClothingItem, Outfit, ClothingType } from "@/types/retro";
 import { IClothingItem } from "@/types";
@@ -12,17 +14,29 @@ export default function StatsPage() {
   const [items, setItems] = useState<ClothingItem[]>([]);
   const [_history, setHistory] = useState<Outfit[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const router = useRouter();
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
+      setLoadFailed(false);
+      const fbUser = await currentUser();
 
-      if (!session) return;
+      if (!fbUser) {
+        router.push('/auth/sign-in');
+        return;
+      }
 
-      // Fetch Wardrobe
-      const wardrobeRes = await fetch("/api/wardrobe");
+      // Wardrobe is required; history is best-effort (partial render beats
+      // discarding good wardrobe data when history fails).
+      const [wardrobeResult, historyResult] = await Promise.allSettled([
+        apiFetch("/api/wardrobe"),
+        apiFetch("/api/outfits/history?limit=100"), // Fetch last 100 for stats
+      ]);
+
+      if (wardrobeResult.status === 'rejected') throw wardrobeResult.reason;
+      const wardrobeRes = wardrobeResult.value;
       if (!wardrobeRes.ok) throw new Error("Failed to fetch wardrobe");
       const wardrobeData = await wardrobeRes.json();
 
@@ -48,13 +62,12 @@ export default function StatsPage() {
         setItems(mappedItems);
       }
 
-      // Fetch History
-      const historyRes = await fetch("/api/outfits/history?limit=100"); // Fetch last 100 for stats
-      if (!historyRes.ok) throw new Error("Failed to fetch history");
-      const historyData = await historyRes.json();
+      // Fetch History (best-effort)
+      if (historyResult.status === 'fulfilled' && historyResult.value.ok) {
+        const historyData = await historyResult.value.json();
 
-      let mappedHistory: Outfit[] = [];
-      if (historyData.data) {
+        let mappedHistory: Outfit[] = [];
+        if (historyData.data) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         mappedHistory = historyData.data.map((h: any) => ({
           id: h.id.toString(),
@@ -82,15 +95,19 @@ export default function StatsPage() {
           rating: h.feedback
         }));
         setHistory(mappedHistory);
+        }
+      } else if (historyResult.status === 'rejected' || !historyResult.value.ok) {
+        console.warn("History unavailable for stats â€” showing wardrobe-only stats.");
       }
 
     } catch (err) {
       console.error("Error fetching stats data:", err);
+      setLoadFailed(true);
       toast.error("Failed to load statistics.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     fetchData();
@@ -109,12 +126,24 @@ export default function StatsPage() {
   };
 
   return (
-    <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-primary)] min-h-screen text-[var(--text)]">
+    <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-main)] min-h-screen text-[var(--text)]">
+      <h1 className="sr-only">Wardrobe statistics</h1>
       <div className="max-w-7xl mx-auto">
         {loading ? (
           <StatsSkeleton />
+        ) : loadFailed && items.length === 0 ? (
+          <div className="bg-white border-2 border-black p-8 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <p className="font-mono font-bold">STATS_LOAD_FAILED</p>
+            <p className="font-mono text-xs mt-2 text-gray-600">Check your connection and try again.</p>
+            <button
+              onClick={fetchData}
+              className="mt-4 bg-black text-white font-mono text-xs px-4 py-2 border-2 border-black hover:bg-gray-800"
+            >
+              RETRY
+            </button>
+          </div>
         ) : (
-          <StatsPageComponent items={items} _history={_history} />
+          <StatsPageComponent items={items} _history={_history} onNavigateToWardrobe={() => router.push('/wardrobe')} />
         )}
       </div>
     </div>

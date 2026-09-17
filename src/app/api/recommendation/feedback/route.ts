@@ -1,12 +1,13 @@
 /**
  * POST /api/recommendation/feedback
- * 
+ *
  * Handles user feedback on outfit recommendations.
  * Learns from likes/dislikes to improve future recommendations.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthUser, unauthorized } from '@/lib/auth';
+import { dbAll } from '@/lib/db';
 import { processFeedback } from '@/lib/helpers/feedbackProcessor';
 import { logger } from '@/lib/logger';
 import type { ApiResponse } from '@/lib/types';
@@ -15,16 +16,8 @@ export async function POST(
   request: NextRequest
 ): Promise<NextResponse<ApiResponse<{ success: boolean }>>> {
   try {
-    const supabase = await createClient();
-
-    // Authenticate user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const user = await getAuthUser(request);
+    if (!user) return unauthorized();
 
     // Parse request
     const body = await request.json();
@@ -40,7 +33,7 @@ export async function POST(
 
     // Process feedback
     const result = await processFeedback({
-      userId: user.id,
+      userId: user.uid,
       recommendationId,
       isLiked,
       reason,
@@ -56,7 +49,7 @@ export async function POST(
     }
 
     logger.info('Feedback logged and processed', {
-      userId: user.id,
+      userId: user.uid,
       isLiked,
       recommendationId,
     });
@@ -79,37 +72,21 @@ export async function POST(
 
 /**
  * GET /api/recommendation/feedback
- * 
+ *
  * Gets user's feedback history (optional - for analytics)
  */
 export async function GET(
-  _request: NextRequest
+  request: NextRequest
 ): Promise<NextResponse<ApiResponse<unknown>>> {
   try {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const user = await getAuthUser(request);
+    if (!user) return unauthorized();
 
     // Fetch feedback history
-    const { data, error } = await supabase
-      .from('recommendation_feedback')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 500 }
-      );
-    }
+    const data = await dbAll(
+      'SELECT * FROM recommendation_feedback WHERE user_id = ? ORDER BY created_at DESC LIMIT 50',
+      [user.uid]
+    );
 
     return NextResponse.json({
       success: true,

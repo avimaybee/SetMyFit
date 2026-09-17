@@ -1,23 +1,17 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { dbAll, parseJson } from '@/lib/db';
 
 export async function GET() {
   try {
-    const supabase = await createClient();
-    
-    const { data, error } = await supabase
-      .from('outfit_templates')
-      .select('*')
-      .order('name');
-
-    if (error) {
-      console.error('Error fetching templates:', error);
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-    }
-
+    const rows = await dbAll('SELECT * FROM outfit_templates ORDER BY name', []);
+    const data = rows.map((row) => ({
+      ...row,
+      style_tags: parseJson<string[] | null>(row.style_tags, null),
+      requirements: parseJson<string[] | null>(row.requirements, null),
+    }));
     return NextResponse.json({ success: true, data });
   } catch (error) {
-    console.error('Unexpected error:', error);
+    console.error('Error fetching templates:', error);
     return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
   }
 }

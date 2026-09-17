@@ -2,10 +2,11 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Home, Shirt, BarChart3, Clock, Settings, Plus, User } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Home, Shirt, BarChart3, Clock, Settings, Plus, User, Layers } from 'lucide-react';
 import { RetroButton } from '../retro-ui';
-import { createClient } from '@/lib/supabase/client';
+import { onAuthChange, persistSession, clearSession } from '@/lib/firebase/client';
+import { apiFetch } from '@/lib/api';
 import { useAddItem } from '@/contexts/AddItemContext';
 import { GlobalAddModal } from './GlobalAddModal';
 
@@ -15,26 +16,51 @@ interface LayoutProps {
 
 export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
     const pathname = usePathname();
+    const router = useRouter();
     const [userEmail, setUserEmail] = useState<string>("USER_01");
     const { openGlobalAdd } = useAddItem();
 
     useEffect(() => {
-        const getUser = async () => {
-            const supabase = createClient();
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user?.email) {
-                setUserEmail(user.email.split('@')[0]);
+        // Global auth gate: redirect signed-out users, refresh the
+        // session cookie, and send users without a profile to onboarding.
+        const unsubscribe = onAuthChange(async (fbUser) => {
+            const onAuthPage = pathname.startsWith('/auth');
+            if (!fbUser) {
+                setUserEmail("USER_01");
+                // Clear a potentially stale cookie so middleware and Firebase
+                // can't disagree and ping-pong between / and /auth/sign-in.
+                clearSession().catch(() => undefined);
+                if (!onAuthPage && pathname !== '/onboarding') {
+                    router.push('/auth/sign-in');
+                }
+                return;
             }
-        };
-        getUser();
-    }, []);
+            setUserEmail(fbUser.email?.split('@')[0] ?? "USER_01");
+            await persistSession().catch(() => false);
+            if (!onAuthPage && pathname !== '/onboarding') {
+                try {
+                    const res = await apiFetch('/api/settings/profile');
+                    if (res.status === 401) {
+                        router.push('/auth/sign-in');
+                    } else if (res.status === 404) {
+                        router.push('/onboarding');
+                    }
+                    // Other errors (500/network): stay — pages surface their own errors.
+                } catch {
+                    // Ignore — pages surface their own errors.
+                }
+            }
+        });
+        return unsubscribe;
+    }, [pathname, router]);
 
     const navItems = [
         { href: '/', icon: <Home size={20} />, label: 'Home', color: 'text-blue-600' },
         { href: '/wardrobe', icon: <Shirt size={20} />, label: 'Wardrobe', color: 'text-pink-500' },
+        { href: '/templates', icon: <Layers size={20} />, label: 'Templates', color: 'text-purple-600' },
         { href: '/stats', icon: <BarChart3 size={20} />, label: 'Stats', color: 'text-green-600' },
-        { href: '/history', icon: <Clock size={20} />, label: 'Logs', color: 'text-yellow-600' },
-        { href: '/settings', icon: <Settings size={20} />, label: 'Config', color: 'text-orange-500' },
+        { href: '/history', icon: <Clock size={20} />, label: 'History', color: 'text-yellow-600' },
+        { href: '/settings', icon: <Settings size={20} />, label: 'Settings', color: 'text-orange-500' },
     ];
 
     const isActive = (href: string) => {
@@ -42,7 +68,8 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
         return pathname.startsWith(href);
     };
 
-    if (pathname.startsWith('/auth')) {
+    // Auth and onboarding render chrome-less: no sidebar/nav to escape from.
+    if (pathname.startsWith('/auth') || pathname === '/onboarding') {
         return <>{children}</>;
     }
 
@@ -57,7 +84,8 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => openGlobalAdd()}
-                        className="w-8 h-8 bg-[#FDFFB6] border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
+                        aria-label="Quick add item"
+                        className="w-11 h-11 min-w-[44px] min-h-[44px] bg-[#FDFFB6] border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
                     >
                         <Plus size={20} strokeWidth={3} />
                     </button>
@@ -139,7 +167,7 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
                             key={item.href}
                             href={item.href}
                             className={`
-                                flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-all w-full
+                                flex flex-col items-center justify-center gap-1 p-2 py-2.5 min-h-[56px] rounded-lg transition-all w-full
                                 ${isActive(item.href)
                                     ? 'bg-black text-white'
                                     : 'text-black hover:bg-black/5 active:scale-95'

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthUser, unauthorized } from '@/lib/auth';
+import { dbAll, dbRun } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import type { ApiResponse } from '@/lib/types';
 
@@ -7,20 +8,12 @@ export async function POST(
   request: NextRequest
 ): Promise<NextResponse<ApiResponse<{ deletedCount: number }>>> {
   try {
-    const supabase = await createClient();
-    
-    // Authenticate user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const user = await getAuthUser(request);
+    if (!user) return unauthorized();
 
     // Parse request
     const { itemIds } = await request.json();
-    
+
     if (!Array.isArray(itemIds) || itemIds.length === 0) {
       return NextResponse.json(
         { success: false, error: 'itemIds must be a non-empty array' },
@@ -28,30 +21,50 @@ export async function POST(
       );
     }
 
-    // Delete items (RLS policy will ensure user can only delete their own items)
-    const { count, error: deleteError } = await supabase
-      .from('clothing_items')
-      .delete()
-      .in('id', itemIds)
-      .eq('user_id', user.id);
-
-    if (deleteError) {
-      logger.error('Failed to delete items', { error: deleteError });
+    const ids = itemIds.map((id) => Number(id)).filter((id) => Number.isFinite(id));
+    if (ids.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'Failed to delete items' },
-        { status: 500 }
+        { success: false, error: 'itemIds must be a non-empty array' },
+        { status: 400 }
       );
     }
 
+    // Best-effort: collect R2 keys before deleting rows
+    const placeholders = ids.map(() => '?').join(',');
+    const rows = await dbAll(
+      `SELECT image_url FROM clothing_items WHERE id IN (${placeholders}) AND user_id = ?`,
+      [...ids, user.uid]
+    );
+
+    const { r2Delete, r2KeyFromUrl } = await import('@/lib/r2');
+
+    // Delete items (user_id filter ensures users can only delete their own)
+    const result = await dbRun(
+      `DELETE FROM clothing_items WHERE id IN (${placeholders}) AND user_id = ?`,
+      [...ids, user.uid]
+    );
+
+    // Best-effort R2 cleanup (don't fail the request)
+    for (const row of rows) {
+      const key = r2KeyFromUrl(String(row.image_url ?? ''));
+      if (key) {
+        try {
+          await r2Delete(key);
+        } catch (error) {
+          logger.warn('Failed to cleanup R2 object in batch delete', { key, error });
+        }
+      }
+    }
+
     logger.info('Batch deleted items', {
-      userId: user.id,
-      itemCount: itemIds.length,
-      actualDeleted: count,
+      userId: user.uid,
+      itemCount: ids.length,
+      actualDeleted: result.changes,
     });
 
     return NextResponse.json({
       success: true,
-      data: { deletedCount: count || 0 },
+      data: { deletedCount: result.changes },
     });
   } catch (error) {
     logger.error('Error in batch delete', { error });

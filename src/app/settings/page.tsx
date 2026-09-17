@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { clearSession, currentUser, signOut } from "@/lib/firebase/client";
+import { apiFetch } from "@/lib/api";
 import { SettingsPage as SettingsPageComponent } from "@/components/settings/SettingsPage";
 import { UserPreferences } from "@/types/retro";
 import { toast } from "@/components/ui/toaster";
@@ -9,7 +10,10 @@ import { useRouter } from "next/navigation";
 
 export default function SettingsPage() {
   const [preferences, setPreferences] = useState<UserPreferences>({});
+  // Ref mirror so rapid consecutive updates merge instead of clobbering.
+  const prefsRef = useRef<UserPreferences>({});
   const [loading, setLoading] = useState(true);
+  const loggingOutRef = useRef(false);
   const router = useRouter();
 
   // Effect for Hacker Mode
@@ -24,21 +28,29 @@ export default function SettingsPage() {
   const fetchSettings = useCallback(async () => {
     try {
       setLoading(true);
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
+      const fbUser = await currentUser();
 
-      if (!session) {
+      if (!fbUser) {
           router.push('/auth/sign-in');
           return;
       }
 
-      const response = await fetch("/api/settings/profile");
+      const response = await apiFetch("/api/settings/profile");
+      if (response.status === 401) {
+        router.push('/auth/sign-in');
+        return;
+      }
+      if (response.status === 404) {
+        // No profile yet â€” new user, send to onboarding.
+        router.push('/onboarding');
+        return;
+      }
       if (!response.ok) throw new Error("Failed to fetch settings");
 
       const data = await response.json();
       if (data.success && data.data && data.data.preferences) {
         const prefs = data.data.preferences;
-        setPreferences({
+        const mapped: UserPreferences = {
             preferred_styles: prefs.preferred_styles || [],
             colors: prefs.preferred_colors || [],
             temperature_sensitivity: prefs.temperature_sensitivity || 0,
@@ -47,7 +59,9 @@ export default function SettingsPage() {
             style_strictness: prefs.style_strictness || 50,
             theme: prefs.theme || 'RETRO',
             gender: prefs.gender || 'NEUTRAL'
-        });
+        };
+        prefsRef.current = mapped;
+        setPreferences(mapped);
       }
     } catch (err) {
       console.error("Error fetching settings:", err);
@@ -63,8 +77,9 @@ export default function SettingsPage() {
 
   const handleUpdate = async (newPrefs: Partial<UserPreferences>) => {
       try {
-          // Optimistic update
-          const updatedPrefs = { ...preferences, ...newPrefs };
+          // Merge against the ref (not stale state) so rapid updates compose.
+          const updatedPrefs = { ...prefsRef.current, ...newPrefs };
+          prefsRef.current = updatedPrefs;
           setPreferences(updatedPrefs);
 
           const payload = {
@@ -80,7 +95,7 @@ export default function SettingsPage() {
               }
           };
 
-          const response = await fetch("/api/settings/profile", {
+          const response = await apiFetch("/api/settings/profile", {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload)
@@ -97,25 +112,38 @@ export default function SettingsPage() {
   };
 
   const handleLogout = async () => {
-      const supabase = createClient();
-      await supabase.auth.signOut();
-      router.push('/auth/sign-in');
+      if (loggingOutRef.current) return;
+      if (!window.confirm("Log out of SETMYFIT?")) return;
+      loggingOutRef.current = true;
+      try {
+        await signOut().catch(() => undefined);
+        await clearSession();
+      } finally {
+        // Never leak one user's cached recommendations/locks to the next.
+        try {
+          sessionStorage.clear();
+        } catch {
+          // Storage unavailable â€” non-fatal.
+        }
+        router.push('/auth/sign-in');
+      }
   };
 
   if (loading) {
       return (
-          <div className="flex items-center justify-center h-full bg-[var(--bg-primary)]">
+          <div className="flex items-center justify-center h-full bg-[var(--bg-main)]">
               <div className="font-mono text-xl animate-pulse text-[var(--text)]">LOADING SETTINGS...</div>
           </div>
       );
   }
 
   return (
-    <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-primary)] min-h-screen text-[var(--text)]">
+    <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-main)] min-h-screen text-[var(--text)]">
+        <h1 className="sr-only">Settings</h1>
         <div className="max-w-7xl mx-auto">
-            <SettingsPageComponent 
-                preferences={preferences} 
-                onUpdate={handleUpdate} 
+            <SettingsPageComponent
+                preferences={preferences}
+                onUpdate={handleUpdate}
                 onLogout={handleLogout}
             />
         </div>

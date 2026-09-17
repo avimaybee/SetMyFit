@@ -3,10 +3,10 @@
  * 
  * Determines the current season based on date and hemisphere.
  * This is crucial for outfit recommendations when weather temperature
- * doesn't match typical seasonal expectations (e.g., warm day in late fall).
+ * doesn't match typical seasonal expectations (e.g., warm day in late autumn).
  */
 
-export type Season = 'Spring' | 'Summer' | 'Fall' | 'Winter';
+export type Season = 'Spring' | 'Summer' | 'Autumn' | 'Winter';
 
 /**
  * Determine the current season based on date and latitude
@@ -25,7 +25,7 @@ export function getCurrentSeason(date: Date = new Date(), latitude: number = 0):
   // Northern Hemisphere:
   // Spring: March 20 - June 20
   // Summer: June 21 - September 22
-  // Fall: September 23 - December 20
+  // Autumn: September 23 - December 20
   // Winter: December 21 - March 19
   
   let season: Season;
@@ -36,14 +36,14 @@ export function getCurrentSeason(date: Date = new Date(), latitude: number = 0):
     } else if (month === 5 && day >= 21 || month === 6 || month === 7 || month === 8 && day <= 22) {
       season = 'Summer';
     } else if (month === 8 && day >= 23 || month === 9 || month === 10 || month === 11 && day <= 20) {
-      season = 'Fall';
+      season = 'Autumn';
     } else {
       season = 'Winter';
     }
   } else {
     // Southern Hemisphere - seasons are reversed
     if (month === 2 && day >= 20 || month === 3 || month === 4 || month === 5 && day <= 20) {
-      season = 'Fall';
+      season = 'Autumn';
     } else if (month === 5 && day >= 21 || month === 6 || month === 7 || month === 8 && day <= 22) {
       season = 'Winter';
     } else if (month === 8 && day >= 23 || month === 9 || month === 10 || month === 11 && day <= 20) {
@@ -77,12 +77,12 @@ export function getSeasonDescription(season: Season, month: number): string {
     Summer: {
       early: 'early summer (warm, sunny days)',
       mid: 'mid-summer (peak heat)',
-      late: 'late summer (still warm but transitioning to fall)'
+      late: 'late summer (still warm but transitioning to autumn)'
     },
-    Fall: {
-      early: 'early fall (mild, comfortable temperatures)',
-      mid: 'mid-fall (cooler, crisp weather)',
-      late: 'late fall (cold, approaching winter)'
+    Autumn: {
+      early: 'early autumn (mild, comfortable temperatures)',
+      mid: 'mid-autumn (cooler, crisp weather)',
+      late: 'late autumn (cold, approaching winter)'
     },
     Winter: {
       early: 'early winter (cold, short days)',
@@ -100,7 +100,7 @@ export function getSeasonDescription(season: Season, month: number): string {
   } else if (season === 'Summer') {
     if (month === 5) period = 'early';
     else if (month === 8) period = 'late';
-  } else if (season === 'Fall') {
+  } else if (season === 'Autumn') {
     if (month === 8 || month === 9) period = 'early';
     else if (month === 11) period = 'late';
   } else if (season === 'Winter') {

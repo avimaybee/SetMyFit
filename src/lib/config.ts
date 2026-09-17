@@ -19,12 +19,24 @@ const getEnvVar = (key: string, required = true): string => {
 };
 
 // ============================================================================
-// Supabase Configuration
+// Firebase + Cloudflare Configuration
 // ============================================================================
 
-export const supabaseConfig = {
-  url: getEnvVar('NEXT_PUBLIC_SUPABASE_URL'),
-  anonKey: getEnvVar('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
+const getPublicEnv = (key: string): string => process.env[key] || '';
+
+export const firebaseConfig = {
+  apiKey: getPublicEnv('NEXT_PUBLIC_FIREBASE_API_KEY'),
+  authDomain: getPublicEnv('NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'),
+  projectId: getPublicEnv('NEXT_PUBLIC_FIREBASE_PROJECT_ID'),
+  storageBucket: getPublicEnv('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: getPublicEnv('NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: getPublicEnv('NEXT_PUBLIC_FIREBASE_APP_ID'),
+} as const;
+
+export const storageConfig = {
+  // Public base URL of the R2 bucket, e.g. https://pub-xxx.r2.dev
+  publicUrl: getPublicEnv('R2_PUBLIC_URL') || process.env.NEXT_PUBLIC_R2_PUBLIC_URL || '',
+  bucket: process.env.R2_BUCKET || 'setmyfit-images',
 } as const;
 
 // ============================================================================
@@ -53,7 +65,7 @@ export const weatherConfig = {
 export const aiConfig = {
   gemini: {
     apiKey: getEnvVar('GEMINI_API_KEY', false),
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-3.5-flash-lite',
   },
 
   // Learning parameters
@@ -137,7 +149,8 @@ export const apiEndpoints = {
 // ============================================================================
 
 export const config = {
-  supabase: supabaseConfig,
+  firebase: firebaseConfig,
+  storage: storageConfig,
   weather: weatherConfig,
   ai: aiConfig,
   app: appConfig,

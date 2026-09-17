@@ -56,7 +56,7 @@ export interface IClothingItem {
   description?: string | null; // Detailed AI description for outfit matching
   wear_count: number; // Added to match schema
   is_favorite: boolean; // Added to match schema
-  favorite?: boolean; // Returned by API due to Supabase alias
+  favorite?: boolean; // Returned by API for backwards compatibility
   tags: string[]; // Added to match schema
 }
 

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { Upload, X, ScanLine, Loader2 } from 'lucide-react';
-import { RetroButton, RetroInput, RetroWindow, RetroSelect, RetroSlider, RetroToggle } from '@/components/retro-ui';
+import { RetroButton, RetroInput, RetroWindow, RetroSelect, RetroSlider } from '@/components/retro-ui';
 import { ClothingItem, ClothingType, ClothingMaterial, Season } from '@/types/retro';
 import { processImageUpload } from '@/lib/imageProcessor';
 import { dataUrlToFile } from '@/lib/utils';
@@ -32,7 +32,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
     // Processing State
     const [isProcessingImage, setIsProcessingImage] = useState(false);
     const [processStatus, setProcessStatus] = useState<string>('IDLE');
-    const [removeBgEnabled, setRemoveBgEnabled] = useState(true);
+    // NOTE: background removal is offline (CDN CORS) — always off, no toggle.
 
     // Analysis State
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -115,7 +115,6 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
         setNewItemStyleTags([]);
         setNewItemPattern('');
         setNewItemFit('Regular');
-        setRemoveBgEnabled(true);
         setIsProcessingImage(false);
         setProcessedFile(null);
         setIsImageLoading(false);
@@ -130,7 +129,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
     const handleSaveItem = (e: React.FormEvent) => {
         e.preventDefault();
         const itemPayload: Partial<ClothingItem> = {
-            name: newItemName,
+            name: newItemName.trim(),
             category: newItemCategory,
             material: newItemMaterial,
             insulation_value: newItemInsulation,
@@ -244,7 +243,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
 
         try {
             const optimizedBase64 = await processImageUpload(file, {
-                removeBackground: removeBgEnabled,
+                removeBackground: false,
                 maxWidth: 1024,
                 quality: 0.8,
                 onProgress: updateStatus
@@ -348,24 +347,28 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
 
                         <div className="flex justify-between items-center px-1">
                             <label className="font-bold font-mono text-xs uppercase text-[var(--text)]">Item Image</label>
-                            <div className="flex items-center gap-2">
-                                <span className="font-mono text-[10px] text-[var(--text-muted)]">AI REMOVE BG:</span>
-                                <RetroToggle
-                                    label=""
-                                    checked={removeBgEnabled}
-                                    onChange={setRemoveBgEnabled}
-                                />
-                            </div>
+                            {/* BG removal is offline until the model is self-hosted (CDN CORS).
+                                Toggle hidden to avoid promising a feature that always fails. */}
                         </div>
 
                         <div
+                            role="button"
+                            tabIndex={0}
+                            aria-label="Upload item image"
                             onClick={triggerFileInput}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    triggerFileInput();
+                                }
+                            }}
                             onDrop={handleDrop}
                             onDragOver={handleDragOver}
                             className={`
                                 border-2 border-[var(--border)] border-dashed 
                                 ${previewUrl ? 'p-0' : 'p-6 bg-[var(--bg-secondary)] hover:bg-[var(--bg-main)]'} 
                                 flex flex-col items-center justify-center text-center gap-2 cursor-pointer transition-colors relative overflow-hidden min-h-[180px]
+                                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-pink)]
                             `}
                         >
                             {previewUrl ? (
@@ -424,7 +427,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                                             <Upload size={32} className="text-[var(--text-muted)]" />
                                             <span className="font-mono text-xs text-[var(--text-muted)]">CLICK OR DRAG TO UPLOAD</span>
                                             <span className="font-mono text-[9px] bg-[var(--accent-green)] border border-[var(--border)] px-1 text-[var(--text)] mt-1">
-                                                {removeBgEnabled ? 'BG REMOVAL ACTIVE' : 'AUTO-OPTIMIZE ON'}
+                                                AUTO-OPTIMIZE ON
                                             </span>
                                         </>
                                     )}
@@ -437,13 +440,14 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                             <RetroInput
                                 placeholder="e.g. Vintage Denim Jacket"
                                 required
+                                maxLength={60}
                                 value={newItemName}
                                 onChange={(e) => setNewItemName(e.target.value)}
                                 disabled={isAnalyzing || isProcessingImage}
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label className="font-bold font-mono text-xs uppercase block mb-1 text-[var(--text)]">Category</label>
                                 <RetroSelect value={newItemCategory} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewItemCategory(e.target.value as ClothingType)} disabled={isAnalyzing || isProcessingImage}>
@@ -460,7 +464,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label className="font-bold font-mono text-xs uppercase block mb-1 text-[var(--text)]">Pattern</label>
                                 <RetroSelect value={newItemPattern} onChange={(e) => setNewItemPattern(e.target.value)} disabled={isAnalyzing || isProcessingImage}>
@@ -510,8 +514,13 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                         )}
 
                         <div className="pt-2">
+                            {!previewUrl && !isAnalyzing && !isProcessingImage && (
+                                <p className="font-mono text-[10px] text-[var(--text-muted)] text-center mb-2">
+                                    ADD A PHOTO TO CONTINUE
+                                </p>
+                            )}
                             <RetroButton type="submit" className="w-full py-2" disabled={isAnalyzing || isProcessingImage || !previewUrl}>
-                                {isAnalyzing ? 'PROCESSING IMAGE...' : (initialItem ? 'UPDATE ITEM' : 'SAVE TO DATABASE')}
+                                {isAnalyzing ? 'PROCESSING IMAGE...' : (initialItem ? 'UPDATE ITEM' : 'SAVE ITEM')}
                             </RetroButton>
                         </div>
                     </form>

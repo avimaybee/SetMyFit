@@ -7,6 +7,29 @@
   --font-mono: 'Space Mono', monospace;
 }
 
+/* shadcn token bridge: map shadcn/ui utilities onto the retro theme vars
+   so dialog/card/badge/input/button primitives render in both themes. */
+@theme inline {
+  --color-background: var(--bg-main);
+  --color-foreground: var(--text);
+  --color-card: var(--bg-secondary);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--bg-secondary);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--accent-blue);
+  --color-primary-foreground: var(--text);
+  --color-secondary: var(--bg-secondary);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--bg-tertiary);
+  --color-muted-foreground: var(--text-muted);
+  --color-accent: var(--bg-tertiary);
+  --color-accent-foreground: var(--text);
+  --color-destructive: var(--accent-orange);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--accent-pink);
+}
+
 :root {
   --bg-main: #FFF8E7;
   --bg-secondary: #FFFFFF;
@@ -56,7 +79,7 @@ body:not(.theme-hacker) {
     background-size: 20px 20px;
 }
 
-.theme-hacker body {
+body.theme-hacker {
   background-image: 
       linear-gradient(0deg, transparent 24%, rgba(0, 255, 65, .03) 25%, rgba(0, 255, 65, .03) 26%, transparent 27%, transparent 74%, rgba(0, 255, 65, .03) 75%, rgba(0, 255, 65, .03) 76%, transparent 77%, transparent), 
       linear-gradient(90deg, transparent 24%, rgba(0, 255, 65, .03) 25%, rgba(0, 255, 65, .03) 26%, transparent 27%, transparent 74%, rgba(0, 255, 65, .03) 75%, rgba(0, 255, 65, .03) 76%, transparent 77%, transparent);

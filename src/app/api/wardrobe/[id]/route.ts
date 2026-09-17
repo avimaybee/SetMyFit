@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthUser, unauthorized } from '@/lib/auth';
+import { boolInt, dbFirst, dbRun, mapClothingItem } from '@/lib/db';
+import { r2Delete, r2KeyFromUrl } from '@/lib/r2';
 import { IClothingItem, ApiResponse } from '@/lib/types';
 import { logger } from '@/lib/logger';
 
@@ -12,54 +14,53 @@ const ALLOWED_UPDATE_FIELDS = [
   'pattern', 'fit', 'occasion'
 ] as const;
 
+type RouteContext = { params: Promise<Record<string, string>> };
+
+const COLUMN_OF: Record<string, string> = {
+  name: 'name', type: 'type', category: 'category', color: 'color',
+  material: 'material', insulation_value: 'insulation_value', image_url: 'image_url',
+  season_tags: 'season_tags', style_tags: 'style_tags', dress_code: 'dress_code',
+  is_favorite: 'is_favorite', description: 'description', pattern: 'pattern',
+  fit: 'fit', occasion: 'occasion',
+};
+
+function encodeValue(key: string, value: unknown): string | number | null {
+  if (value === null || value === undefined) return null;
+  if (key === 'season_tags' || key === 'style_tags' || key === 'dress_code' || key === 'occasion') {
+    const arr = Array.isArray(value) ? value : [value];
+    if (key === 'season_tags') {
+      return JSON.stringify((arr as unknown[]).map((s) => String(s).toLowerCase()));
+    }
+    return JSON.stringify(arr);
+  }
+  if (key === 'is_favorite') return boolInt(value);
+  if (typeof value === 'number') return value;
+  if (typeof value === 'boolean') return boolInt(value);
+  return String(value);
+}
+
 /**
  * GET /api/wardrobe/[id]
  * Get a specific clothing item
  */
 export async function GET(
-  _request: NextRequest,
-  context: { params: Promise<Record<string, string>> }
+  request: NextRequest,
+  context: RouteContext
 ): Promise<NextResponse<ApiResponse<IClothingItem>>> {
-  const supabase = await createClient();
-  const resolvedParams = await context.params;
-  const { id } = resolvedParams;
+  const user = await getAuthUser(request);
+  if (!user) return unauthorized();
+  const { id } = await context.params;
 
-  // Get authenticated user
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const row = await dbFirst(
+    'SELECT * FROM clothing_items WHERE id = ? AND user_id = ?',
+    [Number(id), user.uid]
+  );
 
-  if (authError || !user) {
-    return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
-      { status: 401 }
-    );
+  if (!row) {
+    return NextResponse.json({ success: false, error: 'Item not found' }, { status: 404 });
   }
 
-  // Fetch the specific clothing item
-  const { data, error } = await supabase
-    .from('clothing_items')
-    .select('*')
-    .eq('id', id)
-    .eq('user_id', user.id)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') {
-      return NextResponse.json(
-        { success: false, error: 'Item not found' },
-        { status: 404 }
-      );
-    }
-    logger.error('Error fetching wardrobe item', { error });
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
-  }
-
-  return NextResponse.json({
-    success: true,
-    data: data as IClothingItem,
-  });
+  return NextResponse.json({ success: true, data: mapClothingItem(row) as IClothingItem });
 }
 
 /**
@@ -68,140 +69,91 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  context: { params: Promise<Record<string, string>> }
+  context: RouteContext
 ): Promise<NextResponse<ApiResponse<IClothingItem>>> {
-  const supabase = await createClient();
-  const resolvedParams = await context.params;
-  const { id } = resolvedParams;
-
-  // Get authenticated user
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
-      { status: 401 }
-    );
-  }
+  const user = await getAuthUser(request);
+  if (!user) return unauthorized();
+  const { id } = await context.params;
 
   try {
     const body = await request.json();
 
-    // Sanitize body - only allow whitelisted fields to prevent injection
-    const sanitizedBody: Record<string, unknown> = {};
+    const sets: string[] = [];
+    const params: Array<string | number | null> = [];
     for (const key of ALLOWED_UPDATE_FIELDS) {
       if (key in body) {
-        sanitizedBody[key] = body[key];
+        sets.push(`${COLUMN_OF[key]} = ?`);
+        params.push(encodeValue(key, body[key]));
       }
     }
 
-    // Normalize season_tags to lowercase to match database enum
-    if (sanitizedBody.season_tags) {
-      if (!Array.isArray(sanitizedBody.season_tags)) {
-        sanitizedBody.season_tags = [sanitizedBody.season_tags];
-      }
-      sanitizedBody.season_tags = (sanitizedBody.season_tags as string[]).map((season: string) => season.toLowerCase());
+    if (sets.length === 0) {
+      return NextResponse.json({ success: false, error: 'No valid fields to update' }, { status: 400 });
     }
 
-    // Ensure dress_code is an array
-    if (sanitizedBody.dress_code && !Array.isArray(sanitizedBody.dress_code)) {
-      sanitizedBody.dress_code = [sanitizedBody.dress_code];
-    }
+    const row = await dbFirst(
+      `UPDATE clothing_items SET ${sets.join(', ')} WHERE id = ? AND user_id = ? RETURNING *`,
+      [...params, Number(id), user.uid]
+    );
 
-    // Update the item with sanitized body
-    const { data, error } = await supabase
-      .from('clothing_items')
-      .update(sanitizedBody)
-      .eq('id', id)
-      .eq('user_id', user.id)
-      .select()
-      .single();
-
-    if (error) {
-      logger.error('Error updating wardrobe item', { error });
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 500 }
-      );
+    if (!row) {
+      return NextResponse.json({ success: false, error: 'Item not found' }, { status: 404 });
     }
 
     return NextResponse.json({
       success: true,
-      data: data as IClothingItem,
+      data: mapClothingItem(row) as IClothingItem,
       message: 'Item updated successfully',
     });
   } catch (error) {
     logger.error('Error processing PATCH request', { error });
-    return NextResponse.json(
-      { success: false, error: 'Invalid request data' },
-      { status: 400 }
-    );
+    return NextResponse.json({ success: false, error: 'Invalid request data' }, { status: 400 });
   }
 }
 
 /**
  * DELETE /api/wardrobe/[id]
- * Delete a clothing item
+ * Delete a clothing item (+ best-effort R2 cleanup)
  */
 export async function DELETE(
-  _request: NextRequest,
-  context: { params: Promise<Record<string, string>> }
+  request: NextRequest,
+  context: RouteContext
 ): Promise<NextResponse<ApiResponse<null>>> {
-  const supabase = await createClient();
-  const resolvedParams = await context.params;
-  const { id } = resolvedParams;
+  const user = await getAuthUser(request);
+  if (!user) return unauthorized();
+  const { id } = await context.params;
 
-  // Get authenticated user
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const item = await dbFirst(
+    'SELECT image_url FROM clothing_items WHERE id = ? AND user_id = ?',
+    [Number(id), user.uid]
+  );
 
-  if (authError || !user) {
-    return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
-      { status: 401 }
-    );
+  if (!item) {
+    return NextResponse.json({ success: false, error: 'Item not found' }, { status: 404 });
   }
 
-  // First, get the item to retrieve its image path for cleanup
-  const { data: item } = await supabase
-    .from('clothing_items')
-    .select('image_url')
-    .eq('id', id)
-    .eq('user_id', user.id)
-    .single();
+  const result = await dbRun(
+    'DELETE FROM clothing_items WHERE id = ? AND user_id = ?',
+    [Number(id), user.uid]
+  );
 
-  // Delete the item from database
-  const { error } = await supabase
-    .from('clothing_items')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', user.id);
+  if (result.changes === 0) {
+    return NextResponse.json({ success: false, error: 'Item not found' }, { status: 404 });
+  }
 
-  // Clean up storage if item had an image (non-blocking)
-  if (!error && item?.image_url) {
-    try {
-      const url = new URL(item.image_url);
-      const pathSegments = url.pathname.split('/clothing_images/');
-      if (pathSegments.length > 1 && pathSegments[1]) {
-        const storagePath = decodeURIComponent(pathSegments[1]);
-        await supabase.storage.from('clothing_images').remove([storagePath]);
-        logger.info('Cleaned up storage for deleted item', { id, storagePath });
+  // Clean up R2 object if the image lives in our bucket (non-blocking)
+  const imageUrl = item.image_url as string | undefined;
+  if (imageUrl) {
+    const key = r2KeyFromUrl(imageUrl);
+    if (key) {
+      try {
+        await r2Delete(key);
+        logger.info('Cleaned up R2 object for deleted item', { id, key });
+      } catch (cleanupError) {
+        logger.warn('Failed to cleanup R2 object for deleted item', { id, error: cleanupError });
       }
-    } catch (cleanupError) {
-      // Log but don't fail the deletion - storage cleanup is best-effort
-      logger.warn('Failed to cleanup storage for deleted item', { id, error: cleanupError });
     }
   }
 
-  if (error) {
-    logger.error('Error deleting wardrobe item', { error });
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
-  }
-
-  return NextResponse.json({
-    success: true,
-    message: 'Item deleted successfully',
-  });
+  return NextResponse.json({ success: true, message: 'Item deleted successfully' });
 }

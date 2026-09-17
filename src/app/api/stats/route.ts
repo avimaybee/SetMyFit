@@ -1,70 +1,69 @@
 /**
  * User Statistics API Endpoint
  * GET /api/stats
- * 
+ *
  * Returns basic usage statistics for authenticated user
+ * (computed in JS from D1 — replaces the old wardrobe_analytics view)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthUser, unauthorized } from '@/lib/auth';
+import { dbAll, dbFirst } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
-// Using Node.js runtime for better Supabase compatibility
+// Using Node.js runtime for firebase-admin compatibility
 export const dynamic = 'force-dynamic';
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const user = await getAuthUser(request);
+    if (!user) return unauthorized();
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const dateBoundary = thirtyDaysAgo.toISOString().split('T')[0];
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    const rarelyBoundary = ninetyDaysAgo.toISOString().split('T')[0];
 
-    const [analyticsResult, totalOutfitsResult, recentOutfitsResult] = await Promise.all([
-      supabase
-        .from('wardrobe_analytics')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle(),
-      supabase
-        .from('outfits')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id),
-      supabase
-        .from('outfits')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .gte('outfit_date', dateBoundary),
+    const [wardrobeAgg, outfitsAgg, recentAgg, rarelyAgg] = await Promise.all([
+      dbFirst(
+        `SELECT COUNT(*) AS total,
+           COALESCE(SUM(CASE WHEN is_favorite = 1 THEN 1 ELSE 0 END), 0) AS favorites,
+           COALESCE(AVG(wear_count), 0) AS avg_wear,
+           COALESCE(MAX(wear_count), 0) AS max_wear
+         FROM clothing_items WHERE user_id = ?`,
+        [user.uid]
+      ),
+      dbFirst('SELECT COUNT(*) AS total FROM outfits WHERE user_id = ?', [user.uid]),
+      dbFirst(
+        'SELECT COUNT(*) AS total FROM outfits WHERE user_id = ? AND outfit_date >= ?',
+        [user.uid, dateBoundary]
+      ),
+      dbFirst(
+        `SELECT COUNT(*) AS total FROM clothing_items
+         WHERE user_id = ? AND (last_worn IS NULL OR last_worn < ?)`,
+        [user.uid, rarelyBoundary]
+      ),
     ]);
 
-    if (analyticsResult.error && analyticsResult.error.code !== 'PGRST116') {
-      logger.warn('Unable to read wardrobe analytics view', { error: analyticsResult.error });
-    }
-
-    const wardrobeSize = analyticsResult.data?.total_items ?? 0;
-    const favoriteCount = analyticsResult.data?.favorite_count ?? 0;
-    const avgWearCount = analyticsResult.data?.avg_wear_count ?? 0;
-    const maxWearCount = analyticsResult.data?.max_wear_count ?? 0;
-    const rarelyWorn = analyticsResult.data?.rarely_worn ?? 0;
+    // Worn in last 30 days: distinct items logged via outfits in range
+    const wornRows = await dbAll(
+      `SELECT COUNT(DISTINCT oi.clothing_item_id) AS worn
+       FROM outfit_items oi INNER JOIN outfits o ON o.id = oi.outfit_id
+       WHERE o.user_id = ? AND o.outfit_date >= ?`,
+      [user.uid, dateBoundary]
+    );
 
     const stats = {
-      totalOutfits: totalOutfitsResult.count ?? 0,
-      outfitsLast30Days: recentOutfitsResult.count ?? 0,
-      wardrobeSize,
-      favoriteCount,
-      avgWearCount,
-      maxWearCount,
-      rarelyWorn,
+      totalOutfits: Number(outfitsAgg?.total ?? 0),
+      outfitsLast30Days: Number(recentAgg?.total ?? 0),
+      wardrobeSize: Number(wardrobeAgg?.total ?? 0),
+      favoriteCount: Number(wardrobeAgg?.favorites ?? 0),
+      avgWearCount: Number(wardrobeAgg?.avg_wear ?? 0),
+      maxWearCount: Number(wardrobeAgg?.max_wear ?? 0),
+      rarelyWorn: Number(rarelyAgg?.total ?? 0),
+      wornLast30Days: Number(wornRows[0]?.worn ?? 0),
     };
 
     return NextResponse.json({

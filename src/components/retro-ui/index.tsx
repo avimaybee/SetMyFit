@@ -51,12 +51,14 @@ export const RetroButton: React.FC<RetroButtonProps> = ({ children, className = 
         ${bgClass} 
         border-2 border-[var(--border)] 
         px-4 py-2 
+        min-h-[44px]
         font-bold 
         text-[var(--text)]
         shadow-[4px_4px_0px_0px_var(--border)] 
         transition-all 
         active:translate-x-[2px] active:translate-y-[2px] active:shadow-none
         disabled:opacity-50 disabled:cursor-not-allowed
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--text)] focus-visible:ring-offset-2
         ${className}
       `}
       {...props}
@@ -84,7 +86,7 @@ export const RetroWindow: React.FC<RetroWindowProps> = ({ title, children, class
           {icon && <span className="text-[var(--text)]">{icon}</span>}
           <span className="font-bold font-mono text-sm uppercase tracking-wider text-[var(--text)] truncate">{title}</span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1" aria-hidden="true">
           <div className="w-5 h-5 border-2 border-[var(--border)] bg-[var(--bg-secondary)] flex items-center justify-center hover:opacity-80 cursor-default">
             <Minus size={12} strokeWidth={4} className="text-[var(--text)]" />
           </div>
@@ -267,10 +269,10 @@ export const RetroImage: React.FC<RetroImageProps> = ({
   containerClassName = '',
   ...props
 }) => {
-  const [status, setStatus] = useState<'loading' | 'error' | 'loaded'>('loading');
+  const [status, setStatus] = useState<'loading' | 'error' | 'loaded'>(src ? 'loading' : 'error');
 
   useEffect(() => {
-    setStatus('loading');
+    setStatus(src ? 'loading' : 'error');
   }, [src]);
 
   const resolvedSrc = src || 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
@@ -291,11 +293,11 @@ export const RetroImage: React.FC<RetroImageProps> = ({
         </div>
       )}
 
-      {/* Error State */}
+      {/* Error State (also used when no image URL is available at all) */}
       {status === 'error' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-[var(--bg-secondary)] p-4 text-center">
           <ImageOff className="text-[var(--accent-orange)] mb-2" size={32} />
-          <span className="font-mono text-xs font-bold text-[var(--text)]">IMG_ERR</span>
+          <span className="font-mono text-xs font-bold text-[var(--text)]">{src ? 'IMG_ERR' : 'NO IMAGE'}</span>
         </div>
       )}
 

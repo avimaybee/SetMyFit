@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { RecommendationFeedback, ApiResponse } from '@/lib/types';
+import { getAuthUser, unauthorized } from '@/lib/auth';
+import { dbAll, dbFirst, mapClothingItem, mapRecommendation, nowIso, parseJson, toJson } from '@/lib/db';
+import { RecommendationFeedback, ApiResponse, IClothingItem } from '@/lib/types';
 import { adjustPreferencesBasedOnFeedback } from '@/lib/helpers/preferenceLearning';
 
 /**
@@ -12,22 +13,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<ApiResponse<RecommendationFeedback>>> {
   try {
-    const supabase = await createClient();
+    const user = await getAuthUser(request);
+    if (!user) return unauthorized();
     const { id } = await params;
-    
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
 
     // Parse request body
     const body = await request.json();
-    
+
     // Validate required fields
     if (typeof body.is_liked !== 'boolean') {
       return NextResponse.json(
@@ -37,19 +29,18 @@ export async function POST(
     }
 
     // Verify recommendation exists and belongs to user
-    const { data: recommendation, error: recError } = await supabase
-      .from('outfit_recommendations')
-      .select('*')
-      .eq('id', id)
-      .eq('user_id', user.id)
-      .single();
+    const recRow = await dbFirst(
+      'SELECT * FROM outfit_recommendations WHERE id = ? AND user_id = ?',
+      [Number(id), user.uid]
+    );
 
-    if (recError || !recommendation) {
+    if (!recRow) {
       return NextResponse.json(
         { success: false, error: 'Recommendation not found' },
         { status: 404 }
       );
     }
+    const recommendation = mapRecommendation(recRow);
 
     // Create feedback record
     const feedback: RecommendationFeedback = {
@@ -61,39 +52,36 @@ export async function POST(
     };
 
     // Store feedback in database
-    const { error: insertError } = await supabase
-      .from('recommendation_feedback')
-      .insert([{
-        user_id: user.id,
-        recommendation_id: feedback.recommendation_id,
-        is_liked: feedback.is_liked,
-        reason: feedback.reason,
-      }])
-      .select()
-      .single();
+    const inserted = await dbFirst(
+      `INSERT INTO recommendation_feedback (user_id, recommendation_id, is_liked, reason)
+       VALUES (?, ?, ?, ?) RETURNING id`,
+      [user.uid, Number(id), body.is_liked ? 1 : 0, body.reason || null]
+    );
 
-    if (insertError) {
+    if (!inserted) {
       return NextResponse.json(
-        { success: false, error: insertError.message },
+        { success: false, error: 'Failed to record feedback' },
         { status: 500 }
       );
     }
 
     // Get clothing items from the recommendation
-    const { data: items } = await supabase
-      .from('clothing_items')
-      .select('*')
-      .in('id', recommendation.outfit_items);
+    let items: IClothingItem[] = [];
+    if (recommendation.outfit_items.length > 0) {
+      const placeholders = recommendation.outfit_items.map(() => '?').join(',');
+      const itemRows = await dbAll(
+        `SELECT * FROM clothing_items WHERE id IN (${placeholders})`,
+        recommendation.outfit_items
+      );
+      items = itemRows.map(mapClothingItem) as unknown as IClothingItem[];
+    }
 
     // Update user preferences based on feedback
     try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('preferences')
-        .eq('id', user.id)
-        .single();
-
-      const currentPreferences = profile?.preferences || {};
+      const profileRow = await dbFirst('SELECT preferences FROM profiles WHERE id = ?', [user.uid]);
+      const currentPreferences = profileRow
+        ? parseJson<Record<string, Record<string, number>>>(profileRow.preferences, {})
+        : {};
       const updatedPreferences = adjustPreferencesBasedOnFeedback(
         currentPreferences,
         items || [],
@@ -101,10 +89,10 @@ export async function POST(
       );
 
       // Save updated preferences
-      await supabase
-        .from('profiles')
-        .update({ preferences: updatedPreferences })
-        .eq('id', user.id);
+      await dbFirst(
+        'UPDATE profiles SET preferences = ?, updated_at = ? WHERE id = ? RETURNING id',
+        [toJson(updatedPreferences), nowIso(), user.uid]
+      );
     } catch (prefError) {
       console.error('Failed to update preferences:', prefError);
       // Don't fail the request if preference update fails
@@ -117,9 +105,9 @@ export async function POST(
     });
   } catch (error) {
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Internal server error' 
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Internal server error'
       },
       { status: 500 }
     );

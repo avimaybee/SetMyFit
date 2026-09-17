@@ -23,7 +23,8 @@ export const OutfitSkeleton = () => (
         <div className="flex-1 bg-[#f0f0f0] relative p-4 flex items-center justify-center min-h-[350px]">
             <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '16px 16px' }}></div>
 
-            <div className="relative z-10 grid grid-cols-[80px_1fr_90px] gap-4 items-center w-full h-full">
+            {/* Mirror the real canvas columns to avoid layout shift */}
+            <div className="relative z-10 grid grid-cols-[70px_1fr_80px] md:grid-cols-[120px_1fr_120px] gap-2 md:gap-4 items-center w-full h-full">
                 {/* Left - Accessories */}
                 <div className="h-full border-2 border-black/10 bg-black/5 rounded-lg p-2 flex flex-col gap-3 justify-center">
                     <div className="w-14 h-14 bg-gray-200 border-2 border-black/10 self-center"></div>

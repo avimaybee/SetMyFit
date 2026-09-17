@@ -2,8 +2,9 @@
 
 import React from 'react';
 import { usePathname } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import { uploadClothingImage } from '@/lib/supabase/storage';
+import { currentUser } from '@/lib/firebase/client';
+import { apiFetch } from '@/lib/api';
+import { uploadClothingImage } from '@/lib/uploads';
 import { WardrobeItemForm } from '@/components/wardrobe/WardrobeItemForm';
 import { ClothingItem, ClothingType } from '@/types/retro';
 import { toast } from '@/components/ui/toaster';
@@ -29,9 +30,8 @@ export const GlobalAddModal: React.FC = () => {
     const handleAddItem = async (item: Partial<ClothingItem>, file?: File) => {
         let uploadToastId: string | null = null;
         try {
-            const supabase = createClient();
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
+            const fbUser = await currentUser();
+            if (!fbUser) {
                 toast.error("You must be logged in.");
                 return;
             }
@@ -51,7 +51,7 @@ export const GlobalAddModal: React.FC = () => {
 
             if (uploadFile) {
                 uploadToastId = toast.loading('UPLOADING IMAGE... 0%');
-                const uploadResult = await uploadClothingImage(uploadFile, session.user.id, {
+                const uploadResult = await uploadClothingImage(uploadFile, fbUser.uid, {
                     onProgress: (percent) => {
                         if (!uploadToastId) return;
                         toast.loading(`UPLOADING IMAGE... ${percent}%`, { id: uploadToastId });
@@ -79,7 +79,7 @@ export const GlobalAddModal: React.FC = () => {
                 fit: item.fit,
             };
 
-            const response = await fetch("/api/wardrobe", {
+            const response = await apiFetch("/api/wardrobe", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -113,7 +113,7 @@ export const GlobalAddModal: React.FC = () => {
     const handleAnalyzeImage = async (base64: string, options?: { signal?: AbortSignal }): Promise<Partial<ClothingItem> | null> => {
         try {
             const { base64: payload, mimeType } = parseDataUrl(base64, 'image/webp');
-            const response = await fetch("/api/wardrobe/analyze", {
+            const response = await apiFetch("/api/wardrobe/analyze", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ image: payload, mimeType }),

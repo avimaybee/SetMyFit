@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthUser, unauthorized } from '@/lib/auth';
+import { dbAll, dbFirst, mapClothingItem, nowIso, toJson } from '@/lib/db';
 import { ApiResponse, IClothingItem, WeatherData } from '@/lib/types';
 import { generateAIOutfitRecommendation } from '@/lib/helpers/aiOutfitAnalyzer';
 import { filterByLastWorn } from '@/lib/helpers/clothingHelpers';
 import { getCurrentSeason, getSeasonDescription } from '@/lib/helpers/seasonDetector';
 
 /**
- * Fetch weather data from OpenWeatherMap API
+ * Fetch weather data from OpenWeatherMap API.
+ * Uses Current Weather Data (free tier) — One Call 2.5 was shut down in 2024
+ * and One Call 3.0 needs a separate subscription, so we avoid both.
  */
 async function fetchWeatherData(lat: number, lon: number): Promise<WeatherData | null> {
   const apiKey = process.env.OPENWEATHER_API_KEY;
@@ -18,7 +21,7 @@ async function fetchWeatherData(lat: number, lon: number): Promise<WeatherData |
 
   try {
     const response = await fetch(
-      `https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lon}&exclude=minutely,daily&appid=${apiKey}&units=metric`,
+      `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`,
       { next: { revalidate: 300 } } // Cache for 5 minutes
     );
 
@@ -30,14 +33,15 @@ async function fetchWeatherData(lat: number, lon: number): Promise<WeatherData |
     const data = await response.json();
 
     return {
-      temperature: data.current.temp,
-      feels_like: data.current.feels_like,
-      humidity: data.current.humidity,
-      wind_speed: data.current.wind_speed,
-      uv_index: data.current.uvi || 0,
+      temperature: data.main.temp,
+      feels_like: data.main.feels_like,
+      humidity: data.main.humidity,
+      wind_speed: data.wind?.speed ?? 0,
+      uv_index: 0, // Not available on the free Current Weather endpoint
       air_quality_index: 0, // Would need separate API call
       pollen_count: 0, // Would need separate API call
-      weather_condition: data.current.weather[0].description,
+      weather_condition: data.weather?.[0]?.description ?? 'unknown',
+      city: data.name,
       timestamp: new Date(),
     } as WeatherData;
   } catch (error) {
@@ -66,7 +70,7 @@ function formatWeatherForAI(weather: WeatherData): string {
 
 /**
  * POST /api/recommendation/ai
- * Generate AI-powered outfit recommendation using Gemini 2.5 Flash
+ * Generate AI-powered outfit recommendation using Gemini 3.5 Flash-Lite
  * 
  * This endpoint:
  * 1. Fetches real weather data from OpenWeatherMap
@@ -85,17 +89,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
   weatherData?: WeatherData;
 }>>> {
   try {
-    const supabase = await createClient();
-
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const user = await getAuthUser(request);
+    if (!user) return unauthorized();
 
     // Parse request body
     const body = await request.json();
@@ -135,19 +130,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     const weatherWithSeasonContext = `${weatherDescription}. IMPORTANT: It is currently ${seasonDescription}. Even though the temperature is ${Math.round(weatherData.temperature)}°C, consider the calendar season when selecting clothing - people typically dress for the season, not just the temperature.`;
 
     // Fetch user's wardrobe
-    const { data: wardrobeItems, error: wardrobeError } = await supabase
-      .from('clothing_items')
-      .select('*')
-      .eq('user_id', user.id);
+    const wardrobeRows = await dbAll('SELECT * FROM clothing_items WHERE user_id = ?', [user.uid]);
+    const wardrobeItems = wardrobeRows.map(mapClothingItem);
 
-    if (wardrobeError) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch wardrobe items' },
-        { status: 500 }
-      );
-    }
-
-    if (!wardrobeItems || wardrobeItems.length === 0) {
+    if (wardrobeItems.length === 0) {
       return NextResponse.json(
         { success: false, error: 'No clothing items found in wardrobe' },
         { status: 404 }
@@ -190,29 +176,30 @@ Statement Piece: ${aiResult.reasoning.statementPiece || 'N/A'}
     }
 
     // Store recommendation in database
-    const { data: _savedRecommendation, error: saveError } = await supabase
-      .from('outfit_recommendations')
-      .insert({
-        user_id: user.id,
-        outfit_items: aiResult.outfit.map(i => i.id),
-        weather_data: {
-          temperature: weatherData.temperature,
-          feels_like: weatherData.feels_like,
-          weather_condition: weatherData.weather_condition,
-          humidity: weatherData.humidity,
-          wind_speed: weatherData.wind_speed,
-          uv_index: weatherData.uv_index,
-          occasion: occasion,
-          season: season,
-        },
-        confidence_score: aiResult.validationScore / 100, // Convert to 0-1 scale
-        reasoning: reasoning,
-        created_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (saveError) {
+    try {
+      await dbFirst(
+        `INSERT INTO outfit_recommendations
+          (user_id, outfit_items, weather_data, confidence_score, reasoning, created_at)
+         VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
+        [
+          user.uid,
+          toJson(aiResult.outfit.map(i => i.id)),
+          toJson({
+            temperature: weatherData.temperature,
+            feels_like: weatherData.feels_like,
+            weather_condition: weatherData.weather_condition,
+            humidity: weatherData.humidity,
+            wind_speed: weatherData.wind_speed,
+            uv_index: weatherData.uv_index,
+            occasion: occasion,
+            season: season,
+          }),
+          aiResult.validationScore / 100, // Convert to 0-1 scale
+          reasoning,
+          nowIso(),
+        ]
+      );
+    } catch (saveError) {
       console.error('Failed to save recommendation:', saveError);
       // Continue anyway
     }
@@ -252,17 +239,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
   suggestions: string[];
 }>>> {
   try {
-    const supabase = await createClient();
-
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const user = await getAuthUser(request);
+    if (!user) return unauthorized();
 
     // Get item IDs from query params
     const searchParams = request.nextUrl.searchParams;
@@ -278,18 +256,19 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
     const itemIds = itemIdsParam.split(',').map(id => parseInt(id, 10));
 
     // Fetch the items
-    const { data: items, error: itemsError } = await supabase
-      .from('clothing_items')
-      .select('*')
-      .in('id', itemIds)
-      .eq('user_id', user.id);
+    const placeholders = itemIds.map(() => '?').join(',');
+    const itemRows = await dbAll(
+      `SELECT * FROM clothing_items WHERE id IN (${placeholders}) AND user_id = ?`,
+      [...itemIds, user.uid]
+    );
 
-    if (itemsError || !items || items.length === 0) {
+    if (itemRows.length === 0) {
       return NextResponse.json(
         { success: false, error: 'Failed to fetch clothing items' },
         { status: 404 }
       );
     }
+    const items = itemRows.map(mapClothingItem);
 
     // Dynamically import to avoid issues
     const { validateOutfitImages } = await import('@/lib/helpers/aiOutfitAnalyzer');

@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { Calendar, Star, Tag, Trash2 } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 import { IClothingItem } from "@/lib/types";
 import { RetroButton, RetroWindow, RetroImage } from "@/components/retro-ui";
 import { ListSkeleton } from "@/components/ui/skeletons";
@@ -47,12 +49,21 @@ const extractWeatherDetails = (weather?: Record<string, unknown> | null) => {
 export default function HistoryPage() {
   const [history, setHistory] = useState<OutfitHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  const router = useRouter();
 
   const fetchHistory = useCallback(async () => {
     setLoading(true);
+    setLoadFailed(false);
     try {
-      const res = await fetch("/api/outfits/history?limit=60", { cache: "no-store" });
+      const res = await apiFetch("/api/outfits/history?limit=60", { cache: "no-store" });
+      if (res.status === 401) {
+        toast.error("Session expired. Please sign in again.");
+        router.push('/auth/sign-in');
+        return;
+      }
       const payload = await res.json();
       if (!res.ok || !payload.success) {
         throw new Error(payload?.error || "Failed to load outfit history");
@@ -60,50 +71,65 @@ export default function HistoryPage() {
       setHistory(payload.data as OutfitHistoryEntry[]);
     } catch (error) {
       console.error("Failed to load outfit history", error);
-      toast.error("Failed to load logs.");
+      setLoadFailed(true);
+      toast.error("Failed to load history.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     fetchHistory();
   }, [fetchHistory]);
 
   const handleDelete = useCallback(async (id: number) => {
-    if (!window.confirm("Delete this log entry?")) return;
+    setPendingDeleteId(null);
     setDeletingId(id);
     try {
-      const res = await fetch(`/api/outfits/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/outfits/${id}`, { method: "DELETE" });
+      if (res.status === 401) {
+        toast.error("Session expired. Please sign in again.");
+        router.push('/auth/sign-in');
+        return;
+      }
       const payload = await res.json();
       if (!res.ok || !payload.success) {
         throw new Error(payload?.error || "Failed to delete log");
       }
       setHistory(prev => prev.filter(entry => entry.id !== id));
-      toast.success("Log deleted");
+      toast.success("History entry deleted");
     } catch (error) {
-      console.error("Failed to delete log", error);
-      toast.error("Failed to delete log");
+      console.error("Failed to delete history entry", error);
+      toast.error("Failed to delete history entry");
     } finally {
       setDeletingId(null);
     }
-  }, []);
+  }, [router]);
 
   return (
-    <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-primary)] min-h-screen text-[var(--text)]">
+    <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-main)] min-h-screen text-[var(--text)]">
+      <h1 className="sr-only">Outfit history</h1>
       <div className="max-w-5xl mx-auto space-y-6">
-        <RetroWindow title="OUTFIT_LOGS.DB" icon={<Calendar size={14} />} className="h-full">
+          <RetroWindow title="HISTORY.DB" icon={<Calendar size={14} />} className="h-full">
           {loading ? (
             <div className="py-10">
               <ListSkeleton />
             </div>
+          ) : loadFailed && history.length === 0 ? (
+            <div className="py-16 text-center">
+              <p className="font-mono text-sm font-bold">LOGS_LOAD_FAILED</p>
+              <p className="font-mono text-xs mt-2 text-[var(--text-muted)]">Check your connection and try again.</p>
+              <RetroButton className="mt-4 text-xs" onClick={fetchHistory}>
+                RETRY
+              </RetroButton>
+            </div>
           ) : history.length === 0 ? (
             <div className="py-16 text-center font-mono text-sm text-[var(--text-muted)]">
-              <p>NO LOGS FOUND.</p>
-              <p className="mt-2">RUN A RECOMMENDATION AND LOG YOUR FITS.</p>
+              <p>NO HISTORY FOUND.</p>
+              <p className="mt-2">RUN A RECOMMENDATION AND LOG YOUR OUTFITS.</p>
             </div>
           ) : (
-            <div className="space-y-6 p-2 md:p-4">
+            <div className="space-y-10 p-2 md:p-4">
               {history.map((entry) => {
                 const { condition, temperature } = extractWeatherDetails(entry.weather_data);
                 const previewItems = entry.items.slice(0, 4);
@@ -141,11 +167,11 @@ export default function HistoryPage() {
                         <div className="flex-1 flex flex-col">
                           <div className="flex justify-between items-start gap-3 flex-wrap mb-3">
                             <div>
-                              <h3 className="font-black text-lg uppercase text-[var(--text)]">LOG #{entry.id}</h3>
+                              <h3 className="font-black text-lg uppercase text-[var(--text)]">ENTRY #{entry.id}</h3>
                               <div className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
                                 <span className="bg-[var(--accent-yellow)] px-2 py-0.5 border border-[var(--border)] text-[var(--text)] font-bold">
                                   {condition ?? "N/A"}
-                                  {typeof temperature === "number" ? `, ${temperature}°` : ""}
+                                  {typeof temperature === "number" ? `, ${temperature}Â°` : ""}
                                 </span>
                                 {rating !== null && (
                                   <div className="flex items-center gap-0.5">
@@ -163,9 +189,10 @@ export default function HistoryPage() {
                             <RetroButton
                               variant="danger"
                               className="p-1.5"
-                              onClick={() => handleDelete(entry.id)}
+                              onClick={() => setPendingDeleteId(entry.id)}
                               disabled={deletingId === entry.id}
-                              title="Delete Log"
+                              title="Delete history entry"
+                              aria-label={`Delete history entry ${entry.id}`}
                             >
                               <Trash2 size={14} />
                             </RetroButton>
@@ -173,19 +200,24 @@ export default function HistoryPage() {
                           <div className="mb-4">
                             <p className="font-mono text-xs text-[var(--text-muted)] mb-1">ITEMS WORN:</p>
                             <div className="flex flex-wrap gap-1">
-                              {entry.items.map((item) => (
+                              {entry.items.slice(0, 8).map((item) => (
                                 <span
                                   key={`${entry.id}-item-${item.id}`}
-                                  className="text-[10px] border border-[var(--border)] px-2 py-0.5 bg-[var(--accent-green)] flex items-center gap-1 text-[var(--text)]"
+                                  className="text-[10px] border border-[var(--border)] px-2 py-0.5 bg-[var(--accent-green)] flex items-center gap-1 text-[var(--text)] max-w-full"
                                 >
-                                  <Tag size={8} /> {item.name}
+                                  <Tag size={8} className="shrink-0" /> <span className="truncate">{item.name}</span>
                                 </span>
                               ))}
+                              {entry.items.length > 8 && (
+                                <span className="text-[10px] border border-[var(--border)] px-2 py-0.5 bg-[var(--bg-tertiary)] text-[var(--text)]">
+                                  +{entry.items.length - 8} MORE
+                                </span>
+                              )}
                             </div>
                           </div>
                           <div className="mt-auto pt-3 border-t-2 border-[var(--border)] border-dashed flex justify-end gap-3">
-                            <RetroButton className="flex items-center gap-2 text-xs py-1.5" variant="danger" onClick={() => handleDelete(entry.id)} disabled={deletingId === entry.id}>
-                              <Trash2 size={12} /> DELETE LOG
+                            <RetroButton className="flex items-center gap-2 text-xs py-1.5" variant="danger" onClick={() => setPendingDeleteId(entry.id)} disabled={deletingId === entry.id}>
+                              <Trash2 size={12} /> DELETE ENTRY
                             </RetroButton>
                           </div>
                         </div>
@@ -198,6 +230,36 @@ export default function HistoryPage() {
           )}
         </RetroWindow>
       </div>
+
+      {/* Delete confirmation */}
+      {pendingDeleteId !== null && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="max-w-sm w-full">
+            <RetroWindow title="CONFIRM_DELETION.SYS" icon={<Trash2 size={14} />}>
+              <div className="p-2 text-center">
+                <p className="font-mono text-sm font-bold">PERMANENTLY DELETE THIS HISTORY ENTRY?</p>
+                <p className="font-mono text-xs mt-2 text-[var(--text-muted)]">This cannot be undone.</p>
+                <div className="flex gap-2 mt-4">
+                  <RetroButton
+                    variant="neutral"
+                    className="flex-1 text-xs"
+                    onClick={() => setPendingDeleteId(null)}
+                  >
+                    CANCEL
+                  </RetroButton>
+                  <RetroButton
+                    variant="danger"
+                    className="flex-1 text-xs"
+                    onClick={() => handleDelete(pendingDeleteId)}
+                  >
+                    DELETE ENTRY
+                  </RetroButton>
+                </div>
+              </div>
+            </RetroWindow>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

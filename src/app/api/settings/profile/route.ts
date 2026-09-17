@@ -1,49 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthUser, unauthorized } from '@/lib/auth';
+import { dbFirst, mapProfile, nowIso, toJson } from '@/lib/db';
 import { Profile, ApiResponse } from '@/lib/types';
 
 /**
  * GET /api/settings/profile
  * Get user profile settings
  */
-export async function GET(_request: NextRequest): Promise<NextResponse<ApiResponse<Profile>>> {
+export async function GET(request: NextRequest): Promise<NextResponse<ApiResponse<Profile>>> {
   try {
-    const supabase = await createClient();
+    const user = await getAuthUser(request);
+    if (!user) return unauthorized();
 
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const row = await dbFirst('SELECT * FROM profiles WHERE id = ?', [user.uid]);
+    if (!row) {
+      return NextResponse.json({ success: false, error: 'Profile not found' }, { status: 404 });
     }
 
-    // Fetch user profile
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: data as Profile,
-    });
-  } catch (error) {
+    return NextResponse.json({ success: true, data: mapProfile(row) as unknown as Profile });
+  } catch {
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Internal server error'
-      },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -55,47 +32,33 @@ export async function GET(_request: NextRequest): Promise<NextResponse<ApiRespon
  */
 export async function PUT(request: NextRequest): Promise<NextResponse<ApiResponse<Profile>>> {
   try {
-    const supabase = await createClient();
-
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const user = await getAuthUser(request);
+    if (!user) return unauthorized();
 
     // Parse request body
     const body = await request.json();
 
-    // Build update object
-    const updates: Partial<Profile> = {};
+    const sets: string[] = [];
+    const params: Array<string | number | null> = [];
+    if (body.name !== undefined) { sets.push('name = ?'); params.push(body.name ?? null); }
+    if (body.region !== undefined) { sets.push('region = ?'); params.push(body.region ?? null); }
+    if (body.full_body_model_url !== undefined) { sets.push('full_body_model_url = ?'); params.push(body.full_body_model_url ?? null); }
+    if (body.preferences !== undefined) { sets.push('preferences = ?'); params.push(toJson(body.preferences)); }
+    sets.push('updated_at = ?');
+    params.push(nowIso());
 
-    if (body.name !== undefined) updates.name = body.name;
-    if (body.region !== undefined) updates.region = body.region;
-    if (body.full_body_model_url !== undefined) updates.full_body_model_url = body.full_body_model_url;
-    if (body.preferences !== undefined) updates.preferences = body.preferences;
+    const row = await dbFirst(
+      `UPDATE profiles SET ${sets.join(', ')} WHERE id = ? RETURNING *`,
+      [...params, user.uid]
+    );
 
-    // Update profile
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', user.id)
-      .select()
-      .single();
-
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 500 }
-      );
+    if (!row) {
+      return NextResponse.json({ success: false, error: 'Profile not found' }, { status: 404 });
     }
 
     return NextResponse.json({
       success: true,
-      data: data as Profile,
+      data: mapProfile(row) as unknown as Profile,
       message: 'Profile updated successfully',
     });
   } catch (error) {
@@ -115,73 +78,51 @@ export async function PUT(request: NextRequest): Promise<NextResponse<ApiRespons
  */
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse<Profile>>> {
   try {
-    const supabase = await createClient();
-
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      console.log('POST /api/settings/profile - Auth error:', authError?.message);
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const user = await getAuthUser(request);
+    if (!user) return unauthorized();
 
     // Parse request body
     const body = await request.json();
-    console.log('POST /api/settings/profile - User:', user.id);
-    console.log('POST /api/settings/profile - Body:', JSON.stringify(body, null, 2));
 
-    // Build the upsert data - only include fields that exist in the table
-    const profileData: Record<string, unknown> = {
-      id: user.id,
-    };
+    const existing = await dbFirst('SELECT id FROM profiles WHERE id = ?', [user.uid]);
 
-    // Handle name
-    if (body.name) {
-      profileData.name = body.name;
-    }
+    let name: string | null = null;
+    let stylePreferences: string | null = null;
+    let gender: string | null = null;
 
-    // Handle preferences - store in style_preferences column
+    if (body.name) name = body.name;
     if (body.preferences) {
-      profileData.style_preferences = body.preferences;
-      // Extract gender from preferences if present
-      if (body.preferences.gender) {
-        profileData.gender = body.preferences.gender;
-      }
+      stylePreferences = JSON.stringify(body.preferences);
+      if (body.preferences.gender) gender = body.preferences.gender;
     }
+    if (body.gender) gender = body.gender;
 
-    // Handle direct gender field
-    if (body.gender) {
-      profileData.gender = body.gender;
-    }
-
-    console.log('POST /api/settings/profile - Upserting:', JSON.stringify(profileData, null, 2));
-
-    // Use upsert to handle both insert and update
-    const { data, error } = await supabase
-      .from('profiles')
-      .upsert(profileData, {
-        onConflict: 'id',
-        ignoreDuplicates: false
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Profile upsert error:', error);
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 500 }
+    let row;
+    if (existing) {
+      row = await dbFirst(
+        `UPDATE profiles SET
+           name = COALESCE(?, name),
+           style_preferences = COALESCE(?, style_preferences),
+           gender = COALESCE(?, gender),
+           updated_at = ?
+         WHERE id = ? RETURNING *`,
+        [name, stylePreferences, gender, nowIso(), user.uid]
+      );
+    } else {
+      row = await dbFirst(
+        `INSERT INTO profiles (id, name, style_preferences, gender, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?) RETURNING *`,
+        [user.uid, name, stylePreferences, gender, nowIso(), nowIso()]
       );
     }
 
-    console.log('POST /api/settings/profile - Success:', data?.id);
+    if (!row) {
+      return NextResponse.json({ success: false, error: 'Failed to save profile' }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,
-      data: data as Profile,
+      data: mapProfile(row) as unknown as Profile,
       message: 'Profile saved successfully',
     });
   } catch (error) {
@@ -195,4 +136,3 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     );
   }
 }
-

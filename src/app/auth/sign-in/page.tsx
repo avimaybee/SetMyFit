@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { persistSession, signIn, signUp } from "@/lib/firebase/client";
+import { apiFetch } from "@/lib/api";
 import { LoginPage } from "@/components/auth/LoginPage";
 import { toast } from "@/components/ui/toaster";
 
@@ -18,35 +19,41 @@ export default function SignInPage() {
     setError(null);
 
     try {
-      const supabase = createClient();
+      const cleanEmail = email.trim();
+      const user = isSignUp
+        ? await signUp(cleanEmail, password)
+        : await signIn(cleanEmail, password);
+
+      if (!user) {
+        throw new Error("Authentication failed");
+      }
+
+      // Persist session cookie for middleware; without it the next
+      // navigation bounces back to sign-in.
+      const persisted = await persistSession();
+      if (!persisted) {
+        throw new Error("Could not create a session. Please try again.");
+      }
 
       if (isSignUp) {
-        // Sign up
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-
-        if (error) throw error;
-
-        if (data.user) {
-          toast.success("Account created! Welcome to setmyfit! 🎉");
-          window.location.href = "/onboarding";
-        }
-      } else {
-        // Sign in
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) throw error;
-
-        if (data.user) {
-          toast.success("Welcome back!");
-          window.location.href = "/";
-        }
+        toast.success("Account created! Welcome to setmyfit! 🎉");
+        window.location.href = "/onboarding";
+        return;
       }
+
+      // Returning users land based on profile: no profile = onboarding.
+      try {
+        const res = await apiFetch("/api/settings/profile");
+        if (res.status === 404) {
+          toast.success("Welcome! Let's set up your profile.");
+          window.location.href = "/onboarding";
+          return;
+        }
+      } catch {
+        // Profile check failed — home will surface errors if any.
+      }
+      toast.success("Welcome back!");
+      window.location.href = "/";
     } catch (err) {
       console.error("Auth error:", err);
       const message = err instanceof Error ? err.message : "Authentication failed";
@@ -58,7 +65,7 @@ export default function SignInPage() {
   };
 
   return (
-    <LoginPage 
+    <LoginPage
         email={email}
         setEmail={setEmail}
         password={password}

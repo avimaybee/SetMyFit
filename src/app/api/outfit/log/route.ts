@@ -1,24 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthUser, unauthorized } from '@/lib/auth';
+import { dbAll, dbFirst, dbRun } from '@/lib/db';
 import { ApiResponse } from '@/lib/types';
 
 /**
  * POST /api/outfit/log
- * Log outfit usage, create outfit record, and update last_worn_date for all items
+ * Log outfit usage, create outfit record, and update last_worn/wear_count for all items
  */
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse<{ outfit_id: number; updated_count: number }>>> {
   try {
-    const supabase = await createClient();
-
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const user = await getAuthUser(request);
+    if (!user) return unauthorized();
 
     // Parse request body
     const body = await request.json();
@@ -39,7 +31,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     // Log for debugging
     if (process.env.NODE_ENV !== 'production') {
       console.log('Log outfit request:', {
-        userId: user.id,
+        userId: user.uid,
         itemIds: normalizedItemIds,
         outfitDate,
         feedback,
@@ -47,128 +39,102 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     }
 
     // Prevent duplicate outfit entries for the same day
-    const { data: todaysOutfits, error: todaysOutfitsError } = await supabase
-      .from('outfits')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('outfit_date', outfitDate);
+    const todaysOutfits = await dbAll(
+      'SELECT id FROM outfits WHERE user_id = ? AND outfit_date = ?',
+      [user.uid, outfitDate]
+    );
 
-    if (todaysOutfitsError) {
-      console.error('Error checking existing outfits:', todaysOutfitsError);
-    }
+    if (todaysOutfits.length > 0) {
+      const outfitIds = todaysOutfits.map((o) => Number(o.id));
+      const placeholders = outfitIds.map(() => '?').join(',');
+      const todaysItems = await dbAll(
+        `SELECT outfit_id, clothing_item_id FROM outfit_items WHERE outfit_id IN (${placeholders})`,
+        outfitIds
+      );
 
-    if (todaysOutfits && todaysOutfits.length > 0) {
-      const outfitIds = todaysOutfits.map((o) => o.id);
-      const { data: todaysItems, error: todaysItemsError } = await supabase
-        .from('outfit_items')
-        .select('outfit_id, clothing_item_id')
-        .in('outfit_id', outfitIds);
-
-      if (todaysItemsError) {
-        console.error('Error fetching outfit items for duplicate check:', todaysItemsError);
-      } else if (todaysItems) {
-        const itemsByOutfit = todaysItems.reduce<Record<number, number[]>>((acc, item) => {
-          if (typeof item.outfit_id !== 'number' || typeof item.clothing_item_id !== 'number') {
-            return acc;
-          }
-          acc[item.outfit_id] = acc[item.outfit_id] || [];
-          acc[item.outfit_id].push(item.clothing_item_id);
+      const itemsByOutfit = todaysItems.reduce<Record<number, number[]>>((acc, item) => {
+        if (typeof item.outfit_id !== 'number' || typeof item.clothing_item_id !== 'number') {
           return acc;
-        }, {});
-
-        const duplicateOutfitId = Object.entries(itemsByOutfit).find(([, value]) => {
-          const sortedExisting = Array.from(new Set(value)).sort((a, b) => a - b);
-          if (sortedExisting.length !== normalizedItemIds.length) {
-            return false;
-          }
-          return sortedExisting.every((id, index) => id === normalizedItemIds[index]);
-        })?.[0];
-
-        if (duplicateOutfitId) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: 'DUPLICATE_OUTFIT',
-              message: 'This outfit is already logged for today.',
-            },
-            { status: 409 }
-          );
         }
+        acc[item.outfit_id] = acc[item.outfit_id] || [];
+        acc[item.outfit_id].push(item.clothing_item_id);
+        return acc;
+      }, {});
+
+      const duplicateOutfitId = Object.entries(itemsByOutfit).find(([, value]) => {
+        const sortedExisting = Array.from(new Set(value)).sort((a, b) => a - b);
+        if (sortedExisting.length !== normalizedItemIds.length) {
+          return false;
+        }
+        return sortedExisting.every((id, index) => id === normalizedItemIds[index]);
+      })?.[0];
+
+      if (duplicateOutfitId) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'DUPLICATE_OUTFIT',
+            message: 'This outfit is already logged for today.',
+          },
+          { status: 409 }
+        );
       }
     }
 
     // Create outfit record
-    const { data: outfit, error: outfitError } = await supabase
-      .from('outfits')
-      .insert({
-        user_id: user.id,
-        outfit_date: outfitDate,
-        feedback,
-      })
-      .select()
-      .single();
+    const outfit = await dbFirst(
+      'INSERT INTO outfits (user_id, outfit_date, feedback) VALUES (?, ?, ?) RETURNING *',
+      [user.uid, outfitDate, feedback]
+    );
 
-    if (outfitError || !outfit) {
-      console.error('Error creating outfit:', outfitError);
+    if (!outfit) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Failed to create outfit record',
-          details: process.env.NODE_ENV !== 'production' ? outfitError?.message : undefined
-        },
+        { success: false, error: 'Failed to create outfit record' },
         { status: 500 }
       );
     }
 
+    const outfitId = Number(outfit.id);
+
     // Create outfit_items relationships
-    const outfitItems = normalizedItemIds.map(itemId => ({
-      outfit_id: outfit.id,
-      clothing_item_id: itemId,
-    }));
-
-    const { error: itemsError } = await supabase
-      .from('outfit_items')
-      .insert(outfitItems);
-
-    if (itemsError) {
+    try {
+      const placeholders = normalizedItemIds.map(() => '(?, ?)').join(', ');
+      const params: Array<string | number | null> = [];
+      for (const itemId of normalizedItemIds) {
+        params.push(outfitId, itemId);
+      }
+      await dbRun(
+        `INSERT OR IGNORE INTO outfit_items (outfit_id, clothing_item_id) VALUES ${placeholders}`,
+        params
+      );
+    } catch (itemsError) {
       console.error('Error inserting outfit items:', itemsError);
       // Rollback: delete the outfit if items couldn't be linked
-      await supabase.from('outfits').delete().eq('id', outfit.id);
+      await dbRun('DELETE FROM outfits WHERE id = ?', [outfitId]);
       return NextResponse.json(
         {
           success: false,
           error: 'Failed to link items to outfit',
-          details: process.env.NODE_ENV !== 'production' ? itemsError?.message : undefined
+          details: process.env.NODE_ENV !== 'production' && itemsError instanceof Error ? itemsError.message : undefined
         },
         { status: 500 }
       );
     }
 
     // Update last_worn and increment wear_count for all items in the outfit
-    // We need to increment wear_count individually since Supabase doesn't support atomic increment in bulk
     let updatedCount = 0;
     for (const itemId of normalizedItemIds) {
-      // First get current wear_count
-      const { data: currentItem } = await supabase
-        .from('clothing_items')
-        .select('wear_count')
-        .eq('id', itemId)
-        .eq('user_id', user.id)
-        .single();
-
-      // Update with incremented wear_count
-      const { error: updateError } = await supabase
-        .from('clothing_items')
-        .update({
-          last_worn: outfitDate,
-          wear_count: (currentItem?.wear_count || 0) + 1
-        })
-        .eq('id', itemId)
-        .eq('user_id', user.id);
-
-      if (!updateError) {
-        updatedCount++;
-      } else {
+      try {
+        const currentItem = await dbFirst(
+          'SELECT wear_count FROM clothing_items WHERE id = ? AND user_id = ?',
+          [itemId, user.uid]
+        );
+        const res = await dbRun(
+          'UPDATE clothing_items SET last_worn = ?, wear_count = ? WHERE id = ? AND user_id = ?',
+          [outfitDate, Number(currentItem?.wear_count ?? 0) + 1, itemId, user.uid]
+        );
+        if (res.changes > 0) updatedCount++;
+      } catch (updateError) {
         console.error(`Error updating item ${itemId}:`, updateError);
       }
     }
@@ -180,7 +146,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     return NextResponse.json({
       success: true,
       data: {
-        outfit_id: outfit.id,
+        outfit_id: outfitId,
         updated_count: updatedCount
       },
       message: `Successfully logged outfit with ${normalizedItemIds.length} items`,

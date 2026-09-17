@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/toaster';
+import { apiFetch } from '@/lib/api';
 import type { IClothingItem, DressCode } from '@/types';
 
 const dressCodeOptions: DressCode[] = ['Casual', 'Business Casual', 'Formal', 'Athletic', 'Loungewear'];
@@ -48,7 +49,7 @@ export default function BatchOperations({
   const handleDeleteSelected = async () => {
     setIsProcessing(true);
     try {
-      const response = await fetch('/api/wardrobe/batch-delete', {
+      const response = await apiFetch('/api/wardrobe/batch-delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -61,12 +62,12 @@ export default function BatchOperations({
         throw new Error(data.error || 'Failed to delete items');
       }
 
-      toast(`✅ Deleted ${selectedItems.length} items`, { icon: '🗑️' });
+      toast.success(`Deleted ${selectedItems.length} items.`);
       onSelectionChange([]);
       onItemsUpdated();
       setShowDeleteConfirm(false);
     } catch (error) {
-      toast(error instanceof Error ? error.message : 'Failed to delete items', { icon: '❌' });
+      toast.error(error instanceof Error ? error.message : "Failed to delete items");
     } finally {
       setIsProcessing(false);
     }
@@ -74,13 +75,13 @@ export default function BatchOperations({
 
   const handleBulkAddTag = async () => {
     if (!tagInput.trim()) {
-      toast('Please enter a tag', { icon: '⚠️' });
+      toast.error("Please enter a tag.");
       return;
     }
 
     setIsProcessing(true);
     try {
-      const response = await fetch('/api/wardrobe/batch-update', {
+      const response = await apiFetch('/api/wardrobe/batch-update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -94,12 +95,12 @@ export default function BatchOperations({
         throw new Error(data.error || 'Failed to update items');
       }
 
-      toast(`✅ Added tag "${tagInput}" to ${selectedItems.length} items`, { icon: '✏️' });
+      toast.success(`Added tag "${tagInput}" to ${selectedItems.length} items.`);
       setTagInput('');
       setShowBulkTagDialog(false);
       onItemsUpdated();
     } catch (error) {
-      toast(error instanceof Error ? error.message : 'Failed to update items', { icon: '❌' });
+      toast.error(error instanceof Error ? error.message : "Failed to update items");
     } finally {
       setIsProcessing(false);
     }
@@ -108,7 +109,7 @@ export default function BatchOperations({
   const handleBulkSetDressCode = async () => {
     setIsProcessing(true);
     try {
-      const response = await fetch('/api/wardrobe/batch-update', {
+      const response = await apiFetch('/api/wardrobe/batch-update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -122,11 +123,11 @@ export default function BatchOperations({
         throw new Error(data.error || 'Failed to update items');
       }
 
-      toast(`✅ Set dress code to "${selectedDressCode}" for ${selectedItems.length} items`, { icon: '✏️' });
+      toast.success(`Set dress code to "${selectedDressCode}" for ${selectedItems.length} items.`);
       setShowBulkDressCodeDialog(false);
       onItemsUpdated();
     } catch (error) {
-      toast(error instanceof Error ? error.message : 'Failed to update items', { icon: '❌' });
+      toast.error(error instanceof Error ? error.message : "Failed to update items");
     } finally {
       setIsProcessing(false);
     }

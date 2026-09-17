@@ -1,26 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthUser, unauthorized } from '@/lib/auth';
+import { dbAll, dbFirst, mapClothingItem, toJson } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import type { ApiResponse, IClothingItem } from '@/lib/types';
+import type { ApiResponse } from '@/lib/types';
 
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<ApiResponse<{ updatedCount: number }>>> {
   try {
-    const supabase = await createClient();
-    
-    // Authenticate user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const user = await getAuthUser(request);
+    if (!user) return unauthorized();
 
     // Parse request
     const { itemIds, addTag, dressCode } = await request.json();
-    
+
     if (!Array.isArray(itemIds) || itemIds.length === 0) {
       return NextResponse.json(
         { success: false, error: 'itemIds must be a non-empty array' },
@@ -35,70 +28,52 @@ export async function POST(
       );
     }
 
-    // Fetch current items to update them
-    const { data: items, error: fetchError } = await supabase
-      .from('clothing_items')
-      .select('*')
-      .in('id', itemIds)
-      .eq('user_id', user.id);
-
-    if (fetchError) {
-      logger.error('Failed to fetch items', { error: fetchError });
+    const ids = itemIds.map((id: unknown) => Number(id)).filter((id: number) => Number.isFinite(id));
+    if (ids.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'Failed to fetch items' },
-        { status: 500 }
+        { success: false, error: 'itemIds must be a non-empty array' },
+        { status: 400 }
       );
     }
 
-    if (!items || items.length === 0) {
+    // Fetch current items to update them
+    const placeholders = ids.map(() => '?').join(',');
+    const rows = await dbAll(
+      `SELECT * FROM clothing_items WHERE id IN (${placeholders}) AND user_id = ?`,
+      [...ids, user.uid]
+    );
+
+    if (rows.length === 0) {
       return NextResponse.json(
         { success: false, error: 'No items found' },
         { status: 404 }
       );
     }
 
-    // Prepare updates
-    const updates = items.map((item: IClothingItem) => {
-      const updatedItem = { ...item };
-
-      // Add tag if provided
-      if (addTag) {
-        const tags = item.style_tags || [];
-        if (!tags.includes(addTag)) {
-          updatedItem.style_tags = [...tags, addTag];
-        }
+    let updatedCount = 0;
+    for (const row of rows) {
+      const item = mapClothingItem(row);
+      let styleTags = item.style_tags ?? [];
+      if (addTag && !styleTags.includes(addTag)) {
+        styleTags = [...styleTags, addTag];
       }
-
-      // Set dress code if provided
-      if (dressCode) {
-        updatedItem.dress_code = [dressCode];
-      }
-
-      return updatedItem;
-    });
-
-    // Update items in batch
-    const { error: updateError, count } = await supabase
-      .from('clothing_items')
-      .upsert(updates);
-
-    if (updateError) {
-      logger.error('Failed to update items', { error: updateError });
-      return NextResponse.json(
-        { success: false, error: 'Failed to update items' },
-        { status: 500 }
+      const dress = dressCode ? [dressCode] : item.dress_code;
+      const updated = await dbFirst(
+        `UPDATE clothing_items SET style_tags = ?, dress_code = ? WHERE id = ? AND user_id = ? RETURNING id`,
+        [toJson(addTag ? styleTags : item.style_tags), toJson(dress), item.id, user.uid]
       );
+      if (updated) updatedCount++;
     }
 
     logger.info('Batch updated items', {
-      userId: user.id,
-      itemCount: itemIds.length,
+      userId: user.uid,
+      itemCount: ids.length,
       updateType: addTag ? 'addTag' : 'dressCode',
     });
 
     return NextResponse.json({
       success: true,
-      data: { updatedCount: count || items.length },
+      data: { updatedCount },
     });
   } catch (error) {
     logger.error('Error in batch update', { error });
