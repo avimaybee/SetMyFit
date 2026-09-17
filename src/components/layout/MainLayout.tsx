@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Home, Shirt, BarChart3, Clock, Settings, Plus, User, Layers } from 'lucide-react';
 import { RetroButton } from '../retro-ui';
-import { onAuthChange, persistSession, clearSession, isFirebaseConfigured } from '@/lib/firebase/client';
+import { onAuthChange, persistSession, clearSession, useFirebaseConfig } from '@/lib/firebase/client';
 import { apiFetch } from '@/lib/api';
 import { FirebaseConfigError } from '@/components/auth/ConfigError';
 import { useAddItem } from '@/contexts/AddItemContext';
@@ -20,9 +20,10 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
     const router = useRouter();
     const [userEmail, setUserEmail] = useState<string>("USER_01");
     const { openGlobalAdd } = useAddItem();
+    const fbConfig = useFirebaseConfig();
 
     useEffect(() => {
-        if (!isFirebaseConfigured()) return;
+        if (fbConfig !== 'ready') return;
         // Global auth gate: redirect signed-out users, refresh the
         // session cookie, and send users without a profile to onboarding.
         const unsubscribe = onAuthChange(async (fbUser) => {
@@ -54,7 +55,7 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
             }
         });
         return unsubscribe;
-    }, [pathname, router]);
+    }, [pathname, router, fbConfig]);
 
     const navItems = [
         { href: '/', icon: <Home size={20} />, label: 'Home', color: 'text-blue-600' },
@@ -71,10 +72,17 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
     };
 
     // Auth and onboarding render chrome-less: no sidebar/nav to escape from.
-    // A missing Firebase build config fails closed with an explanation,
-    // never a blank "Application error" crash.
-    if (!isFirebaseConfigured()) {
+    // A missing Firebase config (build-time AND runtime) fails closed with
+    // an explanation, never a blank "Application error" crash.
+    if (fbConfig === 'missing') {
         return <FirebaseConfigError />;
+    }
+    if (fbConfig === 'loading') {
+        return (
+            <div className="min-h-screen flex items-center justify-center font-mono bg-[#FFF8E7]">
+                <p className="animate-pulse">LOADING...</p>
+            </div>
+        );
     }
     if (pathname.startsWith('/auth') || pathname === '/onboarding') {
         return <>{children}</>;

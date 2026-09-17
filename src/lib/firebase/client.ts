@@ -3,8 +3,15 @@
 /**
  * Firebase client (browser) — email/password auth + ID tokens.
  * All API calls go through apiFetch (@/lib/api) which attaches the token.
+ *
+ * Config resolution (in order):
+ *  1. NEXT_PUBLIC_FIREBASE_* baked at build time (when present)
+ *  2. GET /api/config/firebase at runtime (reads live server env —
+ *     this is what makes Cloudflare dashboard Variables work without
+ *     a rebuild)
  */
-import { FirebaseApp, getApps, initializeApp } from 'firebase/app';
+import { useEffect, useState } from 'react';
+import { FirebaseApp, FirebaseOptions, getApps, initializeApp } from 'firebase/app';
 import {
   createUserWithEmailAndPassword,
   getAuth,
@@ -15,69 +22,108 @@ import {
 } from 'firebase/auth';
 
 let app: FirebaseApp | null = null;
+let runtimeConfig: FirebaseOptions | null = null;
+let runtimeConfigPromise: Promise<FirebaseOptions | null> | null = null;
 
-/** True when the public Firebase config is present (baked at build time). */
+function buildTimeConfig(): FirebaseOptions | null {
+  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+  const authDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const appId = process.env.NEXT_PUBLIC_FIREBASE_APP_ID;
+  if (!apiKey || !authDomain || !projectId || !appId) return null;
+  return {
+    apiKey,
+    authDomain,
+    projectId,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId,
+  };
+}
+
+/** Resolve the web config, preferring build-time values, else the runtime endpoint. */
+export async function getFirebaseConfig(): Promise<FirebaseOptions | null> {
+  const built = buildTimeConfig();
+  if (built) return built;
+  if (runtimeConfig) return runtimeConfig;
+  if (!runtimeConfigPromise) {
+    runtimeConfigPromise = fetch('/api/config/firebase')
+      .then(async (res) => {
+        if (!res.ok) return null;
+        const json = await res.json().catch(() => null);
+        if (!json?.success || !json.data?.apiKey) return null;
+        return json.data as FirebaseOptions;
+      })
+      .catch(() => null);
+  }
+  const cfg = await runtimeConfigPromise;
+  if (cfg) runtimeConfig = cfg;
+  return cfg;
+}
+
+/** Synchronously true only once a config is definitively available. */
 export function isFirebaseConfigured(): boolean {
-  return Boolean(
-    process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
-      process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN &&
-      process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID &&
-      process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+  return buildTimeConfig() !== null || runtimeConfig !== null;
+}
+
+/** React hook: 'loading' while the runtime endpoint is tried, then 'ready'/'missing'. */
+export function useFirebaseConfig(): 'loading' | 'ready' | 'missing' {
+  const [status, setStatus] = useState<'loading' | 'ready' | 'missing'>(() =>
+    buildTimeConfig() || runtimeConfig ? 'ready' : 'loading'
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    if (buildTimeConfig() || runtimeConfig) {
+      setStatus('ready');
+      return;
+    }
+    getFirebaseConfig().then((cfg) => {
+      if (!cancelled) setStatus(cfg ? 'ready' : 'missing');
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return status;
 }
 
-function missingFirebaseKeys(): string[] {
-  const required = [
-    'NEXT_PUBLIC_FIREBASE_API_KEY',
-    'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
-    'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
-    'NEXT_PUBLIC_FIREBASE_APP_ID',
-  ] as const;
-  return required.filter((key) => !process.env[key]);
-}
-
-export function firebaseApp(): FirebaseApp {
+export async function firebaseApp(): Promise<FirebaseApp> {
   if (app) return app;
   if (getApps().length > 0) {
     app = getApps()[0];
     return app;
   }
-  const missing = missingFirebaseKeys();
-  if (missing.length > 0) {
+  const cfg = await getFirebaseConfig();
+  if (!cfg) {
     throw new Error(
-      `Firebase is not configured (missing: ${missing.join(', ')}). ` +
-        'Set the NEXT_PUBLIC_FIREBASE_* build variables and redeploy.'
+      'Firebase is not configured (no build-time or runtime config). ' +
+        'Set the NEXT_PUBLIC_FIREBASE_* variables and redeploy.'
     );
   }
-  app = initializeApp({
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  });
+  app = initializeApp(cfg);
   return app;
 }
 
 export async function signIn(email: string, password: string): Promise<User> {
-  const cred = await signInWithEmailAndPassword(getAuth(firebaseApp()), email, password);
+  const cred = await signInWithEmailAndPassword(getAuth(await firebaseApp()), email, password);
   return cred.user;
 }
 
 export async function signUp(email: string, password: string): Promise<User> {
-  const cred = await createUserWithEmailAndPassword(getAuth(firebaseApp()), email, password);
+  const cred = await createUserWithEmailAndPassword(getAuth(await firebaseApp()), email, password);
   return cred.user;
 }
 
 export async function signOut(): Promise<void> {
-  await fbSignOut(getAuth(firebaseApp()));
+  await fbSignOut(getAuth(await firebaseApp()));
 }
 
 /** Current user's ID token (null when signed out). */
 export async function getIdToken(forceRefresh = false): Promise<string | null> {
   try {
-    const user = getAuth(firebaseApp()).currentUser;
+    const user = getAuth(await firebaseApp()).currentUser;
     if (!user) return null;
     return await user.getIdToken(forceRefresh);
   } catch {
@@ -87,14 +133,26 @@ export async function getIdToken(forceRefresh = false): Promise<string | null> {
 
 export async function currentUser(): Promise<User | null> {
   try {
-    return getAuth(firebaseApp()).currentUser;
+    return getAuth(await firebaseApp()).currentUser;
   } catch {
     return null;
   }
 }
 
 export function onAuthChange(cb: (user: User | null) => void): () => void {
-  return onAuthStateChanged(getAuth(firebaseApp()), cb);
+  let unsubscribe: (() => void) | undefined;
+  let cancelled = false;
+  // firebaseApp() is async (may fetch runtime config); subscribe when ready.
+  // ConfigError screen owns the missing-config case, so swallow here.
+  firebaseApp()
+    .then((appInstance) => {
+      if (!cancelled) unsubscribe = onAuthStateChanged(getAuth(appInstance), cb);
+    })
+    .catch(() => undefined);
+  return () => {
+    cancelled = true;
+    unsubscribe?.();
+  };
 }
 
 /** Persist the Firebase session into the httpOnly __session cookie (for middleware). Returns true when the cookie was set. */

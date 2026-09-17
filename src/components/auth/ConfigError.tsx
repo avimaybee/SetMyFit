@@ -20,10 +20,10 @@ export const FirebaseConfigError: React.FC = () => {
           <div className="flex flex-col gap-4 py-4">
             <p className="font-black text-2xl tracking-tighter">AUTH IS NOT CONFIGURED</p>
             <p className="font-mono text-xs leading-relaxed">
-              This deployment was built without Firebase web credentials. Set the
+              The server has no Firebase web credentials. Set the
               NEXT_PUBLIC_FIREBASE_* variables (API key, auth domain, project ID,
-              app ID) as <strong>build</strong> variables — not runtime secrets —
-              and redeploy.
+              app ID) in the hosting dashboard and redeploy — plain Variables
+              work, secrets are not required for these public keys.
             </p>
             <p className="font-mono text-[10px] leading-relaxed bg-black text-white p-2">
               NEXT_PUBLIC_FIREBASE_API_KEY / AUTH_DOMAIN / PROJECT_ID / APP_ID
