@@ -19,8 +19,9 @@
 #
 # NOTE: nodejs_compat is required (firebase-admin, @aws-sdk/client-s3).
 # NOTE: D1/R2 are accessed over HTTPS (D1 REST + S3-compatible API), so no
-# binding code is needed. Native bindings (DB/R2 below) are declared for
-# wrangler types + future use; uncomment Wrangler-side wiring as needed.
+# binding code is needed. The R2 binding below is declared for wrangler
+# types + future use. There is intentionally no [[d1_databases]] block:
+# create the database when ready and point CLOUDFLARE_D1_DATABASE_ID at it.
 
 name = "setmyfit"
 main = ".open-next/worker.js"
@@ -29,11 +30,6 @@ compatibility_flags = ["nodejs_compat"]
 
 [assets]
 directory = ".open-next/assets"
-
-[[d1_databases]]
-binding = "DB"
-database_name = "setmyfit-db"
-database_id = "00000000-0000-0000-0000-000000000000" # TODO: replace with `wrangler d1 create` output
 
 [[r2_buckets]]
 binding = "R2"
