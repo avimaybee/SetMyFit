@@ -23,7 +23,7 @@ Outfits are scored 0-100% based on:
 
 | Layer | Technology |
 |-------|------------|
-| **Framework** | Next.js 15.5.7 |
+| **Framework** | Next.js 15.5.25 |
 | **Frontend** | React 19, TypeScript, Tailwind CSS v4 |
 | **UI** | shadcn/ui, Framer Motion, Custom Retro Components |
 | **Backend** | Cloudflare D1 (SQLite) + Next.js API routes |
