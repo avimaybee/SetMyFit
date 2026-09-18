@@ -15,11 +15,19 @@ import { FirebaseApp, FirebaseOptions, getApps, initializeApp } from 'firebase/a
 import {
   createUserWithEmailAndPassword,
   getAuth,
+  GoogleAuthProvider,
   onAuthStateChanged,
+  RecaptchaVerifier,
+  signInAnonymously,
   signInWithEmailAndPassword,
+  signInWithPhoneNumber,
+  signInWithPopup,
   signOut as fbSignOut,
   User,
+  type ConfirmationResult,
 } from 'firebase/auth';
+
+export type { RecaptchaVerifier, ConfirmationResult };
 
 let app: FirebaseApp | null = null;
 let runtimeConfig: FirebaseOptions | null = null;
@@ -113,6 +121,43 @@ export async function signIn(email: string, password: string): Promise<User> {
 
 export async function signUp(email: string, password: string): Promise<User> {
   const cred = await createUserWithEmailAndPassword(getAuth(await firebaseApp()), email, password);
+  return cred.user;
+}
+
+export async function signInWithGoogle(): Promise<User> {
+  const auth = getAuth(await firebaseApp());
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  const cred = await signInWithPopup(auth, provider);
+  return cred.user;
+}
+
+export async function signInAsGuest(): Promise<User> {
+  const auth = getAuth(await firebaseApp());
+  const cred = await signInAnonymously(auth);
+  return cred.user;
+}
+
+let activePhoneConfirmation: ConfirmationResult | null = null;
+
+export async function createRecaptchaVerifier(containerId: string): Promise<RecaptchaVerifier> {
+  const auth = getAuth(await firebaseApp());
+  return new RecaptchaVerifier(auth, containerId, {
+    size: 'invisible',
+  });
+}
+
+export async function sendPhoneOtp(phoneNumber: string, verifier: RecaptchaVerifier): Promise<void> {
+  const auth = getAuth(await firebaseApp());
+  activePhoneConfirmation = await signInWithPhoneNumber(auth, phoneNumber, verifier);
+}
+
+export async function verifyPhoneOtp(code: string): Promise<User> {
+  if (!activePhoneConfirmation) {
+    throw new Error('No phone verification request found. Please request a new code.');
+  }
+  const cred = await activePhoneConfirmation.confirm(code);
+  activePhoneConfirmation = null;
   return cred.user;
 }
 
