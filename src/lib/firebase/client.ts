@@ -155,19 +155,23 @@ export function onAuthChange(cb: (user: User | null) => void): () => void {
   };
 }
 
-/** Persist the Firebase session into the httpOnly __session cookie (for middleware). Returns true when the cookie was set. */
-export async function persistSession(): Promise<boolean> {
+/** Persist the Firebase session into the httpOnly __session cookie (for middleware). */
+export async function persistSession(): Promise<{ ok: boolean; error?: string }> {
   const token = await getIdToken();
-  if (!token) return false;
+  if (!token) return { ok: false, error: 'Could not obtain user ID token from Firebase.' };
   try {
     const res = await fetch('/api/auth/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ idToken: token }),
     });
-    return res.ok;
-  } catch {
-    return false;
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      return { ok: false, error: json?.error || 'Session creation failed on server.' };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Network error creating session.' };
   }
 }
 

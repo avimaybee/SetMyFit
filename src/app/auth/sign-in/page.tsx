@@ -33,9 +33,9 @@ export default function SignInPage() {
 
       // Persist session cookie for middleware; without it the next
       // navigation bounces back to sign-in.
-      const persisted = await persistSession();
-      if (!persisted) {
-        throw new Error("Could not create a session. Please try again.");
+      const sessionResult = await persistSession();
+      if (!sessionResult.ok) {
+        throw new Error(sessionResult.error || "Could not create a session. Please try again.");
       }
 
       if (isSignUp) {

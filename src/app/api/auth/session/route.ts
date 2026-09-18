@@ -17,7 +17,10 @@ export async function POST(request: NextRequest) {
     }
     const user = await verifyIdToken(idToken);
     if (!user) {
-      return NextResponse.json({ success: false, error: 'Invalid token' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: 'Failed to verify session token. Ensure FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY are configured on the server.' },
+        { status: 401 }
+      );
     }
     const res = NextResponse.json({ success: true });
     res.cookies.set(COOKIE, idToken, {
