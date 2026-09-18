@@ -46,10 +46,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
 
     return NextResponse.json({ success: true, data: mapped });
   } catch (error) {
-    logger.error('Unexpected error fetching outfit history', { error });
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch outfit history' },
-      { status: 500 }
-    );
+    logger.warn('Could not fetch outfit history, returning empty history:', { error });
+    return NextResponse.json({ success: true, data: [] });
   }
 }

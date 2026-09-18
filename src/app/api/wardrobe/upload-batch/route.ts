@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, unauthorized } from '@/lib/auth';
 import { boolInt, dbFirst, nowIso, toJson } from '@/lib/db';
-import { buildR2Key, r2Configured, r2PublicUrl, r2Put } from '@/lib/r2';
+import { buildR2Key, getR2PublicUrl, isR2Configured, r2Put } from '@/lib/r2';
 import { logger } from '@/lib/logger';
 import { analyzeClothingImage } from '@/lib/helpers/aiOutfitAnalyzer';
 
@@ -20,6 +20,7 @@ interface UploadedItemMetadata {
   color?: string;
   material?: string;
   style_tags?: string[];
+  dress_code?: string[];
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -27,12 +28,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const user = await getAuthUser(request);
     if (!user) return unauthorized();
 
-    if (!r2Configured()) {
-      return NextResponse.json(
-        { success: false, error: 'Image storage is not configured', message: 'Set R2_* env vars.' },
-        { status: 500 }
-      );
-    }
+    const hasR2 = await isR2Configured();
 
     // Parse multipart form data
     const formData = await request.formData();
@@ -105,10 +101,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           // Continue with defaults extracted from metadata or hardcoded
         }
 
-        // Upload image to R2
-        const key = buildR2Key(user.uid, file.type || 'image/jpeg');
-        await r2Put(key, Buffer.from(arrayBuffer), file.type || 'image/jpeg');
-        const imageUrl = r2PublicUrl(key);
+        // Upload image to R2 (or fallback to data URL)
+        let imageUrl: string;
+        if (hasR2) {
+          const key = buildR2Key(user.uid, file.type || 'image/jpeg');
+          await r2Put(key, Buffer.from(arrayBuffer), file.type || 'image/jpeg');
+          imageUrl = await getR2PublicUrl(key);
+        } else {
+          imageUrl = `data:${file.type || 'image/jpeg'};base64,${base64}`;
+        }
 
         // Create clothing item in database
         const itemName = metadata.name || file.name.replace(/\.[^/.]+$/, '');

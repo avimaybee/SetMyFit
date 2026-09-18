@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, unauthorized } from '@/lib/auth';
-import { buildR2Key, r2Configured, r2PublicUrl, r2Put } from '@/lib/r2';
+import { buildR2Key, getR2PublicUrl, isR2Configured, r2Put } from '@/lib/r2';
 import { logger } from '@/lib/logger';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
@@ -14,13 +14,7 @@ export async function POST(request: NextRequest) {
   const user = await getAuthUser(request);
   if (!user) return unauthorized();
 
-  if (!r2Configured()) {
-    logger.error('Upload attempted without R2 configuration');
-    return NextResponse.json(
-      { success: false, error: 'Image storage is not configured. Set R2_* env vars.' },
-      { status: 500 }
-    );
-  }
+  const configured = await isR2Configured();
 
   try {
     const form = await request.formData();
@@ -36,11 +30,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Image must be smaller than 5MB' }, { status: 400 });
     }
 
-    const key = buildR2Key(user.uid, file.type || 'image/jpeg');
     const buffer = Buffer.from(await file.arrayBuffer());
-    await r2Put(key, buffer, file.type || 'image/jpeg');
 
-    return NextResponse.json({ success: true, url: r2PublicUrl(key), key });
+    if (!configured) {
+      logger.warn('Upload attempted without R2 configuration — using data URL fallback');
+      const dataUrl = `data:${file.type || 'image/jpeg'};base64,${buffer.toString('base64')}`;
+      return NextResponse.json({ success: true, url: dataUrl, key: 'inline' });
+    }
+
+    const key = buildR2Key(user.uid, file.type || 'image/jpeg');
+    await r2Put(key, buffer, file.type || 'image/jpeg');
+    const publicUrl = await getR2PublicUrl(key);
+
+    return NextResponse.json({ success: true, url: publicUrl, key });
   } catch (error) {
     logger.error('Error uploading to R2', { error });
     return NextResponse.json({ success: false, error: 'Upload failed' }, { status: 500 });

@@ -40,11 +40,22 @@ export const SystemMsg: React.FC<SystemMsgProps> = ({
     season
 }) => {
     const currentSeason = season || getCurrentSeason();
-    const timestamp = new Date().toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-    });
+    const [timeStr, setTimeStr] = React.useState<string>('--:--');
+
+    React.useEffect(() => {
+        const updateTime = () => {
+            setTimeStr(
+                new Date().toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                })
+            );
+        };
+        updateTime();
+        const interval = setInterval(updateTime, 10000);
+        return () => clearInterval(interval);
+    }, []);
 
     return (
         <RetroWindow
@@ -57,7 +68,7 @@ export const SystemMsg: React.FC<SystemMsgProps> = ({
 
                 {/* Status Header */}
                 <div className="flex items-center justify-between border-b border-[var(--border)] border-dashed pb-2">
-                    <span className="text-[var(--text-muted)]">{timestamp}</span>
+                    <span suppressHydrationWarning className="text-[var(--text-muted)]">{timeStr}</span>
                     <span className="text-[var(--accent-green)] font-bold flex items-center gap-1">
                         <span className="w-2 h-2 bg-[var(--accent-green)] rounded-full animate-pulse"></span>
                         ONLINE
@@ -93,7 +104,7 @@ export const SystemMsg: React.FC<SystemMsgProps> = ({
                     </div>
                     <div className="flex justify-between">
                         <span className="text-[var(--text-muted)]">Last Outfit:</span>
-                        <span className="text-[var(--text)]">{formatRelativeTime(lastOutfitDate)}</span>
+                        <span suppressHydrationWarning className="text-[var(--text)]">{formatRelativeTime(lastOutfitDate)}</span>
                     </div>
                 </div>
 

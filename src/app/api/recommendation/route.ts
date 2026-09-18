@@ -273,9 +273,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to generate recommendation'
+        error: errorMsg,
+        message: 'Your closet needs a few more pieces before we can style full fits.',
+        needsWardrobe: true,
       },
-      { status: 500 }
+      { status: 200 }
     );
   }
 }

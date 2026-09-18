@@ -5,6 +5,7 @@ import { ApiResponse, IClothingItem, WeatherData } from '@/lib/types';
 import { generateAIOutfitRecommendation } from '@/lib/helpers/aiOutfitAnalyzer';
 import { filterByLastWorn } from '@/lib/helpers/clothingHelpers';
 import { getCurrentSeason, getSeasonDescription } from '@/lib/helpers/seasonDetector';
+import { serverEnv } from '@/lib/serverEnv';
 
 /**
  * Fetch weather data from OpenWeatherMap API.
@@ -12,7 +13,7 @@ import { getCurrentSeason, getSeasonDescription } from '@/lib/helpers/seasonDete
  * and One Call 3.0 needs a separate subscription, so we avoid both.
  */
 async function fetchWeatherData(lat: number, lon: number): Promise<WeatherData | null> {
-  const apiKey = process.env.OPENWEATHER_API_KEY;
+  const apiKey = (await serverEnv('OPENWEATHER_API_KEY')) || process.env.OPENWEATHER_API_KEY;
 
   if (!apiKey) {
     console.warn('OpenWeatherMap API key not configured');

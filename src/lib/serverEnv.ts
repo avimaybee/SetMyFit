@@ -12,13 +12,29 @@ import { getCloudflareContext } from '@opennextjs/cloudflare';
  * Order: Cloudflare request env (production truth: dashboard Variables
  * AND Secrets) -> process.env (local `next dev` via .env.local).
  */
-export async function serverEnv(name: string): Promise<string> {
+export async function getCloudflareEnv(): Promise<Record<string, unknown> | null> {
   try {
     const ctx = await getCloudflareContext();
-    const value = (ctx.env as Record<string, unknown>)[name];
-    if (typeof value === 'string' && value) return value;
+    return (ctx?.env as Record<string, unknown>) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function serverEnv(name: string): Promise<string> {
+  try {
+    const env = await getCloudflareEnv();
+    if (env) {
+      const candidates = [name, name.toUpperCase(), name.toLowerCase()];
+      for (const key of candidates) {
+        const value = env[key];
+        if (value !== undefined && value !== null && value !== '') {
+          return String(value);
+        }
+      }
+    }
   } catch {
     // Not running on Cloudflare (local dev) — fall through to process.env.
   }
-  return process.env[name] || '';
+  return process.env[name] || process.env[name.toUpperCase()] || process.env[name.toLowerCase()] || '';
 }

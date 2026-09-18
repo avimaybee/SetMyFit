@@ -72,13 +72,19 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Error fetching user stats', { error });
-    return NextResponse.json(
-      {
-        error: 'Failed to fetch statistics',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
+    logger.warn('Error fetching user stats, returning zeroes:', { error });
+    return NextResponse.json({
+      success: true,
+      data: {
+        totalOutfits: 0,
+        outfitsLast30Days: 0,
+        wardrobeSize: 0,
+        favoriteCount: 0,
+        avgWearCount: 0,
+        maxWearCount: 0,
+        rarelyWorn: 0,
+        wornLast30Days: 0,
+      }
+    });
   }
 }

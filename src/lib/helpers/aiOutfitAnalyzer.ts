@@ -53,14 +53,24 @@ const normalizeMaterialLabel = (material?: string) => toTitleCase(material) || '
  * - Transient failures (429/5xx/timeouts) retry with exponential backoff
  */
 
+import { serverEnv } from '@/lib/serverEnv';
+
 // Initialize Gemini API (cached client)
 let cachedClient: GoogleGenAI | null = null;
-const getClient = () => {
-  if (!config.ai.gemini.apiKey) {
+let cachedKey: string | null = null;
+
+const getClient = async () => {
+  const apiKey =
+    (await serverEnv('GEMINI_API_KEY')) ||
+    config.ai.gemini.apiKey ||
+    process.env.GEMINI_API_KEY ||
+    '';
+  if (!apiKey) {
     throw new Error('Gemini API key not configured');
   }
-  if (!cachedClient) {
-    cachedClient = new GoogleGenAI({ apiKey: config.ai.gemini.apiKey });
+  if (!cachedClient || cachedKey !== apiKey) {
+    cachedKey = apiKey;
+    cachedClient = new GoogleGenAI({ apiKey });
   }
   return cachedClient;
 };
@@ -173,7 +183,7 @@ export async function analyzeClothingImage(
   detectedName?: string;
 }> {
   const analysis = await withGeminiRetry(async () => {
-    const client = getClient();
+    const client = await getClient();
     const response = await client.models.generateContent({
       model: MODEL(),
       contents: [
@@ -339,7 +349,7 @@ export async function generateAIOutfitRecommendation(
 
   try {
     const aiResponse = await withGeminiRetry(async () => {
-      const client = getClient();
+      const client = await getClient();
       const response = await client.models.generateContent({
         model: MODEL(),
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -490,7 +500,7 @@ export async function validateOutfitImages(items: IClothingItem[]): Promise<Outf
   ).join('\n');
 
   const validation = await withGeminiRetry(async () => {
-    const client = getClient();
+    const client = await getClient();
     const response = await client.models.generateContent({
       model: MODEL(),
       contents: [
