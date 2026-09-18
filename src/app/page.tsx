@@ -5,7 +5,7 @@ import { useRouter as _useRouter } from "next/navigation";
 import { onAuthChange } from "@/lib/firebase/client";
 import { apiFetch } from "@/lib/api";
 import type { RecommendationApiPayload, RecommendationDiagnostics, IClothingItem } from "@/lib/types";
-import { OutfitRecommender, Outfit, ClothingItem, ClothingType } from "../components/outfit-recommendation";
+import { OutfitRecommender, ClothingItem, ClothingType } from "../components/outfit-recommendation";
 import { OutfitSkeleton } from "../components/ui/skeletons";
 import { toast } from "../components/ui/toaster";
 import { MissionControl } from "../components/mission-control";

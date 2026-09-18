@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, PieChart, Pie } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 import { RetroWindow, RetroBox } from '@/components/retro-ui';
-import { Award, TrendingUp, Activity, Shirt, Palette, Calendar, AlertTriangle } from 'lucide-react';
+import { Award, Activity, Shirt, Palette, Calendar, AlertTriangle } from 'lucide-react';
 import { ClothingItem, Outfit } from '@/types/retro';
 
 interface StatsPageProps {

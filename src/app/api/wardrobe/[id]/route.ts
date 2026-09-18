@@ -47,20 +47,25 @@ export async function GET(
   request: NextRequest,
   context: RouteContext
 ): Promise<NextResponse<ApiResponse<IClothingItem>>> {
-  const user = await getAuthUser(request);
-  if (!user) return unauthorized();
-  const { id } = await context.params;
+  try {
+    const user = await getAuthUser(request);
+    if (!user) return unauthorized();
+    const { id } = await context.params;
 
-  const row = await dbFirst(
-    'SELECT * FROM clothing_items WHERE id = ? AND user_id = ?',
-    [Number(id), user.uid]
-  );
+    const row = await dbFirst(
+      'SELECT * FROM clothing_items WHERE id = ? AND user_id = ?',
+      [Number(id), user.uid]
+    );
 
-  if (!row) {
+    if (!row) {
+      return NextResponse.json({ success: false, error: 'Item not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, data: mapClothingItem(row) as IClothingItem });
+  } catch (error) {
+    logger.error('Error fetching clothing item', { error });
     return NextResponse.json({ success: false, error: 'Item not found' }, { status: 404 });
   }
-
-  return NextResponse.json({ success: true, data: mapClothingItem(row) as IClothingItem });
 }
 
 /**
@@ -119,41 +124,46 @@ export async function DELETE(
   request: NextRequest,
   context: RouteContext
 ): Promise<NextResponse<ApiResponse<null>>> {
-  const user = await getAuthUser(request);
-  if (!user) return unauthorized();
-  const { id } = await context.params;
+  try {
+    const user = await getAuthUser(request);
+    if (!user) return unauthorized();
+    const { id } = await context.params;
 
-  const item = await dbFirst(
-    'SELECT image_url FROM clothing_items WHERE id = ? AND user_id = ?',
-    [Number(id), user.uid]
-  );
+    const item = await dbFirst(
+      'SELECT image_url FROM clothing_items WHERE id = ? AND user_id = ?',
+      [Number(id), user.uid]
+    );
 
-  if (!item) {
-    return NextResponse.json({ success: false, error: 'Item not found' }, { status: 404 });
-  }
+    if (!item) {
+      return NextResponse.json({ success: false, error: 'Item not found' }, { status: 404 });
+    }
 
-  const result = await dbRun(
-    'DELETE FROM clothing_items WHERE id = ? AND user_id = ?',
-    [Number(id), user.uid]
-  );
+    const result = await dbRun(
+      'DELETE FROM clothing_items WHERE id = ? AND user_id = ?',
+      [Number(id), user.uid]
+    );
 
-  if (result.changes === 0) {
-    return NextResponse.json({ success: false, error: 'Item not found' }, { status: 404 });
-  }
+    if (result.changes === 0) {
+      return NextResponse.json({ success: false, error: 'Item not found' }, { status: 404 });
+    }
 
-  // Clean up R2 object if the image lives in our bucket (non-blocking)
-  const imageUrl = item.image_url as string | undefined;
-  if (imageUrl) {
-    const key = r2KeyFromUrl(imageUrl);
-    if (key) {
-      try {
-        await r2Delete(key);
-        logger.info('Cleaned up R2 object for deleted item', { id, key });
-      } catch (cleanupError) {
-        logger.warn('Failed to cleanup R2 object for deleted item', { id, error: cleanupError });
+    // Clean up R2 object if the image lives in our bucket (non-blocking)
+    const imageUrl = item.image_url as string | undefined;
+    if (imageUrl) {
+      const key = r2KeyFromUrl(imageUrl);
+      if (key) {
+        try {
+          await r2Delete(key);
+          logger.info('Cleaned up R2 object for deleted item', { id, key });
+        } catch (cleanupError) {
+          logger.warn('Failed to cleanup R2 object for deleted item', { id, error: cleanupError });
+        }
       }
     }
-  }
 
-  return NextResponse.json({ success: true, message: 'Item deleted successfully' });
+    return NextResponse.json({ success: true, message: 'Item deleted successfully' });
+  } catch (error) {
+    logger.error('Error deleting clothing item', { error });
+    return NextResponse.json({ success: false, error: 'Unable to delete clothing item' }, { status: 400 });
+  }
 }

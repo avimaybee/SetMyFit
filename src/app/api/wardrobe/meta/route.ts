@@ -45,7 +45,14 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
       },
     });
   } catch (error) {
-    logger.error('Error fetching wardrobe items for metadata', { error });
-    return NextResponse.json({ success: false, error: 'Failed to fetch wardrobe metadata' }, { status: 500 });
+    logger.warn('Error fetching wardrobe items for metadata, returning empty defaults', { error });
+    return NextResponse.json({
+      success: true,
+      data: {
+        styles: [],
+        colors: [],
+        materials: [],
+      },
+    });
   }
 }

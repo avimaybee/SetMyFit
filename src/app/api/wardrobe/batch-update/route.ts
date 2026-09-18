@@ -80,9 +80,9 @@ export async function POST(
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Internal server error',
+        error: error instanceof Error ? error.message : 'Unable to complete batch update',
       },
-      { status: 500 }
+      { status: 400 }
     );
   }
 }

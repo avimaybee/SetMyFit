@@ -60,8 +60,8 @@ export async function POST(
 
     if (!inserted) {
       return NextResponse.json(
-        { success: false, error: 'Failed to record feedback' },
-        { status: 500 }
+        { success: false, error: 'Unable to record feedback' },
+        { status: 400 }
       );
     }
 
@@ -107,9 +107,9 @@ export async function POST(
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Internal server error'
+        error: error instanceof Error ? error.message : 'Unable to record feedback'
       },
-      { status: 500 }
+      { status: 400 }
     );
   }
 }

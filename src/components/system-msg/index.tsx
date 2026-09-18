@@ -1,6 +1,6 @@
 import React from 'react';
 import { RetroWindow } from '@/components/retro-ui';
-import { Terminal, Database, Clock, Calendar } from 'lucide-react';
+import { Terminal, Database, Calendar } from 'lucide-react';
 
 interface SystemMsgProps {
     logs?: { message: string; ts: string }[];

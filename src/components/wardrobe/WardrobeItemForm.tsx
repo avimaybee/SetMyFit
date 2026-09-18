@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { Upload, X, ScanLine, Loader2 } from 'lucide-react';
-import { RetroButton, RetroInput, RetroWindow, RetroSelect, RetroSlider } from '@/components/retro-ui';
+import { RetroButton, RetroInput, RetroWindow, RetroSelect } from '@/components/retro-ui';
 import { ClothingItem, ClothingType, ClothingMaterial, Season } from '@/types/retro';
 import { processImageUpload } from '@/lib/imageProcessor';
 import { dataUrlToFile } from '@/lib/utils';

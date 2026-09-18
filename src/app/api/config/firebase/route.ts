@@ -16,12 +16,12 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const [apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId] =
     await Promise.all([
-      serverEnv('NEXT_PUBLIC_FIREBASE_API_KEY'),
-      serverEnv('NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'),
-      serverEnv('NEXT_PUBLIC_FIREBASE_PROJECT_ID'),
-      serverEnv('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'),
-      serverEnv('NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'),
-      serverEnv('NEXT_PUBLIC_FIREBASE_APP_ID'),
+      serverEnv('NEXT_PUBLIC_FIREBASE_API_KEY').then((v) => v || serverEnv('FIREBASE_API_KEY')),
+      serverEnv('NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN').then((v) => v || serverEnv('FIREBASE_AUTH_DOMAIN')),
+      serverEnv('NEXT_PUBLIC_FIREBASE_PROJECT_ID').then((v) => v || serverEnv('FIREBASE_PROJECT_ID')),
+      serverEnv('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET').then((v) => v || serverEnv('FIREBASE_STORAGE_BUCKET')),
+      serverEnv('NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID').then((v) => v || serverEnv('FIREBASE_MESSAGING_SENDER_ID')),
+      serverEnv('NEXT_PUBLIC_FIREBASE_APP_ID').then((v) => v || serverEnv('FIREBASE_APP_ID')),
     ]);
 
   if (!apiKey || !authDomain || !projectId || !appId) {

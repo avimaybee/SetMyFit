@@ -390,12 +390,40 @@ const inMemoryBackend: DbBackend = {
       return [{ worn: 0 }];
     }
 
+    // 5. Recommendation feedback
+    if (lower.includes('recommendation_feedback')) {
+      const userId = params[0] ? String(params[0]) : null;
+      const allFeedback = Array.from(memoryStore.feedback.values());
+      const filtered = userId ? allFeedback.filter((f) => String(f.user_id) === userId) : allFeedback;
+      filtered.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+      return filtered;
+    }
+
     return [];
   },
 
   async run(sql: string, params: SqlParams): Promise<DbRunResult> {
     memoryStore.warnOnce();
     const lower = sql.toLowerCase().trim();
+
+    // Insert into outfit_items
+    if (lower.startsWith('insert into outfit_items') || lower.startsWith('insert or ignore into outfit_items')) {
+      let count = 0;
+      for (let i = 0; i < params.length; i += 2) {
+        const outfitId = Number(params[i]);
+        const clothingItemId = Number(params[i + 1]);
+        if (Number.isFinite(outfitId) && Number.isFinite(clothingItemId)) {
+          const exists = memoryStore.outfitItems.some(
+            (item) => item.outfit_id === outfitId && item.clothing_item_id === clothingItemId
+          );
+          if (!exists) {
+            memoryStore.outfitItems.push({ outfit_id: outfitId, clothing_item_id: clothingItemId });
+            count++;
+          }
+        }
+      }
+      return { lastId: 0, changes: count };
+    }
 
     // Delete clothing item
     if (lower.startsWith('delete from clothing_items')) {
@@ -542,7 +570,23 @@ const inMemoryBackend: DbBackend = {
       return row;
     }
 
-    // 6. Generic delegate to all()
+    // 6. Insert Recommendation Feedback
+    if (lower.startsWith('insert into recommendation_feedback')) {
+      const id = memoryStore.nextFeedbackId++;
+      const row: Row = {
+        id,
+        user_id: String(params[0] ?? ''),
+        recommendation_id: Number(params[1] ?? 0),
+        is_liked: Number(params[2] ?? 1),
+        reason: params[3] ? String(params[3]) : null,
+        weather_conditions: params[4] ? String(params[4]) : null,
+        created_at: new Date().toISOString(),
+      };
+      memoryStore.feedback.set(id, row);
+      return row;
+    }
+
+    // 7. Generic delegate to all()
     const rows = await this.all(sql, params);
     return rows[0] ?? null;
   },

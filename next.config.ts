@@ -24,6 +24,9 @@ const nextConfig: NextConfig = {
       ...(r2Hostname ? [{ protocol: "https" as const, hostname: r2Hostname }] : []),
       { protocol: "https" as const, hostname: "*.r2.dev" },
       { protocol: "https" as const, hostname: "*.r2.cloudflarestorage.com" },
+      { protocol: "https" as const, hostname: "*.googleusercontent.com" },
+      { protocol: "https" as const, hostname: "*.firebasestorage.app" },
+      { protocol: "https" as const, hostname: "firebasestorage.googleapis.com" },
       {
         hostname: "placehold.co",
       },

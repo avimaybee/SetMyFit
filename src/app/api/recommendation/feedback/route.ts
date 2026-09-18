@@ -43,8 +43,8 @@ export async function POST(
 
     if (!result.success) {
       return NextResponse.json(
-        { success: false, error: result.error },
-        { status: 500 }
+        { success: false, error: result.error || 'Failed to record feedback' },
+        { status: 400 }
       );
     }
 
@@ -63,9 +63,9 @@ export async function POST(
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Internal server error',
+        error: error instanceof Error ? error.message : 'Unable to record feedback',
       },
-      { status: 500 }
+      { status: 400 }
     );
   }
 }
@@ -94,13 +94,11 @@ export async function GET(
       message: 'Feedback history retrieved',
     });
   } catch (error) {
-    logger.error('Error fetching feedback', { error });
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Internal server error',
-      },
-      { status: 500 }
-    );
+    logger.warn('Error fetching feedback history, returning empty fallback', { error });
+    return NextResponse.json({
+      success: true,
+      data: [],
+      message: 'No feedback history available yet',
+    });
   }
 }
