@@ -65,7 +65,7 @@ export default function SettingsPage() {
       }
     } catch (err) {
       console.error("Error fetching settings:", err);
-      toast.error("Failed to load settings.");
+      toast.error("Couldn't load your preferences right now. Give it a refresh.");
     } finally {
       setLoading(false);
     }
@@ -103,10 +103,10 @@ export default function SettingsPage() {
 
           if (!response.ok) throw new Error("Failed to update settings");
 
-          toast.success("Settings updated.");
+          toast.success("Preferences saved.");
       } catch (err) {
           console.error("Error updating settings:", err);
-          toast.error("Failed to update settings.");
+          toast.error("Couldn't save that change. Try again.");
           fetchSettings(); // Revert on error
       }
   };

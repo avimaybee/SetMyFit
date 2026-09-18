@@ -48,7 +48,7 @@ export default function OnboardingPage() {
       const fbUser = await currentUser();
 
       if (!fbUser) {
-        toast.error("Session expired. Please sign in again.");
+        toast.error("Your session timed out. Log back in real quick.");
         router.push('/auth/sign-in');
         return;
       }
@@ -61,7 +61,7 @@ export default function OnboardingPage() {
       });
 
       if (response.status === 401) {
-        toast.error("Session expired. Please sign in again.");
+        toast.error("Your session timed out. Log back in real quick.");
         router.push('/auth/sign-in');
         return;
       }
@@ -70,7 +70,7 @@ export default function OnboardingPage() {
       // 2. If first item was uploaded, save it to wardrobe
       let itemSaved = true;
       if (firstItem) {
-        const saveToastId = toast.loading("Saving your first item...");
+        const saveToastId = toast.loading("Adding your first piece...");
 
         try {
           // 2a. Analyze image with AI (optional - for auto-fill)
@@ -92,7 +92,7 @@ export default function OnboardingPage() {
               if (analyzeData.success) {
                 analysisResult = analyzeData.data;
                 if (analyzeData.partial) {
-                  toast("AI analysis is unavailable — using defaults you can edit later.");
+                  toast("Auto-tagging was unavailable — using default tags you can edit later.");
                 }
               }
             }
@@ -103,7 +103,7 @@ export default function OnboardingPage() {
           // 2b. Upload image to storage (with progress)
           const uploadResult = await uploadClothingImage(firstItem.file, fbUser.uid, {
             onProgress: (percent) => {
-              toast.loading(`Saving your first item... ${percent}%`, { id: saveToastId });
+              toast.loading(`Adding your first piece... ${percent}%`, { id: saveToastId });
             },
           });
 
@@ -132,7 +132,7 @@ export default function OnboardingPage() {
           });
 
           if (createRes.status === 401) {
-            toast.error("Session expired. Please sign in again.", { id: saveToastId });
+            toast.error("Your session timed out. Log back in real quick.", { id: saveToastId });
             router.push('/auth/sign-in');
             return;
           }
@@ -141,23 +141,23 @@ export default function OnboardingPage() {
             throw new Error(errorData.error || "Failed to create wardrobe item");
           }
 
-          toast.success("First item added to your wardrobe! 🎉", { id: saveToastId });
+          toast.success("First piece added to your rack.", { id: saveToastId });
         } catch (itemError) {
           itemSaved = false;
           console.error("Error saving first item:", itemError);
-          toast.error("Item upload failed, but your profile was saved. Add items from the wardrobe page.", { id: saveToastId });
+          toast.error("Couldn't upload that photo, but your style profile is saved. You can add pieces anytime.", { id: saveToastId });
         }
       }
 
       if (itemSaved) {
-        toast.success("Setup complete! Welcome to the system.");
+        toast.success("All set. Your stylist is ready.");
       } else {
-        toast("Setup saved — wardrobe upload skipped. Add items anytime.");
+        toast("Style profile saved. Add clothes to your closet whenever you're ready.");
       }
       router.push("/");
     } catch (err) {
       console.error("Error saving preferences:", err);
-      toast.error("Failed to save setup.");
+      toast.error("Couldn't save your preferences. Try once more.");
     } finally {
       submittingRef.current = false;
     }

@@ -155,7 +155,7 @@ export default function HomePage() {
         const pending = JSON.parse(pendingRaw) as { occasion?: string; templateName?: string };
         if (pending.occasion) {
           setSelectedOccasion(pending.occasion);
-          toast(`Template loaded${pending.templateName ? `: ${pending.templateName}` : ''} → ${pending.occasion}.`);
+          toast(`Loaded the ${pending.templateName || 'preset'} fit for ${pending.occasion}.`);
         }
       } catch (e) {
         console.error("Failed to parse pending template", e);
@@ -283,7 +283,7 @@ export default function HomePage() {
         if (data.needsWardrobe) {
           // Don't treat this as an error - user just needs to add items
           setHasBootstrappedContent(true);  // Stop showing skeleton
-          toast("Your wardrobe needs a few more pieces for full recommendations.");
+          toast("Your closet needs a few more pieces before we can style full fits.");
         }
       }
     } catch (_err) {
@@ -296,7 +296,7 @@ export default function HomePage() {
   const handleLogOutfit = useCallback(async (items: ClothingItem[]) => {
     if (isLoggingOutfit) return;
     if (!items.length) {
-      toast.error("Nothing to log — generate or pick an outfit first.");
+      toast.error("Pick or generate a fit before logging it.");
       return;
     }
     setIsLoggingOutfit(true);
@@ -305,7 +305,7 @@ export default function HomePage() {
       .filter((id) => Number.isFinite(id)) as number[];
 
     if (itemIds.length === 0) {
-      toast.error("Couldn't log this outfit — item references look invalid.");
+      toast.error("Couldn't log this one — looks like some pieces are missing.");
       setIsLoggingOutfit(false);
       return;
     }
@@ -320,19 +320,19 @@ export default function HomePage() {
       const payload = await response.json();
 
       if (!response.ok || !payload.success) {
-        const errorMessage = payload?.message || payload?.error || 'Failed to log outfit';
+        const errorMessage = payload?.message || payload?.error || "Couldn't save today's fit. Try once more.";
         toast.error(errorMessage);
         emitClientLog('outfit:log:error', { error: errorMessage, status: response.status });
         return;
       }
 
-      toast.success('Outfit logged successfully');
+      toast.success("Logged today's fit. Wear count updated.");
       emitClientLog('outfit:log:success', { outfitId: payload.data?.outfit_id });
       // Refresh wear counts / last-worn so stats and wardrobe stay accurate.
       fetchWardrobe();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      toast.error('Failed to log outfit');
+      toast.error("Couldn't save today's fit. Try once more.");
       emitClientLog('outfit:log:error', { error: message });
     } finally {
       setIsLoggingOutfit(false);
@@ -342,7 +342,7 @@ export default function HomePage() {
   const handleFeedback = useCallback(async (isLiked: boolean, reason?: string) => {
     const recId = recommendationData?.recommendation?.id;
     if (!recId) {
-      toast.error("No recommendation to rate yet.");
+      toast.error("Generate a fit first before rating it.");
       return;
     }
     try {
@@ -359,7 +359,7 @@ export default function HomePage() {
       emitClientLog('recommendation:feedback:success', { recId, isLiked });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      toast.error("Couldn't save your rating. Try again.");
+      toast.error("Couldn't save that feedback. Try once more.");
       emitClientLog('recommendation:feedback:error', { error: message });
       throw error;
     }

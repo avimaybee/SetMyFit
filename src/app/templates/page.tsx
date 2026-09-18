@@ -44,12 +44,12 @@ export default function TemplatesPage() {
         setTemplates(mappedTemplates);
       } else {
         console.error("Failed to fetch templates:", result.error);
-        toast.error("Failed to load templates.");
+        toast.error("Couldn't pull up style presets. Try refreshing.");
         setLoadFailed(true);
       }
     } catch (error) {
       console.error("Error fetching templates:", error);
-      toast.error("Error loading templates.");
+      toast.error("Couldn't pull up style presets. Try refreshing.");
       setLoadFailed(true);
     } finally {
       setLoading(false);
@@ -73,9 +73,9 @@ export default function TemplatesPage() {
         );
       }
     } catch {
-      // Storage unavailable â€” still navigate; occasion just won't prefill.
+      // Storage unavailable — still navigate; occasion just won't prefill.
     }
-    toast.success(`Template loaded: ${template.name}${occasion ? ` â†’ ${occasion}` : ''}`);
+    toast.success(`Loaded ${template.name} for ${occasion || 'your next fit'}.`);
     router.push('/');
   };
 

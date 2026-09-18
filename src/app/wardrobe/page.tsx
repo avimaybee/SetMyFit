@@ -30,7 +30,7 @@ export default function WardrobePage() {
 
             const response = await apiFetch("/api/wardrobe");
             if (response.status === 401) {
-                toast.error("Session expired. Please sign in again.");
+                toast.error("Your session timed out. Log back in real quick.");
                 return;
             }
             if (!response.ok) throw new Error("Failed to fetch wardrobe");
@@ -59,7 +59,7 @@ export default function WardrobePage() {
         } catch (err) {
             console.error("Error fetching wardrobe:", err);
             setLoadFailed(true);
-            toast.error("Failed to load wardrobe items.");
+            toast.error("Couldn't pull up your closet. Check your connection or refresh.");
         } finally {
             setLoading(false);
         }
@@ -96,7 +96,7 @@ export default function WardrobePage() {
         try {
             const fbUser = await currentUser();
             if (!fbUser) {
-                toast.error("You must be logged in.");
+                toast.error("Sign in first to add pieces to your closet.");
                 return;
             }
 
@@ -108,17 +108,17 @@ export default function WardrobePage() {
                     uploadFile = dataUrlToFile(imageUrl, "wardrobe-item.webp");
                 } catch (conversionError) {
                     console.error("Failed to convert data URL to file", conversionError);
-                    toast.error("Unable to process image upload.");
+                    toast.error("Couldn't read that photo format. Try a JPG or PNG.");
                     return;
                 }
             }
 
             if (uploadFile) {
-                uploadToastId = toast.loading('UPLOADING IMAGE... 0%');
+                uploadToastId = toast.loading('Uploading piece... 0%');
                 const uploadResult = await uploadClothingImage(uploadFile, fbUser.uid, {
                     onProgress: (percent) => {
                         if (!uploadToastId) return;
-                        toast.loading(`UPLOADING IMAGE... ${percent}%`, { id: uploadToastId });
+                        toast.loading(`Uploading piece... ${percent}%`, { id: uploadToastId });
                     },
                 });
                 if (!uploadResult.success || !uploadResult.url) {
@@ -155,13 +155,13 @@ export default function WardrobePage() {
                 throw new Error(errorData.error || "Failed to create item");
             }
 
-            toast.success("Item added to wardrobe.");
+            toast.success("Saved to your closet.");
             closeGlobalAdd();
             fetchWardrobe();
 
         } catch (err) {
             console.error("Error adding item:", err);
-            const errorMessage = err instanceof Error ? err.message : "Failed to add item";
+            const errorMessage = err instanceof Error ? err.message : "Couldn't add that piece. Try again.";
             toast.error(errorMessage);
         } finally {
             savingRef.current = false;
@@ -180,7 +180,7 @@ export default function WardrobePage() {
         try {
             const fbUser = await currentUser();
             if (!fbUser) {
-                toast.error("You must be logged in.");
+                toast.error("Sign in first to make edits.");
                 return;
             }
 
@@ -192,17 +192,17 @@ export default function WardrobePage() {
                     uploadFile = dataUrlToFile(imageUrl, "wardrobe-item.webp");
                 } catch (conversionError) {
                     console.error("Failed to convert data URL to file", conversionError);
-                    toast.error("Unable to process image upload.");
+                    toast.error("Couldn't read that photo format. Try a JPG or PNG.");
                     return;
                 }
             }
 
             if (uploadFile) {
-                uploadToastId = toast.loading('UPLOADING IMAGE... 0%');
+                uploadToastId = toast.loading('Uploading piece... 0%');
                 const uploadResult = await uploadClothingImage(uploadFile, fbUser.uid, {
                     onProgress: (percent) => {
                         if (!uploadToastId) return;
-                        toast.loading(`UPLOADING IMAGE... ${percent}%`, { id: uploadToastId });
+                        toast.loading(`Uploading piece... ${percent}%`, { id: uploadToastId });
                     },
                 });
                 if (!uploadResult.success || !uploadResult.url) {
@@ -231,11 +231,11 @@ export default function WardrobePage() {
 
             if (!response.ok) throw new Error("Failed to update item");
 
-            toast.success("Item updated.");
+            toast.success("Piece updated.");
             fetchWardrobe();
         } catch (err) {
             console.error("Error updating item:", err);
-            toast.error("Failed to update item.");
+            toast.error("Couldn't save changes to this piece. Try once more.");
         } finally {
             savingRef.current = false;
             if (uploadToastId) {
@@ -251,11 +251,11 @@ export default function WardrobePage() {
         try {
             const response = await apiFetch(`/api/wardrobe/${id}`, { method: "DELETE" });
             if (!response.ok) throw new Error("Failed to delete item");
-            toast.success("Item deleted.");
+            toast.success("Removed from your closet.");
         } catch (err) {
             console.error("Error deleting item:", err);
             setItems(snapshot);
-            toast.error("Failed to delete item.");
+            toast.error("Couldn't remove this item. Try again.");
         }
     };
 
@@ -281,7 +281,7 @@ export default function WardrobePage() {
             console.error("Error updating favorite:", err);
             // Revert
             setItems(prev => prev.map(i => i.id === id ? { ...i, is_favorite: item.is_favorite } : i));
-            toast.error("Failed to update favorite.");
+            toast.error("Couldn't update favorite. Try again.");
         } finally {
             favoriteInFlightRef.current.delete(id);
         }
@@ -306,7 +306,7 @@ export default function WardrobePage() {
             return null;
         } catch (error) {
             console.error("Error analyzing image:", error);
-            toast.error("Failed to analyze image.");
+            toast.error("Stylist couldn't scan that photo. You can fill details manually.");
             return null;
         }
     };

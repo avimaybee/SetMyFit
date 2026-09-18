@@ -104,13 +104,13 @@ export const processImageUpload = async (file: File, options: ImageProcessOption
                 // TODO: Self-host the model files or find a CORS-friendly CDN
                 console.warn('Background removal is temporarily disabled due to CDN CORS issues');
                 onProgress?.('BG_REMOVAL_SKIPPED', 50);
-                toast('Background removal is temporarily unavailable.', { icon: 'ℹ️' });
+                toast('Background cutout is taking a break right now. Using your full photo.', { icon: 'ℹ️' });
 
                 // Skip directly to the next step with the resized image
             } catch (error) {
                 console.error("Background removal failed, falling back to original", error);
                 onProgress?.('BG_REMOVAL_FAILED', 50);
-                toast('Background removal unavailable. Continuing with original image.', { icon: '⚠️' });
+                toast("Couldn't remove the background. Sticking with your original photo.", { icon: 'ℹ️' });
             }
         }
 

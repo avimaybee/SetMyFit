@@ -34,7 +34,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
             if (aesthetics.length < 3) {
                 setAesthetics([...aesthetics, style]);
             } else {
-                toast('Max 3 vibes — remove one to change.');
+                toast("3 styles max. Tap one to swap it out.");
             }
         }
     };

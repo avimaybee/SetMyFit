@@ -32,7 +32,7 @@ export const GlobalAddModal: React.FC = () => {
         try {
             const fbUser = await currentUser();
             if (!fbUser) {
-                toast.error("You must be logged in.");
+                toast.error("Sign in first to add pieces to your closet.");
                 return;
             }
 
@@ -44,17 +44,17 @@ export const GlobalAddModal: React.FC = () => {
                     uploadFile = dataUrlToFile(imageUrl, 'wardrobe-item.webp');
                 } catch (conversionError) {
                     console.error('Failed to convert data URL to file', conversionError);
-                    toast.error('Unable to process image upload.');
+                    toast.error("Couldn't read that photo format. Try a JPG or PNG.");
                     return;
                 }
             }
 
             if (uploadFile) {
-                uploadToastId = toast.loading('UPLOADING IMAGE... 0%');
+                uploadToastId = toast.loading('Uploading piece... 0%');
                 const uploadResult = await uploadClothingImage(uploadFile, fbUser.uid, {
                     onProgress: (percent) => {
                         if (!uploadToastId) return;
-                        toast.loading(`UPLOADING IMAGE... ${percent}%`, { id: uploadToastId });
+                        toast.loading(`Uploading piece... ${percent}%`, { id: uploadToastId });
                     },
                 });
                 if (!uploadResult.success || !uploadResult.url) {
@@ -91,7 +91,7 @@ export const GlobalAddModal: React.FC = () => {
                 throw new Error(errorData.error || "Failed to create item");
             }
 
-            toast.success("Item added to wardrobe.");
+            toast.success("Saved to your closet.");
             closeGlobalAdd();
 
             // Reload the page to refresh wardrobe if on wardrobe page
@@ -101,7 +101,7 @@ export const GlobalAddModal: React.FC = () => {
 
         } catch (err) {
             console.error("Error adding item:", err);
-            const errorMessage = err instanceof Error ? err.message : "Failed to add item";
+            const errorMessage = err instanceof Error ? err.message : "Couldn't add that piece. Try again.";
             toast.error(errorMessage);
         } finally {
             if (uploadToastId) {
@@ -129,7 +129,7 @@ export const GlobalAddModal: React.FC = () => {
             return null;
         } catch (error) {
             console.error("Error analyzing image:", error);
-            toast.error("Failed to analyze image.");
+            toast.error("Stylist couldn't scan that photo. You can fill details manually.");
             return null;
         }
     };

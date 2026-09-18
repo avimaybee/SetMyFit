@@ -191,7 +191,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
             }
 
             if (!result) {
-                toast('AI analysis unavailable. Please fill fields manually.');
+                toast("Couldn't auto-tag this piece right now. You can fill the details in below.");
                 return;
             }
             if (!isMountedRef.current || processingJobIdRef.current !== currentJobId) {
@@ -208,7 +208,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
         } catch (error) {
             if (!controller.signal.aborted) {
                 console.error('Error analyzing image:', error);
-                toast.error('AI analysis failed. Please fill fields manually.');
+                toast.error("Auto-tagging hit a snag. Drop the details in manually.");
             }
         } finally {
             if (analysisAbortControllerRef.current === controller) {

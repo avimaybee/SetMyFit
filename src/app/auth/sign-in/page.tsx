@@ -39,7 +39,7 @@ export default function SignInPage() {
     }
 
     if (isNewUser) {
-      toast.success("Account initialized! Welcome to SetMyFit! 🎉");
+      toast.success("You're in. Let's get your wardrobe dialed in.");
       window.location.href = "/onboarding";
       return;
     }
@@ -48,7 +48,7 @@ export default function SignInPage() {
     try {
       const res = await apiFetch("/api/settings/profile");
       if (res.status === 404) {
-        toast.success("Welcome! Let's configure your style.");
+        toast.success("Let's set up your style profile real quick.");
         window.location.href = "/onboarding";
         return;
       }
@@ -56,7 +56,7 @@ export default function SignInPage() {
       // Profile check failed — home page will handle gracefully
     }
 
-    toast.success("Welcome back!");
+    toast.success("Welcome back. Pulling up your closet.");
     window.location.href = "/";
   };
 
@@ -87,7 +87,7 @@ export default function SignInPage() {
         fbErr.message?.includes('email-already-in-use')
       ) {
         setIsSignUp(false);
-        const msg = "This email is already registered! Switched to login mode — enter your passcode to sign in.";
+        const msg = "Already have an account under that email — flipped you to login. Drop your passcode in.";
         setError(msg);
         toast(msg, { icon: 'ℹ️' });
         setLoading(false);
@@ -96,15 +96,15 @@ export default function SignInPage() {
 
       if (fbErr.code === 'auth/invalid-credential') {
         const msg = isSignUp
-          ? "Could not create user account. Please try again."
-          : "Invalid email or passcode. If you are new, switch to Register.";
+          ? "Couldn't set up the account. Try again in a second."
+          : "Email or passcode didn't match. If you're new here, tap Register above.";
         setError(msg);
         toast.error(msg);
         setLoading(false);
         return;
       }
 
-      const message = err instanceof Error ? err.message : "Authentication failed";
+      const message = err instanceof Error ? err.message : "Couldn't sign you in. Give it another shot.";
       setError(message);
       toast.error(message);
     } finally {
@@ -128,7 +128,7 @@ export default function SignInPage() {
       }
 
       console.error("Google sign-in error:", err);
-      const message = err instanceof Error ? err.message : "Google sign-in failed";
+      const message = err instanceof Error ? err.message : "Google sign-in ran into an issue. Try again.";
       setError(message);
       toast.error(message);
       setLoading(false);
@@ -145,7 +145,7 @@ export default function SignInPage() {
       await handlePostLogin(user, true);
     } catch (err) {
       console.error("Guest sign-in error:", err);
-      const message = err instanceof Error ? err.message : "Guest access failed";
+      const message = err instanceof Error ? err.message : "Couldn't start guest session. Try again.";
       setError(message);
       toast.error(message);
       setLoading(false);
@@ -168,10 +168,10 @@ export default function SignInPage() {
       }
       await sendPhoneOtp(phoneNumber.trim(), verifier);
       setIsCodeSent(true);
-      toast.success("Verification code sent via SMS!");
+      toast.success("Sent a 6-digit code to your phone. Check your texts.");
     } catch (err) {
       console.error("Phone send code error:", err);
-      const msg = err instanceof Error ? err.message : "Failed to send SMS code. Please check phone format.";
+      const msg = err instanceof Error ? err.message : "Couldn't send the SMS. Double check the country code and number.";
       setError(msg);
       toast.error(msg);
     } finally {
@@ -192,7 +192,7 @@ export default function SignInPage() {
       await handlePostLogin(user);
     } catch (err) {
       console.error("Phone verify code error:", err);
-      const msg = err instanceof Error ? err.message : "Invalid or expired verification code.";
+      const msg = err instanceof Error ? err.message : "That code didn't match. Check for typos or tap resend.";
       setError(msg);
       toast.error(msg);
       setLoading(false);

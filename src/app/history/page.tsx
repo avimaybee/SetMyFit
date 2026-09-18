@@ -60,7 +60,7 @@ export default function HistoryPage() {
     try {
       const res = await apiFetch("/api/outfits/history?limit=60", { cache: "no-store" });
       if (res.status === 401) {
-        toast.error("Session expired. Please sign in again.");
+        toast.error("Your session timed out. Log back in real quick.");
         router.push('/auth/sign-in');
         return;
       }
@@ -72,7 +72,7 @@ export default function HistoryPage() {
     } catch (error) {
       console.error("Failed to load outfit history", error);
       setLoadFailed(true);
-      toast.error("Failed to load history.");
+      toast.error("Couldn't pull up your fit history. Try refreshing.");
     } finally {
       setLoading(false);
     }
@@ -88,7 +88,7 @@ export default function HistoryPage() {
     try {
       const res = await apiFetch(`/api/outfits/${id}`, { method: "DELETE" });
       if (res.status === 401) {
-        toast.error("Session expired. Please sign in again.");
+        toast.error("Your session timed out. Log back in real quick.");
         router.push('/auth/sign-in');
         return;
       }
@@ -97,10 +97,10 @@ export default function HistoryPage() {
         throw new Error(payload?.error || "Failed to delete log");
       }
       setHistory(prev => prev.filter(entry => entry.id !== id));
-      toast.success("History entry deleted");
+      toast.success("Removed that fit from your history.");
     } catch (error) {
       console.error("Failed to delete history entry", error);
-      toast.error("Failed to delete history entry");
+      toast.error("Couldn't delete that log. Try once more.");
     } finally {
       setDeletingId(null);
     }

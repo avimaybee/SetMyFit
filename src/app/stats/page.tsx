@@ -97,13 +97,13 @@ export default function StatsPage() {
         setHistory(mappedHistory);
         }
       } else if (historyResult.status === 'rejected' || !historyResult.value.ok) {
-        console.warn("History unavailable for stats â€” showing wardrobe-only stats.");
+        console.warn("History unavailable for stats — showing wardrobe-only stats.");
       }
 
     } catch (err) {
       console.error("Error fetching stats data:", err);
       setLoadFailed(true);
-      toast.error("Failed to load statistics.");
+      toast.error("Couldn't pull up your wardrobe stats. Try refreshing.");
     } finally {
       setLoading(false);
     }

@@ -62,12 +62,12 @@ export default function BatchOperations({
         throw new Error(data.error || 'Failed to delete items');
       }
 
-      toast.success(`Deleted ${selectedItems.length} items.`);
+      toast.success(`Cleared ${selectedItems.length} ${selectedItems.length === 1 ? 'piece' : 'pieces'} from your closet.`);
       onSelectionChange([]);
       onItemsUpdated();
       setShowDeleteConfirm(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to delete items");
+      toast.error(error instanceof Error ? error.message : "Couldn't delete those pieces. Try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -75,7 +75,7 @@ export default function BatchOperations({
 
   const handleBulkAddTag = async () => {
     if (!tagInput.trim()) {
-      toast.error("Please enter a tag.");
+      toast.error("Type in a tag name first.");
       return;
     }
 
@@ -95,12 +95,12 @@ export default function BatchOperations({
         throw new Error(data.error || 'Failed to update items');
       }
 
-      toast.success(`Added tag "${tagInput}" to ${selectedItems.length} items.`);
+      toast.success(`Tagged ${selectedItems.length} ${selectedItems.length === 1 ? 'piece' : 'pieces'} with #${tagInput.trim()}.`);
       setTagInput('');
       setShowBulkTagDialog(false);
       onItemsUpdated();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update items");
+      toast.error(error instanceof Error ? error.message : "Couldn't update those tags. Try once more.");
     } finally {
       setIsProcessing(false);
     }
@@ -123,11 +123,11 @@ export default function BatchOperations({
         throw new Error(data.error || 'Failed to update items');
       }
 
-      toast.success(`Set dress code to "${selectedDressCode}" for ${selectedItems.length} items.`);
+      toast.success(`Updated dress code to ${selectedDressCode} for ${selectedItems.length} ${selectedItems.length === 1 ? 'piece' : 'pieces'}.`);
       setShowBulkDressCodeDialog(false);
       onItemsUpdated();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update items");
+      toast.error(error instanceof Error ? error.message : "Couldn't update dress code on those items.");
     } finally {
       setIsProcessing(false);
     }
