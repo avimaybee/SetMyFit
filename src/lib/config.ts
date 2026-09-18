@@ -66,6 +66,7 @@ export const aiConfig = {
   gemini: {
     apiKey: getEnvVar('GEMINI_API_KEY', false),
     model: 'gemini-3.5-flash-lite',
+    imageModel: 'gemini-3.1-flash-image',
   },
 
   // Learning parameters

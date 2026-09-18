@@ -103,6 +103,8 @@ export default function HomePage() {
   const [isLoggingOutfit, setIsLoggingOutfit] = useState(false);
   const [outfitCount, setOutfitCount] = useState(0);
   const [lastOutfitDate, setLastOutfitDate] = useState<string | null>(null);
+  const [visualUrl, setVisualUrl] = useState<string | null>(null);
+  const [isRenderingVisual, setIsRenderingVisual] = useState(false);
   const [isRestored, setIsRestored] = useState(false);
   const [isWardrobeLoading, setIsWardrobeLoading] = useState(true);
 
@@ -272,6 +274,7 @@ export default function HomePage() {
 
       if (data.success && data.data) {
         setRecommendationData(data.data);
+        setVisualUrl(null); // Stale render belongs to the previous outfit.
         try {
           sessionStorage.setItem(storageKey("lastRecommendation"), JSON.stringify(data.data));
           sessionStorage.setItem(storageKey("lastRecommendationTimestamp"), Date.now().toString());
@@ -364,6 +367,40 @@ export default function HomePage() {
       throw error;
     }
   }, [recommendationData, emitClientLog]);
+
+  const handleRenderVisual = useCallback(async () => {
+    const outfit = recommendationData?.recommendation?.outfit ?? [];
+    const itemIds = outfit.map((i) => i.id).filter((id) => Number.isFinite(id));
+    if (itemIds.length < 2) {
+      toast.error("Need at least 2 items to render a look.");
+      return;
+    }
+    if (isRenderingVisual) return;
+    setIsRenderingVisual(true);
+    try {
+      const res = await apiFetch('/api/outfits/visual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          item_ids: itemIds,
+          recommendation_id: recommendationData?.recommendation?.id ?? null,
+          occasion: selectedOccasion || undefined,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to render look');
+      }
+      setVisualUrl(json.data.url);
+      emitClientLog('outfit:visual:success', { visualId: json.data.id });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(message);
+      emitClientLog('outfit:visual:error', { error: message });
+    } finally {
+      setIsRenderingVisual(false);
+    }
+  }, [recommendationData, selectedOccasion, isRenderingVisual, emitClientLog]);
 
   useEffect(() => {
     if (isRestored && !recommendationData && isAuthenticated) {
@@ -499,6 +536,10 @@ export default function HomePage() {
             onNavigateToWardrobe={handleNavigateToWardrobe}
             recommendationId={recommendationData?.recommendation?.id ?? null}
             onFeedback={handleFeedback}
+            onRenderVisual={handleRenderVisual}
+            isRenderingVisual={isRenderingVisual}
+            visualUrl={visualUrl}
+            onCloseVisual={() => setVisualUrl(null)}
           />
         )}
       </div>

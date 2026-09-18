@@ -159,8 +159,8 @@ const EXT_BY_MIME: Record<string, string> = {
   'image/avif': 'avif',
 };
 
-export function buildR2Key(userId: string, mimeType: string): string {
+export function buildR2Key(userId: string, mimeType: string, prefix = 'wardrobe'): string {
   const ext = EXT_BY_MIME[mimeType] || 'jpg';
   const rand = Math.random().toString(36).substring(2, 9);
-  return `wardrobe/${userId}/${Date.now()}-${rand}.${ext}`;
+  return `${prefix}/${userId}/${Date.now()}-${rand}.${ext}`;
 }

@@ -534,6 +534,28 @@ async function generateRecommendation(
     confidence: aiRecommendation.validationScore / 100,
   });
 
+  // Agentic repair: vision-check the pick, swap the weakest non-locked
+  // piece, re-validate (bounded; never ships a worse outfit).
+  let finalOutfit = aiRecommendation.outfit;
+  try {
+    const { repairOutfitWithValidation } = await import('@/lib/helpers/aiOutfitAnalyzer');
+    const repair = await repairOutfitWithValidation(aiRecommendation.outfit, availableItems, {
+      lockedIds: lockedItems,
+      log: aiRecommendation.analysisLog,
+    });
+    finalOutfit = repair.outfit;
+    summary.selectedItemIds = finalOutfit.map((i: IClothingItem) => i.id);
+    pushEvent('selection:repairComplete', {
+      itemIds: summary.selectedItemIds,
+      iterations: repair.iterations,
+      visionScore: repair.score,
+    });
+  } catch (repairError) {
+    // Repair is best-effort: a vision failure must never kill the recommendation.
+    logger.warn('Outfit repair skipped', { error: repairError instanceof Error ? repairError.message : String(repairError) });
+    diagnostics.warnings.push('Vision check unavailable — serving the stylist pick directly.');
+  }
+
   // Store recommendation in database
   let savedRecommendation: { id: number } | null = null;
   try {
@@ -543,7 +565,7 @@ async function generateRecommendation(
        VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
       [
         userId,
-        toJson(aiRecommendation.outfit.map((i: IClothingItem) => i.id)),
+        toJson(finalOutfit.map((i: IClothingItem) => i.id)),
         null, // No weather data anymore
         aiRecommendation.validationScore / 100,
         aiRecommendation.reasoning?.weatherMatch || "AI Optimized",
@@ -558,7 +580,7 @@ async function generateRecommendation(
   }
 
   // R2 image URLs are public and stable — no signed URLs needed.
-  const outfitWithSignedUrls = aiRecommendation.outfit;
+  const outfitWithSignedUrls = finalOutfit;
 
   const transformedData: RecommendationApiPayload = {
     recommendation: {

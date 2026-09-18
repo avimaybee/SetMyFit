@@ -440,7 +440,111 @@ export async function generateAIOutfitRecommendation(
 const MAX_VALIDATION_IMAGES = 6;
 const MAX_VALIDATION_BYTES = 4 * 1024 * 1024;
 
-async function fetchValidationImage(url: string): Promise<{ mimeType: string; data: string } | null> {
+/**
+ * Agentic repair loop: validate the outfit with vision, swap the weakest
+ * non-locked piece for the best same-type alternative, re-validate.
+ * Keeps the best-scoring version seen (never ships a worse outfit than
+ * it started with). Bounded by maxIterations vision calls.
+ */
+export interface RepairResult {
+  outfit: IClothingItem[];
+  score: number;
+  iterations: number;
+  issues: string[];
+  suggestions: string[];
+  analysisLog: string[];
+}
+
+const sameType = (a: Partial<IClothingItem>, b: Partial<IClothingItem>) =>
+  String(a.type || '').toLowerCase() === String(b.type || '').toLowerCase();
+
+export async function repairOutfitWithValidation(
+  outfit: IClothingItem[],
+  wardrobe: IClothingItem[],
+  opts: {
+    lockedIds?: Array<string | number>;
+    maxIterations?: number;
+    threshold?: number;
+    log?: string[];
+    validate?: (items: IClothingItem[]) => Promise<OutfitValidation>;
+  } = {}
+): Promise<RepairResult> {
+  const {
+    lockedIds = [],
+    maxIterations = 2,
+    threshold = 70,
+    validate = validateOutfitImages,
+  } = opts;
+  const log = opts.log ?? [];
+  const locked = new Set(lockedIds.map(String));
+
+  const initial = await validate(outfit);
+  let best = { items: [...outfit], validation: initial };
+  let iterations = 0;
+  const tried = new Set<string>();
+
+  const imagedCount = outfit.filter((i) => i.image_url).length;
+  if (imagedCount >= 2 && initial.score < threshold) {
+    for (let n = 0; n < maxIterations; n++) {
+      // Find the weakest NON-locked piece. A locked problem item cannot be
+      // swapped, so there is nothing to repair — stop honestly.
+      const problemId = best.validation.problemItemId;
+      const problem = problemId !== undefined && problemId !== null
+        ? best.items.find((i) => String(i.id) === String(problemId) && !locked.has(String(i.id)))
+        : undefined;
+      if (!problem) {
+        log.push('🔧 Repair stopped: weakest piece is locked or unknown.');
+        break;
+      }
+
+      // Best same-type alternative: favorites first, then least-worn.
+      const candidates = wardrobe
+        .filter(
+          (w) =>
+            sameType(w, problem) &&
+            !best.items.some((i) => String(i.id) === String(w.id)) &&
+            !locked.has(String(w.id)) &&
+            !tried.has(String(w.id))
+        )
+        .sort((a, b) => {
+          const favA = a.favorite ? 1 : 0;
+          const favB = b.favorite ? 1 : 0;
+          if (favA !== favB) return favB - favA;
+          return (a.wear_count || 0) - (b.wear_count || 0);
+        });
+      const candidate = candidates[0];
+      if (!candidate) {
+        log.push(`🔧 Repair stopped: no alternative for ${problem.name}.`);
+        break;
+      }
+      tried.add(String(candidate.id));
+
+      const next = best.items.map((i) => (String(i.id) === String(problem.id) ? candidate : i));
+      iterations += 1;
+      const revalidation = await validate(next);
+      if (revalidation.score > best.validation.score) {
+        best = { items: next, validation: revalidation };
+        log.push(`🔧 Swapped ${problem.name} → ${candidate.name} (score ${revalidation.score}%).`);
+      } else {
+        log.push(`🔧 Swap ${problem.name} → ${candidate.name} did not help (score ${revalidation.score}%). Kept previous.`);
+      }
+    }
+  } else if (initial.score >= threshold) {
+    log.push(`✅ Outfit passed vision check first try (score ${initial.score}%).`);
+  }
+
+  return {
+    outfit: best.items,
+    score: best.validation.score,
+    iterations,
+    issues: best.validation.issues,
+    suggestions: best.validation.suggestions,
+    analysisLog: log,
+  };
+}
+
+/** Fetch an item image as inline bytes (data: URLs or http(s), size-capped). Shared by validation + visual generation. */
+export async function fetchValidationImage(url: string): Promise<{ mimeType: string; data: string } | null> {
   try {
     if (url.startsWith('data:')) {
       const { base64, mimeType } = parseDataUrl(url, 'image/jpeg');
