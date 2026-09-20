@@ -69,8 +69,9 @@ export const aiConfig = {
     model: getEnvVar('AI_STYLIST_MODEL', false) || 'gemini-3.5-flash-lite',
     // Micro-agent for fast vision ingestion, creative naming & tagging (Gemma 4 26B A4B MoE)
     microModel: getEnvVar('AI_MICRO_MODEL', false) || 'gemma-4-26b-a4b-it',
-    // Frontier Dense fallback
-    denseModel: getEnvVar('AI_DENSE_MODEL', false) || 'gemma-4-31b-it',
+    // Frontier fallback (Gemini 3.1 Flash-Lite)
+    denseModel: getEnvVar('AI_DENSE_MODEL', false) || 'gemini-3.1-flash-lite',
+    fallbackModel: getEnvVar('AI_FALLBACK_MODEL', false) || 'gemini-3.1-flash-lite',
   },
 
   // Learning parameters

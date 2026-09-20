@@ -66,14 +66,13 @@ export async function GET(request: NextRequest): Promise<NextResponse<{ features
         }
       };
 
-      const [microTest, stylistTest, flash25Test, flashLiteTest] = await Promise.all([
+      const [microTest, stylistTest, fallback31Test] = await Promise.all([
         testModel('gemma-4-26b-a4b-it'),
         testModel('gemini-3.5-flash-lite'),
-        testModel('gemini-2.5-flash'),
-        testModel('gemini-2.5-flash-lite'),
+        testModel('gemini-3.1-flash-lite'),
       ]);
 
-      const anyWorking = microTest.ok || stylistTest.ok || flash25Test.ok || flashLiteTest.ok;
+      const anyWorking = microTest.ok || stylistTest.ok || fallback31Test.ok;
 
       features.push({
         name: 'Gemini AI Engine',
@@ -82,8 +81,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<{ features
           keyPrefix: apiKey.slice(0, 6) + '...' + apiKey.slice(-4),
           'gemma-4-26b-a4b-it': microTest,
           'gemini-3.5-flash-lite': stylistTest,
-          'gemini-2.5-flash': flash25Test,
-          'gemini-2.5-flash-lite': flashLiteTest,
+          'gemini-3.1-flash-lite': fallback31Test,
         }),
         lastChecked: now,
       });
