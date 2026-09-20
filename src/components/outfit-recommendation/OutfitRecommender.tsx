@@ -18,10 +18,6 @@ interface OutfitRecommenderProps {
     onNavigateToWardrobe?: () => void;  // NEW: Action for empty state
     recommendationId?: string | number | null;  // Saved recommendation id for feedback
     onFeedback?: (isLiked: boolean, reason?: string) => void | Promise<void>;  // Like/dislike handler
-    onRenderVisual?: () => void;  // Render flat-lay look image
-    isRenderingVisual?: boolean;
-    visualUrl?: string | null;
-    onCloseVisual?: () => void;
 }
 
 interface OrganizedOutfit {
@@ -47,11 +43,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
     isLoadingWardrobe = false,
     onNavigateToWardrobe,
     recommendationId = null,
-    onFeedback,
-    onRenderVisual,
-    isRenderingVisual = false,
-    visualUrl = null,
-    onCloseVisual
+    onFeedback
 }) => {
     const [isSwapping, setIsSwapping] = useState(false);
     const [activeSwapCategory, setActiveSwapCategory] = useState<ClothingType | null>(null);
@@ -824,49 +816,6 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                     )}
                 </RetroButton>
             </div>
-
-            {/* Render look (on-demand flat-lay visual) */}
-            {onRenderVisual && (
-                <div className="mt-2 md:mt-3">
-                    <RetroButton
-                        variant="neutral"
-                        className="w-full flex items-center justify-center gap-2 py-2.5 text-xs md:text-sm"
-                        onClick={onRenderVisual}
-                        disabled={isRenderingVisual || getCurrentItems().length < 2}
-                    >
-                        {isRenderingVisual ? (
-                            <>
-                                <Loader2 size={14} className="animate-spin" /> RENDERING LOOK...
-                            </>
-                        ) : (
-                            <>
-                                <Sparkles size={14} /> RENDER LOOK
-                            </>
-                        )}
-                    </RetroButton>
-                </div>
-            )}
-
-            {/* Visual modal */}
-            {visualUrl && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCloseVisual}></div>
-                    <div className="w-full max-w-md relative z-10 animate-in fade-in zoom-in duration-200">
-                        <RetroWindow
-                            title="LOOK_RENDER.PNG"
-                            onClose={onCloseVisual}
-                            className="bg-[#FFF8E7] max-h-[85vh]"
-                        >
-                            <div className="relative w-full aspect-square border-2 border-black bg-white overflow-hidden">
-                                <RetroImage src={visualUrl} alt="Rendered outfit flat-lay" containerClassName="w-full h-full border-0" />
-                            </div>
-                            <p className="font-mono text-[10px] text-gray-500 mt-2 text-center">
-                                AI RENDER — COLORS AND DETAILS MAY VARY FROM THE REAL ITEMS.
-                            </p>
-                        </RetroWindow>
-                    </div>
-                </div>
-            )}
 
             {/* Swap Modal */}
             {isSwapping && (
