@@ -26,23 +26,34 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
       [user.uid, limit]
     );
 
-    const mapped: OutfitHistoryEntry[] = [];
-    for (const outfit of outfits) {
-      const outfitId = Number(outfit.id);
+    const outfitIds = outfits.map(o => Number(o.id));
+    const itemsByOutfitId: Record<number, IClothingItem[]> = {};
+
+    if (outfitIds.length > 0) {
+      const placeholders = outfitIds.map(() => '?').join(',');
       const itemRows = await dbAll(
-        `SELECT ci.* FROM clothing_items ci
+        `SELECT ci.*, oi.outfit_id AS _outfit_id FROM clothing_items ci
          INNER JOIN outfit_items oi ON oi.clothing_item_id = ci.id
-         WHERE oi.outfit_id = ?`,
-        [outfitId]
+         WHERE oi.outfit_id IN (${placeholders})`,
+        outfitIds
       );
-      mapped.push({
+      for (const row of itemRows) {
+        const oId = Number(row._outfit_id);
+        if (!itemsByOutfitId[oId]) itemsByOutfitId[oId] = [];
+        itemsByOutfitId[oId].push(mapClothingItem(row) as unknown as IClothingItem);
+      }
+    }
+
+    const mapped: OutfitHistoryEntry[] = outfits.map(outfit => {
+      const outfitId = Number(outfit.id);
+      return {
         id: outfitId,
         outfit_date: String(outfit.outfit_date),
         feedback: outfit.feedback === null || outfit.feedback === undefined ? null : Number(outfit.feedback),
         weather_data: parseJson<Record<string, unknown> | null>(outfit.weather_data, null),
-        items: itemRows.map(mapClothingItem) as unknown as IClothingItem[],
-      });
-    }
+        items: itemsByOutfitId[outfitId] || [],
+      };
+    });
 
     return NextResponse.json({ success: true, data: mapped });
   } catch (error) {

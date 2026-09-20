@@ -142,8 +142,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
         validBody.insulation_value ?? 5,
         validBody.image_url,
         toJson(normalizedSeasonTags),
-        // style_tags stored as null (same as before: free-form AI values live in `style`)
-        null,
+        toJson(validBody.style_tags || []),
         toJson(dressCode),
         validBody.description || null,
         validBody.pattern || null,
