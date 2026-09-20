@@ -331,7 +331,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                     <div>
                         <h2 className="font-black text-2xl mb-2">WELCOME!</h2>
                         <p className="font-mono text-sm text-gray-600">
-                            Your wardrobe is empty. Upload some clothing items to get personalized AI outfit recommendations.
+                            Your wardrobe is empty. Add a few pieces to start building outfits.
                         </p>
                     </div>
                     <RetroButton
@@ -407,7 +407,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                 <div className="flex items-center gap-2">
                     <CheckCircle size={16} className={suggestedOutfit?.reasoning ? "text-green-600 fill-green-200" : "text-gray-400"} />
                     <p className={`font-mono text-[10px] md:text-sm font-bold tracking-tight ${suggestedOutfit?.reasoning ? "text-green-700" : "text-gray-500"}`}>
-                        {suggestedOutfit?.reasoning ? "AI OPTIMIZED" : "MANUAL EDIT"}
+                        {suggestedOutfit?.reasoning ? "MATCHED" : "MANUAL"}
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -770,7 +770,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                                 )}
                             </>
                         ) : (
-                            <div className="text-gray-500 italic">Waiting for AI generation sequence...</div>
+                            <div className="text-gray-500 italic">Waiting for outfit generation...</div>
                         )}
                     </div>
                 )}

@@ -33,7 +33,6 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
     // Processing State
     const [isProcessingImage, setIsProcessingImage] = useState(false);
     const [processStatus, setProcessStatus] = useState<string>('IDLE');
-    // NOTE: background removal is offline (CDN CORS) — always off, no toggle.
 
     // Analysis State
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -210,7 +209,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
 
             if (!result) {
                 clientLogger.visionAI.warn(`Vision analysis returned no attributes [Job #${currentJobId}]. Manual form fill enabled.`);
-                toast("Stylist AI is taking a quick break. You can fill in the garment details below.", { icon: '✍️' });
+                toast("Could not read tags from image. Enter details below.", { icon: '📝' });
                 return;
             }
             if (!isMountedRef.current || processingJobIdRef.current !== currentJobId) {
@@ -271,7 +270,6 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
 
         try {
             const optimizedBase64 = await processImageUpload(file, {
-                removeBackground: false,
                 maxWidth: 1024,
                 quality: 0.8,
                 onProgress: updateStatus

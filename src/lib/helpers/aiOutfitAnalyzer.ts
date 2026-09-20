@@ -428,11 +428,11 @@ export async function generateAIOutfitRecommendation(
     const hasBottom = selectedItems.some(i => ['bottom', 'pants', 'jeans', 'shorts', 'skirt'].includes(i.type.toLowerCase()));
 
     if (!hasTop || !hasBottom) {
-      log.push("⚠️ AI returned incomplete outfit (missing top or bottom)");
+      log.push("Incomplete outfit generated (missing top or bottom)");
     }
 
     const normalizedScore = normalizeStyleScore(aiResponse.reasoning?.styleScore);
-    log.push(`✨ Generated outfit with score ${normalizedScore}%`);
+    log.push(`Generated outfit with score ${normalizedScore}%`);
     log.push(`Items: ${selectedItems.map(i => i.name).join(', ')}`);
 
     return {

@@ -356,7 +356,7 @@ export default function WardrobePage() {
             return null;
         } catch (error) {
             clientLogger.visionAI.error("Error analyzing wardrobe image:", error);
-            toast.error("Stylist couldn't scan that photo. You can fill details manually.");
+            toast.error("Couldn't scan piece automatically. Fill in the details below.");
             return null;
         }
     };

@@ -227,7 +227,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 <div className="bg-[#CAFFBF] border-2 border-black p-2 flex items-start gap-2">
                   <Terminal size={15} className="mt-0.5 shrink-0" />
                   <p className="font-mono text-[10px] leading-tight">
-                    BY ACCESSING THIS TERMINAL, YOU CONSENT TO AI-DRIVEN STYLE OPTIMIZATION PROTOCOLS.
+                    AUTHENTICATED SESSION // READY FOR INPUT
                   </p>
                 </div>
 

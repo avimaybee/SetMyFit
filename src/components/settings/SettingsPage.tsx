@@ -34,7 +34,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout, preference
             <RetroWindow title="ALGORITHM_TUNING.CFG" icon={<Sliders size={14} />}>
                 <div className="space-y-6 p-4">
                     <div className="bg-[var(--accent-yellow)] border border-[var(--border)] p-3 text-xs font-mono text-[var(--text)]">
-                        These settings control how the AI selects outfits from your wardrobe.
+                        These settings control how outfits are selected from your wardrobe.
                     </div>
 
                     <div>
@@ -72,7 +72,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout, preference
                     <div>
                         <label className="font-bold font-mono text-xs uppercase mb-2 block text-[var(--text)]">Gender Context</label>
                         <p className="text-[10px] font-mono text-[var(--text-muted)] mb-2">
-                            Helps AI understand fit and styling preferences
+                            Controls sizing and fit criteria for outfit generation
                         </p>
                         <div className="flex border-2 border-[var(--border)] bg-[var(--bg-secondary)]">
                             {(['MASC', 'FEM', 'NEUTRAL'] as const).map(g => (

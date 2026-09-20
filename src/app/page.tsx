@@ -420,9 +420,9 @@ export default function HomePage() {
   }, [isRestored, fetchRecommendation, recommendationData, isAuthenticated]);
 
   let parsedReasoning = {
-    weatherMatch: recommendationData?.recommendation?.reasoning || "AI Optimized",
-    layeringStrategy: "Optimized for day",
-    colorAnalysis: "Harmonized palette",
+    weatherMatch: recommendationData?.recommendation?.reasoning || "Matched to current weather",
+    layeringStrategy: "Layered for conditions",
+    colorAnalysis: "Complementary palette",
     occasionFit: selectedOccasion,
   };
 

@@ -45,11 +45,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
             setFile(selectedFile);
             try {
                 // Downscale to ≤1024px WebP (same as the wardrobe form) so the
-                // AI analysis call stays fast and cheap instead of shipping
-                // a full-res phone photo.
-                const optimized = await processImageUpload(selectedFile, {
-                    removeBackground: false,
-                });
+                // image processing stays fast and lightweight.
+                const optimized = await processImageUpload(selectedFile);
                 setPreviewUrl(optimized);
                 setBase64Data(optimized);
             } catch {
@@ -114,7 +111,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="text-center">
                 <h2 className="font-black text-2xl mb-2">QUICK SETUP</h2>
-                <p className="font-mono text-sm text-gray-600">Help the AI understand your style.</p>
+                <p className="font-mono text-sm text-gray-600">Set your style preferences.</p>
             </div>
 
             <div className="space-y-4">

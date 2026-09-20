@@ -1,8 +1,7 @@
-import { toast } from "@/components/ui/toaster";
+import { apiFetch } from "@/lib/api";
 import { clientLogger } from "@/lib/clientLogger";
 
 export interface ImageProcessOptions {
-    removeBackground?: boolean;
     maxWidth?: number;
     quality?: number;
     onProgress?: (status: string, percent: number) => void;
@@ -20,9 +19,14 @@ const resizeImage = async (source: Blob | string, maxWidth: number): Promise<Blo
             let width = img.width;
             let height = img.height;
 
-            if (width > maxWidth) {
-                height = Math.round(height * (maxWidth / width));
-                width = maxWidth;
+            if (width > maxWidth || height > maxWidth) {
+                if (width > height) {
+                    height = Math.round(height * (maxWidth / width));
+                    width = maxWidth;
+                } else {
+                    width = Math.round(width * (maxWidth / height));
+                    height = maxWidth;
+                }
             }
 
             clientLogger.image.info(`Resizing canvas: ${img.width}x${img.height} → ${width}x${height}`);
@@ -74,11 +78,10 @@ const convertToWebP = async (source: Blob, quality: number): Promise<string> => 
         img.onerror = reject;
         img.src = URL.createObjectURL(source);
     });
-}
+};
 
-export const processImageUpload = async (file: File, options: ImageProcessOptions): Promise<string> => {
+export const processImageUpload = async (file: File, options: ImageProcessOptions = {}): Promise<string> => {
     const {
-        removeBackground: shouldRemoveBg,
         maxWidth = 1024,
         quality = 0.8,
         onProgress
@@ -93,24 +96,52 @@ export const processImageUpload = async (file: File, options: ImageProcessOption
     });
 
     try {
-        onProgress?.('OPTIMIZING', 10);
+        onProgress?.('OPTIMIZING', 15);
 
-        // 1. Resize first (crucial for performance of BG removal and storage)
-        const processingBlob = await resizeImage(file, maxWidth);
+        // 1. Resize first for fast processing and optimal payload size
+        const intermediateBlob = await resizeImage(file, maxWidth);
+        let processedBlob: Blob = intermediateBlob;
 
-        onProgress?.('OPTIMIZING', 30);
+        onProgress?.('PROCESSING', 45);
 
-        // 2. Background handling (Preserves original garment context with zero CDN latency)
-        if (shouldRemoveBg) {
-            onProgress?.('AI_REMOVING_BG', 40);
-            onProgress?.('BG_REMOVAL_SKIPPED', 50);
-            toast('Keeping your photo as-is to preserve crisp garment textures.', { icon: '✨' });
+        // 2. Natively apply background removal via edge route
+        try {
+            const intermediateDataUrl = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(intermediateBlob);
+            });
+
+            const res = await apiFetch('/api/wardrobe/remove-bg', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: intermediateDataUrl }),
+            });
+
+            if (res.ok) {
+                const json = await res.json();
+                if (json.success && json.image) {
+                    const byteString = atob(json.image.split(',')[1]);
+                    const ab = new ArrayBuffer(byteString.length);
+                    const ia = new Uint8Array(ab);
+                    for (let i = 0; i < byteString.length; i++) {
+                        ia[i] = byteString.charCodeAt(i);
+                    }
+                    processedBlob = new Blob([ab], { type: 'image/png' });
+                    clientLogger.image.success(`Native background cutout applied via ${json.provider || 'server provider'}`);
+                } else {
+                    clientLogger.image.info('Background cutout unavailable or skipped; preserving original image');
+                }
+            }
+        } catch (bgError) {
+            clientLogger.image.warn('Native background removal skipped gracefully:', bgError);
         }
 
         onProgress?.('COMPRESSING', 85);
 
-        // 3. Final Compression to WebP
-        const finalBase64 = await convertToWebP(processingBlob, quality);
+        // 3. Final compression to WebP
+        const finalBase64 = await convertToWebP(processedBlob, quality);
 
         onProgress?.('DONE', 100);
         clientLogger.image.success(`Image pipeline succeeded for "${file.name}"`, {

@@ -9,8 +9,8 @@ const workSans = Work_Sans({ subsets: ["latin"], variable: "--font-sans" });
 const spaceMono = Space_Mono({ weight: ["400", "700"], subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
-  title: "SetMyFit - AI-Powered Outfit Recommendations",
-  description: "Get personalized outfit recommendations based on weather and your wardrobe",
+  title: "SetMyFit - Weather & Wardrobe Outfit Engine",
+  description: "Weather-adaptive outfit generator and wardrobe manager",
 };
 
 export default function RootLayout({

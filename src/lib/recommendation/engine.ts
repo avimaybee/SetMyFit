@@ -258,8 +258,8 @@ CLIMATE & SITUATION:
 - Weather: ${thermalProfile.weatherSummary}
 - Target Warmth: ${thermalProfile.targetInsulationClo}/10 (Recommended layers: ${thermalProfile.recommendedLayers})
 - Season: ${seasonContext}
-- Occasion: ${input.occasion || 'Elevated Everyday Casual'}
-- Aesthetic Vibe: ${input.vibe || 'Effortless & Minimalist'}
+- Occasion: ${input.occasion || 'Everyday Casual'}
+- Aesthetic Vibe: ${input.vibe || 'Clean & Minimalist'}
 - Anchor Item: ${anchorItem ? `"${anchorItem.name}" (ID: ${anchorItem.id}, Slot: ${anchorItem.slot})` : 'Stylist choice'}
 
 CANDIDATE CLOSET POOL:
