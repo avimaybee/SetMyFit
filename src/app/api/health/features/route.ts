@@ -40,20 +40,59 @@ export async function GET(request: NextRequest): Promise<NextResponse<{ features
     });
   }
 
-  // Check 2: Gemini API Key
+  // Check 2: Gemini API & Live Model Execution
   try {
     const apiKey = (await serverEnv('GEMINI_API_KEY')) || process.env.GEMINI_API_KEY;
-    features.push({
-      name: 'Gemini API Key',
-      status: apiKey ? 'working' : 'partial',
-      notes: apiKey ? 'Configured' : 'GEMINI_API_KEY not set — using heuristic fashion analysis fallback',
-      lastChecked: now,
-    });
+    if (!apiKey) {
+      features.push({
+        name: 'Gemini AI Engine',
+        status: 'not_working',
+        notes: 'GEMINI_API_KEY is not configured',
+        lastChecked: now,
+      });
+    } else {
+      const { getGenAIClient } = await import('@/lib/ai/router');
+      const client = await getGenAIClient();
+      
+      const testModel = async (model: string) => {
+        try {
+          const res = await client.models.generateContent({
+            model,
+            contents: 'ping',
+          });
+          return { ok: true, text: res.text?.trim()?.slice(0, 50) };
+        } catch (err: unknown) {
+          return { ok: false, error: err instanceof Error ? err.message : String(err) };
+        }
+      };
+
+      const [microTest, stylistTest, flash25Test, flash20Test] = await Promise.all([
+        testModel('gemma-4-26b-a4b-it'),
+        testModel('gemini-3.5-flash-lite'),
+        testModel('gemini-2.5-flash'),
+        testModel('gemini-2.0-flash'),
+      ]);
+
+      const anyWorking = microTest.ok || stylistTest.ok || flash25Test.ok || flash20Test.ok;
+
+      features.push({
+        name: 'Gemini AI Engine',
+        status: anyWorking ? 'working' : 'not_working',
+        notes: JSON.stringify({
+          keyPrefix: apiKey.slice(0, 6) + '...' + apiKey.slice(-4),
+          'gemma-4-26b-a4b-it': microTest,
+          'gemini-3.5-flash-lite': stylistTest,
+          'gemini-2.5-flash': flash25Test,
+          'gemini-2.0-flash': flash20Test,
+        }),
+        lastChecked: now,
+      });
+    }
   } catch (error) {
     features.push({
-      name: 'Gemini API Key',
-      status: 'partial',
-      notes: String(error),
+      name: 'Gemini AI Engine',
+      status: 'not_working',
+      notes: error instanceof Error ? error.message : String(error),
       lastChecked: now,
     });
   }

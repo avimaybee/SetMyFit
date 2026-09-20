@@ -333,13 +333,23 @@ export default function WardrobePage() {
             }
 
             if (!result.success) {
-                clientLogger.visionAI.warn(`AI vision service returned failure (${result.error}):`, {
+                clientLogger.visionAI.warn(`AI vision service returned failure (${result.error}): ${result.reason || result.message}`, {
                     reason: result.reason,
+                    isCreditsDepleted: result.isCreditsDepleted,
                     isKeySuspended: result.isKeySuspended,
                     elapsedMs,
                 });
-                if (result.isKeySuspended) {
+                if (result.isCreditsDepleted) {
+                    toast.error("Google Gemini API credits are depleted. Please add credits at ai.studio/projects or use a free-tier API key.", { duration: 8000 });
+                } else if (result.isKeySuspended) {
                     toast.error("Gemini API key is suspended. Update key in Cloudflare secrets or enter details manually.", { duration: 6000 });
+                } else if (result.message) {
+                    toast.error(result.message, { duration: 5000 });
+                }
+
+                if (result.fallbackData) {
+                    clientLogger.visionAI.info("Pre-filling wardrobe form with smart defaults:", result.fallbackData);
+                    return result.fallbackData as Partial<ClothingItem>;
                 }
             }
 

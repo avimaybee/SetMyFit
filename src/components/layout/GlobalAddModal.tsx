@@ -140,13 +140,23 @@ export const GlobalAddModal: React.FC = () => {
             }
 
             if (!result.success) {
-                clientLogger.visionAI.warn(`AI vision service returned error: ${result.error || result.message}`, {
+                clientLogger.visionAI.warn(`AI vision service returned error: ${result.error || result.message} — Reason: ${result.reason || 'None'}`, {
                     reason: result.reason,
+                    isCreditsDepleted: result.isCreditsDepleted,
                     isKeySuspended: result.isKeySuspended,
                     elapsedMs,
                 });
-                if (result.isKeySuspended) {
+                if (result.isCreditsDepleted) {
+                    toast.error("Google Gemini API credits are depleted. Please add credits at ai.studio/projects or use a free-tier API key.", { duration: 8000 });
+                } else if (result.isKeySuspended) {
                     toast.error("Gemini API key is currently suspended. Please configure a valid key in Cloudflare secrets.", { duration: 6000 });
+                } else if (result.message) {
+                    toast.error(result.message, { duration: 5000 });
+                }
+
+                if (result.fallbackData) {
+                    clientLogger.visionAI.info("Pre-filling form with smart defaults:", result.fallbackData);
+                    return result.fallbackData as Partial<ClothingItem>;
                 }
             }
 

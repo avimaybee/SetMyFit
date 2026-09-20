@@ -50,26 +50,56 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
-    const isSuspended = errMsg.toLowerCase().includes('suspended') || errMsg.toLowerCase().includes('permission_denied') || errMsg.toLowerCase().includes('403');
-    const isRateLimited = errMsg.includes('429') || errMsg.toLowerCase().includes('resource_exhausted');
+    const isCreditsDepleted = errMsg.includes('402') || errMsg.toLowerCase().includes('prepayment credits') || errMsg.toLowerCase().includes('credits are depleted');
+    const isSuspended = errMsg.toLowerCase().includes('suspended') || errMsg.toLowerCase().includes('permission_denied') || errMsg.toLowerCase().includes('403') || errMsg.toLowerCase().includes('consumer_suspended');
+    const isRateLimited = !isCreditsDepleted && (errMsg.includes('429') || errMsg.toLowerCase().includes('resource_exhausted'));
 
     console.error('API /api/wardrobe/analyze error:', {
       error: errMsg,
+      isCreditsDepleted,
       isSuspended,
       isRateLimited,
     });
 
+    const fallbackData = {
+      name: 'New Wardrobe Piece',
+      category: 'Top' as ClothingType,
+      type: 'Top' as ClothingType,
+      color: 'Black',
+      color_hex: '#1A1A1A',
+      material: 'Cotton',
+      season_tags: ['spring', 'summer', 'autumn', 'winter'],
+      style_tags: ['casual', 'streetwear'],
+      insulation_value: 5,
+      pattern: 'Solid',
+      fit: 'Regular',
+      silhouette: 'Regular',
+      formality: 2,
+      texture: 'Smooth',
+      description: 'Auto-suggested piece (fill details manually if desired)',
+    };
+
     return NextResponse.json({
       success: false,
-      error: 'AI_VISION_UNAVAILABLE',
+      error: isCreditsDepleted
+        ? 'AI_PREPAYMENT_CREDITS_DEPLETED'
+        : isSuspended
+          ? 'AI_KEY_SUSPENDED'
+          : isRateLimited
+            ? 'AI_RATE_LIMITED'
+            : 'AI_VISION_UNAVAILABLE',
       reason: errMsg,
+      isCreditsDepleted,
       isKeySuspended: isSuspended,
       isRateLimited,
-      message: isSuspended
-        ? 'Gemini API key is suspended by Google. Update GEMINI_API_KEY in Cloudflare Worker secrets or .env.local.'
-        : isRateLimited
-          ? 'AI rate limit reached. Please wait a minute or enter details manually.'
-          : 'AI vision model unavailable right now. You can fill in details manually.',
+      message: isCreditsDepleted
+        ? 'Google Gemini API prepayment credits are depleted. Please top up credits at https://ai.studio/projects or create a free-tier API key in an unbilled project at https://aistudio.google.com/apikey.'
+        : isSuspended
+          ? 'Gemini API key is suspended by Google. Update GEMINI_API_KEY in Cloudflare Worker secrets or .env.local.'
+          : isRateLimited
+            ? 'AI rate limit reached. Please wait a minute or enter details manually.'
+            : 'AI vision model unavailable right now. You can fill in details manually.',
+      fallbackData,
       data: null,
     }, { status: 200 });
   }
