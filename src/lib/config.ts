@@ -65,7 +65,12 @@ export const weatherConfig = {
 export const aiConfig = {
   gemini: {
     apiKey: getEnvVar('GEMINI_API_KEY', false),
-    model: 'gemini-3.5-flash-lite',
+    // Frontier Stylist & Reasoning Engine
+    model: getEnvVar('AI_STYLIST_MODEL', false) || 'gemini-3.5-flash-lite',
+    // Micro-agent for fast vision ingestion, creative naming & tagging (Gemma 4 26B A4B MoE)
+    microModel: getEnvVar('AI_MICRO_MODEL', false) || 'gemma-4-26b-a4b-it',
+    // Frontier Dense fallback
+    denseModel: getEnvVar('AI_DENSE_MODEL', false) || 'gemma-4-31b-it',
   },
 
   // Learning parameters

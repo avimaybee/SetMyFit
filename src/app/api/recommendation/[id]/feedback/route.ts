@@ -85,7 +85,8 @@ export async function POST(
       const updatedPreferences = adjustPreferencesBasedOnFeedback(
         currentPreferences,
         items || [],
-        body.is_liked
+        body.is_liked,
+        body.reason
       );
 
       // Save updated preferences

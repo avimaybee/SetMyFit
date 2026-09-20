@@ -33,12 +33,16 @@ export async function POST(request: NextRequest) {
       category,
       type: category,
       color: analysis.detectedColor,
+      color_hex: analysis.detectedColorHex,
       material: analysis.detectedMaterial,
       season_tags: analysis.detectedSeason || [],
       style_tags: analysis.detectedStyleTags,
       insulation_value: analysis.detectedInsulation || 5,
       pattern: analysis.detectedPattern,
       fit: analysis.detectedFit,
+      silhouette: analysis.detectedSilhouette,
+      formality: analysis.detectedFormality,
+      texture: analysis.detectedTexture,
       description: analysis.detectedDescription
     };
 

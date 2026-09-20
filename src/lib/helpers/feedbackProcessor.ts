@@ -210,16 +210,10 @@ function mergePreferences(
     merged[key] = merged[key] * decayFactor;
   });
 
-  // Add new feedback
+  // Add new feedback with bounded clamp [-5, 5]
   Object.entries(feedback).forEach(([key, value]) => {
-    merged[key] = (merged[key] || 0) + value;
-  });
-
-  // Filter out very low scores
-  Object.keys(merged).forEach((key) => {
-    if (Math.abs(merged[key]) < 0.1) {
-      delete merged[key];
-    }
+    const raw = (merged[key] || 0) + value;
+    merged[key] = Math.max(-5, Math.min(5, Number(raw.toFixed(2))));
   });
 
   return merged;

@@ -84,16 +84,21 @@ const MODEL = () => config.ai.gemini.model;
 const clothingJsonSchema = {
   type: 'object',
   properties: {
-    name: { type: 'string', description: 'Creative short name, e.g. Vintage Acid Wash Tee' },
+    name: { type: 'string', description: 'Creative, fashionable, highly specific name (e.g. Acid-Wash Drop-Shoulder Boxy Tee, Pleated Wide-Leg Wool Trousers)' },
     category: { type: 'string', description: 'One of: Top, Bottom, Shoes, Outerwear, Accessory, Dress' },
     material: { type: 'string', description: 'One of: Cotton, Polyester, Wool, Silk, Leather, Denim, Linen, Synthetic, Gore-Tex, Other' },
-    color: { type: 'string', description: 'Main color name or hex' },
-    formality_insulation_value: { type: 'integer', description: 'Warmth 0-10 (0 naked, 10 arctic parka)', minimum: 0, maximum: 10 },
-    pattern: { type: 'string', description: 'e.g. Solid, Striped, Checkered, Graphic, Floral' },
-    fit: { type: 'string', description: 'e.g. Fitted, Regular, Relaxed, Oversized, Slim, Loose, One Size' },
-    season_tags: { type: 'array', items: { type: 'string' } },
+    color: { type: 'string', description: 'Main color name (e.g. Washed Charcoal, Olive Drab, Bone White)' },
+    dominant_color_hex: { type: 'string', description: 'Main dominant color hex code e.g. #2C3E50' },
+    silhouette: { type: 'string', description: 'One of: Fitted, Regular, Boxy, Oversized, Cropped, Wide-Leg, Straight, Tapered, Other' },
+    formality_score: { type: 'integer', description: 'Formality 1-5 (1=Lounge/Gym, 2=Everyday Casual, 3=Smart Casual, 4=Business Formal, 5=Black Tie)', minimum: 1, maximum: 5 },
+    insulation_value: { type: 'integer', description: 'Warmth 0-10 (0 sheer/naked, 5 regular cotton, 10 arctic parka)', minimum: 0, maximum: 10 },
+    pattern: { type: 'string', description: 'e.g. Solid, Striped, Checkered, Graphic, Floral, Plaid, Camo, Textured' },
+    fit: { type: 'string', description: 'e.g. Fitted, Regular, Relaxed, Oversized, Slim, Loose, Boxy, One Size' },
+    texture: { type: 'string', description: 'Surface finish: e.g. Smooth, Chunky Knit, Woven, Distressed, Matte, Glossy, Fleece' },
+    season_tags: { type: 'array', items: { type: 'string' }, description: 'Spring, Summer, Autumn, Winter' },
+    aesthetic_cores: { type: 'array', items: { type: 'string' }, description: 'e.g. Streetwear, Vintage, Minimalist, Gorpcore, Old Money, Cyberpunk, 90s Grunge' },
     style_tags: { type: 'array', items: { type: 'string' } },
-    description: { type: 'string', description: 'Short description of the item' },
+    description: { type: 'string', description: 'Short editorial description of the garment' },
   },
   required: ['name', 'category', 'material', 'color'],
 };
@@ -103,10 +108,15 @@ const clothingAnalysisZod = z.object({
   category: z.string().default('Accessory'),
   material: z.string().default('Other'),
   color: z.string().default('#000000'),
-  formality_insulation_value: z.number().min(0).max(10).default(5),
+  dominant_color_hex: z.string().optional(),
+  silhouette: z.string().default('Regular'),
+  formality_score: z.number().min(1).max(5).default(2),
+  insulation_value: z.number().min(0).max(10).default(5),
   pattern: z.string().optional(),
   fit: z.string().optional(),
+  texture: z.string().optional(),
   season_tags: z.array(z.string()).default([]),
+  aesthetic_cores: z.array(z.string()).default([]),
   style_tags: z.array(z.string()).default([]),
   description: z.string().optional(),
 });
@@ -163,9 +173,11 @@ const outfitValidationZod = z.object({
   problemItemName: z.string().default(''),
 });
 
+import { invokeMicroAgent } from '@/lib/ai/router';
+
 /**
- * Analyze a clothing item image to extract metadata
- * Used during onboarding to auto-populate item properties
+ * Analyze a clothing item image to extract metadata using Gemma 4 micro-agent
+ * (with automatic fallback to Gemini 3.5 Flash-Lite).
  */
 export async function analyzeClothingImage(
   base64ImageData: string,
@@ -181,56 +193,57 @@ export async function analyzeClothingImage(
   detectedInsulation?: number;
   detectedDescription?: string;
   detectedName?: string;
+  detectedSilhouette?: string;
+  detectedFormality?: number;
+  detectedColorHex?: string;
+  detectedTexture?: string;
+  detectedAestheticCores?: string[];
 }> {
-  const analysis = await withGeminiRetry(async () => {
-    const client = await getClient();
-    const response = await client.models.generateContent({
-      model: MODEL(),
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: `You are an expert fashion archivist. Analyze the image of the clothing item and extract metadata.
+  const analysis = await invokeMicroAgent<z.infer<typeof clothingAnalysisZod>>(
+    [
+      {
+        text: `You are an expert fashion archivist and creative garment cataloger. Analyze this clothing image and extract rich metadata.
 
 Rules:
-- "name": creative, short (e.g. 'Vintage Acid Wash Tee')
-- "category": exactly one of Top, Bottom, Shoes, Outerwear, Accessory, Dress
-- "material": exactly one of Cotton, Polyester, Wool, Silk, Leather, Denim, Linen, Synthetic, Gore-Tex, Other
-- "color": main color name or hex
-- "formality_insulation_value": warmth 0-10 (0 naked, 10 arctic parka)
-- "season_tags": any of Spring, Summer, Autumn, Winter (use all four when year-round)
-- "style_tags": lowercase vibes like casual, formal, sporty, vintage, modern, streetwear`,
-            },
-            { inlineData: { mimeType, data: base64ImageData } },
-          ],
-        },
-      ],
-      config: {
-        temperature: 0.4,
-        topP: 0.9,
-        maxOutputTokens: 1000,
-        responseMimeType: 'application/json',
-        responseJsonSchema: clothingJsonSchema as unknown as Schema,
+- "name": creative, authentic, highly specific garment name (e.g. 'Acid-Wash Drop-Shoulder Boxy Tee', 'Pleated Wide-Leg Wool Trousers', 'Vintage Distressed Leather Moto Jacket'). Avoid generic labels like 'T-shirt' or 'Pants'.
+- "category": exactly one of Top, Bottom, Shoes, Outerwear, Accessory, Dress.
+- "material": exactly one of Cotton, Polyester, Wool, Silk, Leather, Denim, Linen, Synthetic, Gore-Tex, Other.
+- "color": descriptive color name (e.g. Washed Charcoal, Olive Drab, Bone White).
+- "dominant_color_hex": hex code of dominant shade (e.g. #2C3E50).
+- "silhouette": exactly one of Fitted, Regular, Boxy, Oversized, Cropped, Wide-Leg, Straight, Tapered, Other.
+- "formality_score": 1-5 (1=Lounge/Gym, 2=Everyday Casual, 3=Smart Casual, 4=Business, 5=Black Tie).
+- "insulation_value": warmth 0-10 (0 sheer/summer, 5 medium cotton, 10 heavy winter parka).
+- "texture": surface finish e.g. Smooth, Chunky Knit, Woven, Distressed, Matte, Glossy, Fleece.
+- "season_tags": Spring, Summer, Autumn, Winter (include all 4 if all-season staple).
+- "aesthetic_cores": relevant aesthetics e.g. Streetwear, Vintage, Minimalist, Gorpcore, Old Money, Cyberpunk, 90s Grunge.
+- "style_tags": lowercase vibes like casual, relaxed, tailored, cozy, edgy, structured.`,
       },
-    });
-
-    const text = response.text?.trim() ?? '';
-    if (!text) throw new Error('Empty response from Gemini API');
-    return clothingAnalysisZod.parse(JSON.parse(text));
-  }, { maxRetries: 2 });
+      { inlineData: { mimeType, data: base64ImageData } },
+    ],
+    {
+      systemInstruction: 'You are a master fashion cataloger powered by Gemma 4. Output strictly valid JSON matching the schema.',
+      temperature: 0.3,
+      responseJsonSchema: clothingJsonSchema,
+      zodSchema: clothingAnalysisZod,
+    }
+  );
 
   return {
     detectedType: normalizeCategoryLabel(analysis.category),
     detectedColor: analysis.color || '#000000',
     detectedMaterial: normalizeMaterialLabel(analysis.material),
-    detectedStyleTags: analysis.style_tags || [],
+    detectedStyleTags: Array.from(new Set([...analysis.style_tags, ...analysis.aesthetic_cores])),
     detectedPattern: analysis.pattern,
-    detectedFit: analysis.fit,
+    detectedFit: analysis.fit || analysis.silhouette,
     detectedSeason: analysis.season_tags,
-    detectedInsulation: analysis.formality_insulation_value,
+    detectedInsulation: analysis.insulation_value,
     detectedDescription: analysis.description,
     detectedName: analysis.name,
+    detectedSilhouette: analysis.silhouette,
+    detectedFormality: analysis.formality_score,
+    detectedColorHex: analysis.dominant_color_hex,
+    detectedTexture: analysis.texture,
+    detectedAestheticCores: analysis.aesthetic_cores,
   };
 }
 

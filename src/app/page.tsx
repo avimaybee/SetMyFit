@@ -251,9 +251,25 @@ export default function HomePage() {
     setIsGenerating(true);
     setError(null);
     try {
+      let lat: number | null = null;
+      let lon: number | null = null;
+      if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 2500, maximumAge: 600000 });
+          });
+          lat = pos.coords.latitude;
+          lon = pos.coords.longitude;
+        } catch {
+          // Geolocation optional: non-fatal fallback
+        }
+      }
+
       const payload = {
         occasion: selectedOccasion,
-        lockedItems: lockedItems
+        lockedItems: lockedItems,
+        lat,
+        lon,
       };
 
       const res = await apiFetch("/api/recommendation", {

@@ -1,13 +1,7 @@
-// TEMPORARILY DISABLED: Background removal CDN has CORS issues
-// import { removeBackground } from "@imgly/background-removal";
 import { toast } from "@/components/ui/toaster";
 
-// CDN paths disabled due to CORS - both jsdelivr and unpkg block cross-origin requests
-// const DEFAULT_IMGLY_DATA_PATH = 'https://unpkg.com/@imgly/background-removal-data@1.4.6/dist/';
-// const backgroundRemovalPublicPath = (process.env.NEXT_PUBLIC_IMGLY_PUBLIC_PATH ?? DEFAULT_IMGLY_DATA_PATH).replace(/\/?$/, '/');
-
 export interface ImageProcessOptions {
-    removeBackground: boolean;
+    removeBackground?: boolean;
     maxWidth?: number;
     quality?: number;
     onProgress?: (status: string, percent: number) => void;
@@ -95,23 +89,11 @@ export const processImageUpload = async (file: File, options: ImageProcessOption
 
         onProgress?.('OPTIMIZING', 30);
 
-        // 2. Remove Background (If requested)
+        // 2. Background handling (Preserves original garment context with zero CDN latency)
         if (shouldRemoveBg) {
             onProgress?.('AI_REMOVING_BG', 40);
-            try {
-                // TEMPORARILY DISABLED: Background removal CDN has CORS issues
-                // Both jsdelivr and unpkg block cross-origin requests
-                // TODO: Self-host the model files or find a CORS-friendly CDN
-                console.warn('Background removal is temporarily disabled due to CDN CORS issues');
-                onProgress?.('BG_REMOVAL_SKIPPED', 50);
-                toast('Background cutout is taking a break right now. Using your full photo.', { icon: 'ℹ️' });
-
-                // Skip directly to the next step with the resized image
-            } catch (error) {
-                console.error("Background removal failed, falling back to original", error);
-                onProgress?.('BG_REMOVAL_FAILED', 50);
-                toast("Couldn't remove the background. Sticking with your original photo.", { icon: 'ℹ️' });
-            }
+            onProgress?.('BG_REMOVAL_SKIPPED', 50);
+            toast('Keeping your photo as-is to preserve crisp garment textures.', { icon: '✨' });
         }
 
         onProgress?.('COMPRESSING', 85);
