@@ -47,7 +47,9 @@ export default function SignInPage() {
     // Returning users land based on profile: no profile = onboarding
     try {
       const res = await apiFetch("/api/settings/profile");
-      if (res.status === 404) {
+      const json = await res.json().catch(() => null);
+      const hasProfile = json && json.data !== null && json.hasProfile !== false;
+      if (!hasProfile || res.status === 404) {
         toast.success("Let's set up your style profile real quick.");
         window.location.href = "/onboarding";
         return;

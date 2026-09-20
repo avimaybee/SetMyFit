@@ -1,4 +1,5 @@
 import { toast } from "@/components/ui/toaster";
+import { clientLogger } from "@/lib/clientLogger";
 
 export interface ImageProcessOptions {
     removeBackground?: boolean;
@@ -20,9 +21,11 @@ const resizeImage = async (source: Blob | string, maxWidth: number): Promise<Blo
             let height = img.height;
 
             if (width > maxWidth) {
-                height *= maxWidth / width;
+                height = Math.round(height * (maxWidth / width));
                 width = maxWidth;
             }
+
+            clientLogger.image.info(`Resizing canvas: ${img.width}x${img.height} → ${width}x${height}`);
 
             const canvas = document.createElement('canvas');
             canvas.width = width;
@@ -36,11 +39,10 @@ const resizeImage = async (source: Blob | string, maxWidth: number): Promise<Blo
 
             ctx.drawImage(img, 0, 0, width, height);
 
-            // Export as Blob
             canvas.toBlob((blob) => {
                 if (blob) resolve(blob);
                 else reject(new Error("Canvas blob conversion failed"));
-            }, 'image/png'); // Intermediate PNG
+            }, 'image/png');
         };
 
         img.onerror = (err) => reject(err);
@@ -65,8 +67,9 @@ const convertToWebP = async (source: Blob, quality: number): Promise<string> => 
             canvas.height = img.height;
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0);
-            // WebP Compression
-            resolve(canvas.toDataURL('image/webp', quality));
+            const dataUrl = canvas.toDataURL('image/webp', quality);
+            clientLogger.image.info(`WebP conversion complete: ${Math.round(dataUrl.length / 1024)} KB base64`);
+            resolve(dataUrl);
         };
         img.onerror = reject;
         img.src = URL.createObjectURL(source);
@@ -80,6 +83,14 @@ export const processImageUpload = async (file: File, options: ImageProcessOption
         quality = 0.8,
         onProgress
     } = options;
+
+    clientLogger.image.info(`processImageUpload invoked for "${file.name}"`, {
+        sizeBytes: file.size,
+        sizeKb: Math.round(file.size / 1024),
+        type: file.type,
+        maxWidth,
+        quality,
+    });
 
     try {
         onProgress?.('OPTIMIZING', 10);
@@ -102,10 +113,13 @@ export const processImageUpload = async (file: File, options: ImageProcessOption
         const finalBase64 = await convertToWebP(processingBlob, quality);
 
         onProgress?.('DONE', 100);
+        clientLogger.image.success(`Image pipeline succeeded for "${file.name}"`, {
+            outputLength: finalBase64.length,
+        });
         return finalBase64;
 
     } catch (error) {
-        console.error("Image pipeline error:", error);
+        clientLogger.image.error("Image pipeline error:", error);
         throw error;
     }
 };

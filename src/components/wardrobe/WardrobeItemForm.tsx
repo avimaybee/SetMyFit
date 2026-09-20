@@ -6,6 +6,7 @@ import { ClothingItem, ClothingType, ClothingMaterial, Season } from '@/types/re
 import { processImageUpload } from '@/lib/imageProcessor';
 import { dataUrlToFile } from '@/lib/utils';
 import { toast } from '@/components/ui/toaster';
+import { clientLogger } from '@/lib/clientLogger';
 
 interface WardrobeItemFormProps {
     isOpen: boolean;
@@ -129,7 +130,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
     const handleSaveItem = (e: React.FormEvent) => {
         e.preventDefault();
         const itemPayload: Partial<ClothingItem> = {
-            name: newItemName.trim(),
+            name: newItemName.trim() || 'Wardrobe Item',
             category: newItemCategory,
             material: newItemMaterial,
             insulation_value: newItemInsulation,
@@ -140,6 +141,12 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
             fit: newItemFit,
             dress_code: ['Casual'],
         };
+
+        clientLogger.wardrobe.info('Saving garment to wardrobe:', {
+            isUpdate: Boolean(initialItem),
+            payload: itemPayload,
+            hasProcessedFile: Boolean(processedFile),
+        });
 
         const resolvedFile = processedFile ?? undefined;
 
@@ -154,6 +161,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
+            clientLogger.image.info('File selected via file picker:', { name: e.target.files[0].name });
             processFile(e.target.files[0]);
         }
     };
@@ -162,6 +170,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
         e.preventDefault();
         e.stopPropagation();
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            clientLogger.image.info('File dropped onto dropzone:', { name: e.dataTransfer.files[0].name });
             processFile(e.dataTransfer.files[0]);
         }
     };
@@ -172,7 +181,14 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
     };
 
     const runAnalysis = async (optimizedBase64: string, currentJobId: number) => {
-        if (!onAnalyzeImage || initialItem) return;
+        if (!onAnalyzeImage) {
+            clientLogger.visionAI.warn('onAnalyzeImage callback not provided to WardrobeItemForm');
+            return;
+        }
+        if (initialItem) {
+            clientLogger.visionAI.info('Skipping AI auto-tagging for existing item edit');
+            return;
+        }
 
         const controller = new AbortController();
         analysisAbortControllerRef.current = controller;
@@ -181,22 +197,27 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
             return;
         }
 
+        clientLogger.visionAI.info(`Initiating vision auto-scan [Job #${currentJobId}]...`);
         setIsAnalyzing(true);
 
         try {
             const result = await onAnalyzeImage(optimizedBase64, { signal: controller.signal });
 
             if (controller.signal.aborted) {
+                clientLogger.visionAI.warn(`Vision analysis aborted [Job #${currentJobId}]`);
                 return;
             }
 
             if (!result) {
-                toast("Couldn't auto-tag this piece right now. You can fill the details in below.");
+                clientLogger.visionAI.warn(`Vision analysis returned no attributes [Job #${currentJobId}]. Manual form fill enabled.`);
+                toast("Stylist AI is taking a quick break. You can fill in the garment details below.", { icon: '✍️' });
                 return;
             }
             if (!isMountedRef.current || processingJobIdRef.current !== currentJobId) {
                 return;
             }
+
+            clientLogger.visionAI.success(`Garment attributes extracted [Job #${currentJobId}]:`, result);
             if (result.name) setNewItemName(result.name);
             if (result.category) setNewItemCategory(result.category);
             if (result.material) setNewItemMaterial(result.material as ClothingMaterial);
@@ -207,7 +228,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
             if (result.fit) setNewItemFit(result.fit);
         } catch (error) {
             if (!controller.signal.aborted) {
-                console.error('Error analyzing image:', error);
+                clientLogger.visionAI.error(`Vision analysis failed with error [Job #${currentJobId}]:`, error);
                 toast.error("Auto-tagging hit a snag. Drop the details in manually.");
             }
         } finally {
@@ -224,6 +245,12 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
         const currentJobId = ++processingJobIdRef.current;
         const originalName = file.name || 'wardrobe-item.webp';
 
+        clientLogger.image.info(`Starting image processing pipeline [Job #${currentJobId}]`, {
+            fileName: file.name,
+            fileSizeKb: Math.round(file.size / 1024),
+            fileType: file.type,
+        });
+
         // Cancel any ongoing analysis or file reads tied to previous uploads
         if (analysisAbortControllerRef.current) {
             analysisAbortControllerRef.current.abort();
@@ -238,6 +265,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
             if (!isMountedRef.current || processingJobIdRef.current !== currentJobId) {
                 return;
             }
+            clientLogger.image.info(`Image processing: ${status} ${percent}% [Job #${currentJobId}]`);
             setProcessStatus(`${status} ${percent}%`);
         };
 
@@ -253,6 +281,11 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                 return;
             }
 
+            clientLogger.image.success(`Image optimized to WebP [Job #${currentJobId}]`, {
+                originalKb: Math.round(file.size / 1024),
+                base64Length: optimizedBase64.length,
+            });
+
             let previewFile: File | null = null;
             try {
                 const optimizedFile = dataUrlToFile(optimizedBase64, originalName);
@@ -261,7 +294,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                     setProcessedFile(optimizedFile);
                 }
             } catch (conversionError) {
-                console.error('Failed to convert optimized image to file', conversionError);
+                clientLogger.image.warn('Failed to convert optimized base64 to File object, using raw file', conversionError);
                 previewFile = file;
                 if (isMountedRef.current && processingJobIdRef.current === currentJobId) {
                     setProcessedFile(file);
@@ -287,7 +320,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                 return;
             }
 
-            console.error(error);
+            clientLogger.image.error(`Image processing pipeline failed [Job #${currentJobId}]:`, error);
             setIsProcessingImage(false);
 
             if (isMountedRef.current && processingJobIdRef.current === currentJobId) {
@@ -300,7 +333,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                 setProcessStatus('IDLE');
             }
         }
-    }
+    };
 
     const triggerFileInput = () => {
         fileInputRef.current?.click();

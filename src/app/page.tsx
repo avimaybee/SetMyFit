@@ -10,6 +10,7 @@ import { OutfitSkeleton } from "../components/ui/skeletons";
 import { toast } from "../components/ui/toaster";
 import { MissionControl } from "../components/mission-control";
 import { SystemMsg } from "../components/system-msg";
+import { clientLogger } from "@/lib/clientLogger";
 
 type RecommendationApiResponse = {
   success: boolean;
@@ -177,15 +178,20 @@ export default function HomePage() {
 
   const fetchWardrobe = useCallback(async () => {
     setIsWardrobeLoading(true);
+    clientLogger.wardrobe.info("Home dashboard fetching wardrobe...");
     try {
       const res = await apiFetch('/api/wardrobe');
       if (res.status === 401) {
+        clientLogger.auth.warn("Unauthorized on wardrobe fetch, redirecting to sign-in");
         router.push('/auth/sign-in');
         return;
       }
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         const typed = json.data as IClothingItem[];
+        clientLogger.wardrobe.success(`Wardrobe synchronized: ${typed.length} items available`, {
+          categories: typed.map(t => t.type),
+        });
         setRawWardrobeItems(typed);
         setAllWardrobeItems(typed.map(mapClothingItem));
         // Prune locks pointing at deleted items so counts/ reinjection stay valid.
@@ -193,7 +199,7 @@ export default function HomePage() {
         setLockedItems((prev) => prev.filter((id) => validIds.has(id)));
       }
     } catch (e) {
-      console.error("Failed to fetch wardrobe", e);
+      clientLogger.wardrobe.error("Failed to fetch wardrobe on home dashboard:", e);
     } finally {
       setIsWardrobeLoading(false);
     }
@@ -212,7 +218,11 @@ export default function HomePage() {
       try {
         const res = await apiFetch('/api/stats');
         const json = await res.json().catch(() => ({}));
-        if (res.ok && json.success) setOutfitCount(Number(json.data?.totalOutfits ?? 0));
+        if (res.ok && json.success) {
+          const count = Number(json.data?.totalOutfits ?? 0);
+          clientLogger.stats.info(`Stats loaded: ${count} total outfits logged`);
+          setOutfitCount(count);
+        }
       } catch {
         // Non-fatal widget data.
       }
@@ -220,6 +230,7 @@ export default function HomePage() {
         const res = await apiFetch('/api/outfits/history?limit=1');
         const json = await res.json().catch(() => ({}));
         if (res.ok && json.success && Array.isArray(json.data) && json.data[0]?.outfit_date) {
+          clientLogger.stats.info(`Recent outfit history: ${json.data[0].outfit_date}`);
           setLastOutfitDate(json.data[0].outfit_date);
         }
       } catch {
@@ -229,16 +240,17 @@ export default function HomePage() {
   }, [isAuthenticated]);
 
   const emitClientLog = useCallback((message: string, context?: Record<string, unknown>) => {
-    if (context) console.info(`[setmyfit] ${message}`, context);
-    else console.info(`[setmyfit] ${message}`);
+    clientLogger.stylist.info(message, context);
   }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthChange((fbUser) => {
       if (fbUser) {
+        clientLogger.auth.info(`Home dashboard session active for uid: ${fbUser.uid}`);
         setIsAuthenticated(true);
         setUserId(fbUser.uid);
       } else {
+        clientLogger.auth.info('Home dashboard has no active user session');
         setIsAuthenticated(false);
         setUserId(null);
       }
@@ -250,6 +262,10 @@ export default function HomePage() {
     setHasBootstrappedContent(true);
     setIsGenerating(true);
     setError(null);
+    clientLogger.stylist.info("Initiating outfit recommendation request...", {
+      occasion: selectedOccasion,
+      lockedItemIds: lockedItems,
+    });
     try {
       let lat: number | null = null;
       let lon: number | null = null;
@@ -260,8 +276,9 @@ export default function HomePage() {
           });
           lat = pos.coords.latitude;
           lon = pos.coords.longitude;
-        } catch {
-          // Geolocation optional: non-fatal fallback
+          clientLogger.weather.info(`Browser coordinates acquired: ${lat.toFixed(3)}, ${lon.toFixed(3)}`);
+        } catch (geoErr) {
+          clientLogger.weather.info("Browser geolocation unavailable or denied; using regional fallback", geoErr);
         }
       }
 
@@ -279,6 +296,7 @@ export default function HomePage() {
       });
 
       if (res.status === 401) {
+        clientLogger.auth.warn("Session expired on recommendation request");
         setError("Please sign in to get outfit recommendations");
         router.push('/auth/sign-in');
         return;
@@ -287,6 +305,16 @@ export default function HomePage() {
       const data: RecommendationApiResponse = await res.json();
 
       if (data.success && data.data) {
+        const outfit = data.data.recommendation.outfit || [];
+        clientLogger.stylist.success("Anchor-and-Orbit stylist result received!", {
+          outfitItemCount: outfit.length,
+          itemNames: outfit.map(i => i.name),
+          editorialReasoning: data.data.recommendation.reasoning,
+          confidenceScore: data.data.recommendation.confidence_score,
+          weatherContext: data.data.weather,
+          diagnostics: data.diagnostics,
+        });
+
         setRecommendationData(data.data);
         try {
           sessionStorage.setItem(storageKey("lastRecommendation"), JSON.stringify(data.data));
@@ -295,14 +323,15 @@ export default function HomePage() {
           // Storage full/unavailable — non-fatal.
         }
       } else {
+        clientLogger.stylist.warn("Recommendation API returned non-success or empty wardrobe:", data);
         setError(data.message || "Failed to fetch recommendation");
         if (data.needsWardrobe) {
-          // Don't treat this as an error - user just needs to add items
-          setHasBootstrappedContent(true);  // Stop showing skeleton
+          setHasBootstrappedContent(true);
           toast("Your closet needs a few more pieces before we can style full fits.");
         }
       }
-    } catch (_err) {
+    } catch (err) {
+      clientLogger.stylist.error("Recommendation network or execution failure:", err);
       setError("An error occurred while fetching recommendation");
     } finally {
       setIsGenerating(false);
@@ -361,6 +390,7 @@ export default function HomePage() {
       toast.error("Generate a fit first before rating it.");
       return;
     }
+    clientLogger.feedback.info(`Submitting outfit feedback [recId=${recId}]:`, { isLiked, reason });
     try {
       const res = await apiFetch(`/api/recommendation/${recId}/feedback`, {
         method: 'POST',
@@ -371,10 +401,12 @@ export default function HomePage() {
       if (!res.ok || !json.success) {
         throw new Error(json.error || 'Failed to record feedback');
       }
+      clientLogger.feedback.success(`Feedback recorded for recId=${recId}: ${isLiked ? 'Thumbs Up' : 'Thumbs Down'}`);
       toast.success(isLiked ? "Liked! Future picks will lean this way." : "Noted — steering away from this.");
       emitClientLog('recommendation:feedback:success', { recId, isLiked });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
+      clientLogger.feedback.error(`Feedback submission failed for recId=${recId}:`, error);
       toast.error("Couldn't save that feedback. Try once more.");
       emitClientLog('recommendation:feedback:error', { error: message });
       throw error;
@@ -389,32 +421,29 @@ export default function HomePage() {
 
   let parsedReasoning = {
     weatherMatch: recommendationData?.recommendation?.reasoning || "AI Optimized",
-    totalInsulation: 0,
-    layeringStrategy: "AI Optimized",
-    colorAnalysis: "",
-    occasionFit: ""
+    layeringStrategy: "Optimized for day",
+    colorAnalysis: "Harmonized palette",
+    occasionFit: selectedOccasion,
   };
 
   if (recommendationData?.recommendation?.detailed_reasoning) {
     try {
-      const detailed = JSON.parse(recommendationData.recommendation.detailed_reasoning);
-      parsedReasoning = {
-        ...parsedReasoning,
-        ...detailed
-      };
-    } catch (e) {
-      console.error("Failed to parse detailed reasoning", e);
-      parsedReasoning.layeringStrategy = recommendationData.recommendation.detailed_reasoning;
+      const parsed = JSON.parse(recommendationData.recommendation.detailed_reasoning);
+      parsedReasoning = { ...parsedReasoning, ...parsed };
+    } catch {
+      // Fallback
     }
   }
 
   const handleOutfitChange = (newItems: ClothingItem[]) => {
+    clientLogger.stylist.info("Manual outfit reconfiguration triggered:", {
+      selectedItemNames: newItems.map(i => i.name),
+    });
     // Map UI items back to IClothingItem using rawWardrobeItems
     const newOutfitRaw = newItems.map(uiItem => {
       const raw = rawWardrobeItems.find(r => r.id.toString() === uiItem.id);
       if (raw) return raw;
-      // Fallback if not found (shouldn't happen if data is consistent)
-      console.warn(`Could not find raw item for ${uiItem.id}`);
+      clientLogger.stylist.warn(`Could not find raw item for UI item id=${uiItem.id}`);
       return null;
     }).filter(Boolean) as IClothingItem[];
 

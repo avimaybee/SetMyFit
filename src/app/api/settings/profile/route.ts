@@ -14,13 +14,27 @@ export async function GET(request: NextRequest): Promise<NextResponse<ApiRespons
 
     const row = await dbFirst('SELECT * FROM profiles WHERE id = ?', [user.uid]);
     if (!row) {
-      return NextResponse.json({ success: false, error: 'Profile not found' }, { status: 404 });
+      return NextResponse.json({
+        success: true,
+        data: null,
+        hasProfile: false,
+        message: 'No profile configured yet',
+      } as unknown as ApiResponse<Profile>, { status: 200 });
     }
 
-    return NextResponse.json({ success: true, data: mapProfile(row) as unknown as Profile });
+    return NextResponse.json({
+      success: true,
+      data: mapProfile(row) as unknown as Profile,
+      hasProfile: true,
+    } as unknown as ApiResponse<Profile>);
   } catch (error) {
-    console.warn('Error checking profile, treating as not found:', error);
-    return NextResponse.json({ success: false, error: 'Profile not found' }, { status: 404 });
+    console.warn('Error checking profile:', error);
+    return NextResponse.json({
+      success: true,
+      data: null,
+      hasProfile: false,
+      message: 'Profile check fallback',
+    } as unknown as ApiResponse<Profile>, { status: 200 });
   }
 }
 
@@ -51,7 +65,16 @@ export async function PUT(request: NextRequest): Promise<NextResponse<ApiRespons
     );
 
     if (!row) {
-      return NextResponse.json({ success: false, error: 'Profile not found' }, { status: 404 });
+      const inserted = await dbFirst(
+        `INSERT INTO profiles (id, name, region, full_body_model_url, preferences, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+        [user.uid, body.name ?? null, body.region ?? null, body.full_body_model_url ?? null, toJson(body.preferences || {}), nowIso(), nowIso()]
+      );
+      return NextResponse.json({
+        success: true,
+        data: (inserted ? mapProfile(inserted) : null) as unknown as Profile,
+        message: 'Profile created successfully',
+      });
     }
 
     return NextResponse.json({

@@ -11,6 +11,8 @@ import { FirebaseConfigError } from '@/components/auth/ConfigError';
 import { useAddItem } from '@/contexts/AddItemContext';
 import { GlobalAddModal } from './GlobalAddModal';
 
+import { clientLogger } from '@/lib/clientLogger';
+
 interface LayoutProps {
     children: React.ReactNode;
 }
@@ -24,33 +26,44 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
 
     useEffect(() => {
         if (fbConfig !== 'ready') return;
+        clientLogger.auth.info('MainLayout auth listener initialized', { pathname });
         // Global auth gate: redirect signed-out users, refresh the
         // session cookie, and send users without a profile to onboarding.
         const unsubscribe = onAuthChange(async (fbUser) => {
             const onAuthPage = pathname.startsWith('/auth');
             if (!fbUser) {
+                clientLogger.auth.info('No active Firebase user session detected');
                 setUserEmail("USER_01");
-                // Clear a potentially stale cookie so middleware and Firebase
-                // can't disagree and ping-pong between / and /auth/sign-in.
                 clearSession().catch(() => undefined);
                 if (!onAuthPage && pathname !== '/onboarding') {
+                    clientLogger.auth.info('Redirecting unauthenticated user to /auth/sign-in');
                     router.push('/auth/sign-in');
                 }
                 return;
             }
-            setUserEmail(fbUser.email?.split('@')[0] ?? "USER_01");
+
+            const emailHandle = fbUser.email?.split('@')[0] ?? "USER_01";
+            clientLogger.auth.success(`Firebase user authenticated: ${fbUser.email}`, { uid: fbUser.uid });
+            setUserEmail(emailHandle);
             await persistSession().catch(() => false);
+
             if (!onAuthPage && pathname !== '/onboarding') {
                 try {
                     const res = await apiFetch('/api/settings/profile');
                     if (res.status === 401) {
+                        clientLogger.auth.warn('Session unauthorized on profile check, redirecting to sign-in');
                         router.push('/auth/sign-in');
-                    } else if (res.status === 404) {
-                        router.push('/onboarding');
+                    } else {
+                        const json = await res.json().catch(() => null);
+                        const hasProfile = json && json.data !== null && json.hasProfile !== false;
+                        clientLogger.profile.info('Profile verification result:', { hasProfile, userId: fbUser.uid });
+                        if (!hasProfile || res.status === 404) {
+                            clientLogger.profile.warn('User has no active profile, redirecting to /onboarding');
+                            router.push('/onboarding');
+                        }
                     }
-                    // Other errors (500/network): stay — pages surface their own errors.
-                } catch {
-                    // Ignore — pages surface their own errors.
+                } catch (err) {
+                    clientLogger.profile.warn('Profile check failed gracefully:', err);
                 }
             }
         });

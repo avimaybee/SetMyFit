@@ -49,26 +49,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, data: mappedData });
 
   } catch (error) {
-    console.error('Error analyzing image:', error);
-    // Return partial success with defaults - don't fail the whole request
-    // This allows the user to still fill in details manually
-    return NextResponse.json({
-      success: true,
-      data: {
-        name: 'New Item',
-        category: 'Accessory',
-        type: 'Accessory',
-        color: '',
-        material: 'Other',
-        season_tags: [],
-        style_tags: [],
-        insulation_value: 5,
-        pattern: 'Solid',
-        fit: 'Regular',
-      },
-      partial: true,
-      message: 'AI analysis unavailable. Please fill in details manually.'
+    const errMsg = error instanceof Error ? error.message : String(error);
+    const isSuspended = errMsg.toLowerCase().includes('suspended') || errMsg.toLowerCase().includes('permission_denied') || errMsg.toLowerCase().includes('403');
+    const isRateLimited = errMsg.includes('429') || errMsg.toLowerCase().includes('resource_exhausted');
+
+    console.error('API /api/wardrobe/analyze error:', {
+      error: errMsg,
+      isSuspended,
+      isRateLimited,
     });
+
+    return NextResponse.json({
+      success: false,
+      error: 'AI_VISION_UNAVAILABLE',
+      reason: errMsg,
+      isKeySuspended: isSuspended,
+      isRateLimited,
+      message: isSuspended
+        ? 'Gemini API key is suspended by Google. Update GEMINI_API_KEY in Cloudflare Worker secrets or .env.local.'
+        : isRateLimited
+          ? 'AI rate limit reached. Please wait a minute or enter details manually.'
+          : 'AI vision model unavailable right now. You can fill in details manually.',
+      data: null,
+    }, { status: 200 });
   }
 }
 

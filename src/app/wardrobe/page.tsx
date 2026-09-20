@@ -11,6 +11,7 @@ import { toast } from "@/components/ui/toaster";
 import { useAddItem } from "@/contexts/AddItemContext";
 import { dataUrlToFile, parseDataUrl } from "@/lib/utils";
 import { ListSkeleton } from "@/components/ui/skeletons";
+import { clientLogger } from "@/lib/clientLogger";
 
 export default function WardrobePage() {
     const [items, setItems] = useState<ClothingItem[]>([]);
@@ -22,14 +23,19 @@ export default function WardrobePage() {
     const favoriteInFlightRef = useRef<Set<string>>(new Set());
 
     const fetchWardrobe = useCallback(async () => {
+        clientLogger.wardrobe.info("Fetching user wardrobe from /api/wardrobe...");
         try {
             setLoading(true);
             setLoadFailed(false);
             const fbUser = await currentUser();
-            if (!fbUser) return;
+            if (!fbUser) {
+                clientLogger.wardrobe.warn("No logged-in user found while fetching wardrobe");
+                return;
+            }
 
             const response = await apiFetch("/api/wardrobe");
             if (response.status === 401) {
+                clientLogger.wardrobe.warn("Session expired on wardrobe fetch");
                 toast.error("Your session timed out. Log back in real quick.");
                 return;
             }
@@ -41,7 +47,7 @@ export default function WardrobePage() {
                     id: item.id.toString(),
                     name: item.name,
                     category: mapDbTypeToUiCategory(item.type),
-                    type: item.type, // Keep original type
+                    type: item.type,
                     image_url: item.image_url || "",
                     color: item.color || "Unknown",
                     style_tags: (item.style_tags || []) as string[],
@@ -54,10 +60,16 @@ export default function WardrobePage() {
                     is_favorite: item.favorite || false,
                     created_at: item.created_at
                 }));
+                clientLogger.wardrobe.success(`Wardrobe loaded successfully with ${mappedItems.length} items`, {
+                    itemCountsByCategory: mappedItems.reduce((acc, i) => {
+                        acc[i.category] = (acc[i.category] || 0) + 1;
+                        return acc;
+                    }, {} as Record<string, number>),
+                });
                 setItems(mappedItems);
             }
         } catch (err) {
-            console.error("Error fetching wardrobe:", err);
+            clientLogger.wardrobe.error("Error fetching wardrobe items:", err);
             setLoadFailed(true);
             toast.error("Couldn't pull up your closet. Check your connection or refresh.");
         } finally {
@@ -247,13 +259,15 @@ export default function WardrobePage() {
     const handleDelete = async (id: string) => {
         // Snapshot for revert: the API may fail after we optimistically remove.
         const snapshot = items;
+        clientLogger.wardrobe.warn(`Deleting wardrobe item [id=${id}]`);
         setItems(prev => prev.filter(i => i.id !== id));
         try {
             const response = await apiFetch(`/api/wardrobe/${id}`, { method: "DELETE" });
             if (!response.ok) throw new Error("Failed to delete item");
+            clientLogger.wardrobe.success(`Successfully deleted item [id=${id}]`);
             toast.success("Removed from your closet.");
         } catch (err) {
-            console.error("Error deleting item:", err);
+            clientLogger.wardrobe.error(`Failed to delete item [id=${id}]:`, err);
             setItems(snapshot);
             toast.error("Couldn't remove this item. Try again.");
         }
@@ -267,6 +281,8 @@ export default function WardrobePage() {
         const next = !item.is_favorite;
         favoriteInFlightRef.current.add(id);
 
+        clientLogger.wardrobe.info(`Toggling favorite for item "${item.name}" [id=${id}] → ${next}`);
+
         // Optimistic update
         setItems(prev => prev.map(i => i.id === id ? { ...i, is_favorite: next } : i));
 
@@ -277,8 +293,9 @@ export default function WardrobePage() {
                 body: JSON.stringify({ is_favorite: next })
             });
             if (!response.ok) throw new Error("Failed to update favorite status");
+            clientLogger.wardrobe.success(`Favorite status saved for "${item.name}"`);
         } catch (err) {
-            console.error("Error updating favorite:", err);
+            clientLogger.wardrobe.error(`Failed to toggle favorite for [id=${id}]:`, err);
             // Revert
             setItems(prev => prev.map(i => i.id === id ? { ...i, is_favorite: item.is_favorite } : i));
             toast.error("Couldn't update favorite. Try again.");
@@ -288,6 +305,11 @@ export default function WardrobePage() {
     };
 
     const handleAnalyzeImage = async (base64: string, options?: { signal?: AbortSignal }): Promise<Partial<ClothingItem> | null> => {
+        clientLogger.visionAI.info('Wardrobe page dispatching image for analysis', {
+            base64Length: base64.length,
+            approxKb: Math.round(base64.length / 1024),
+        });
+        const startTime = performance.now();
         try {
             const { base64: payload, mimeType } = parseDataUrl(base64, "image/webp");
             const response = await apiFetch("/api/wardrobe/analyze", {
@@ -297,15 +319,33 @@ export default function WardrobePage() {
                 signal: options?.signal
             });
 
-            if (!response.ok) throw new Error("Analysis failed");
+            const elapsedMs = Math.round(performance.now() - startTime);
+
+            if (!response.ok) {
+                clientLogger.visionAI.error(`Vision analysis HTTP error: ${response.status}`, { elapsedMs });
+                throw new Error("Analysis failed");
+            }
 
             const result = await response.json();
             if (result.success && result.data) {
+                clientLogger.visionAI.success(`Vision analysis completed in ${elapsedMs}ms:`, result.data);
                 return result.data as Partial<ClothingItem>;
             }
+
+            if (!result.success) {
+                clientLogger.visionAI.warn(`AI vision service returned failure (${result.error}):`, {
+                    reason: result.reason,
+                    isKeySuspended: result.isKeySuspended,
+                    elapsedMs,
+                });
+                if (result.isKeySuspended) {
+                    toast.error("Gemini API key is suspended. Update key in Cloudflare secrets or enter details manually.", { duration: 6000 });
+                }
+            }
+
             return null;
         } catch (error) {
-            console.error("Error analyzing image:", error);
+            clientLogger.visionAI.error("Error analyzing wardrobe image:", error);
             toast.error("Stylist couldn't scan that photo. You can fill details manually.");
             return null;
         }

@@ -10,6 +10,7 @@ import { ClothingItem, ClothingType } from '@/types/retro';
 import { toast } from '@/components/ui/toaster';
 import { useAddItem } from '@/contexts/AddItemContext';
 import { dataUrlToFile, parseDataUrl } from '@/lib/utils';
+import { clientLogger } from '@/lib/clientLogger';
 
 export const GlobalAddModal: React.FC = () => {
     const pathname = usePathname();
@@ -111,6 +112,11 @@ export const GlobalAddModal: React.FC = () => {
     };
 
     const handleAnalyzeImage = async (base64: string, options?: { signal?: AbortSignal }): Promise<Partial<ClothingItem> | null> => {
+        clientLogger.visionAI.info('Dispatching image to /api/wardrobe/analyze', {
+            dataUrlLength: base64.length,
+            approxKb: Math.round(base64.length / 1024),
+        });
+        const startTime = performance.now();
         try {
             const { base64: payload, mimeType } = parseDataUrl(base64, 'image/webp');
             const response = await apiFetch("/api/wardrobe/analyze", {
@@ -120,16 +126,33 @@ export const GlobalAddModal: React.FC = () => {
                 signal: options?.signal
             });
 
-            if (!response.ok) throw new Error("Analysis failed");
+            const elapsedMs = Math.round(performance.now() - startTime);
+
+            if (!response.ok) {
+                clientLogger.visionAI.error(`Analysis HTTP error: ${response.status}`, { elapsedMs });
+                throw new Error(`Analysis failed with status ${response.status}`);
+            }
 
             const result = await response.json();
             if (result.success && result.data) {
+                clientLogger.visionAI.success(`AI vision attributes extracted successfully in ${elapsedMs}ms`, result.data);
                 return result.data as Partial<ClothingItem>;
             }
+
+            if (!result.success) {
+                clientLogger.visionAI.warn(`AI vision service returned error: ${result.error || result.message}`, {
+                    reason: result.reason,
+                    isKeySuspended: result.isKeySuspended,
+                    elapsedMs,
+                });
+                if (result.isKeySuspended) {
+                    toast.error("Gemini API key is currently suspended. Please configure a valid key in Cloudflare secrets.", { duration: 6000 });
+                }
+            }
+
             return null;
         } catch (error) {
-            console.error("Error analyzing image:", error);
-            toast.error("Stylist couldn't scan that photo. You can fill details manually.");
+            clientLogger.visionAI.error("Error during image analysis dispatch:", error);
             return null;
         }
     };

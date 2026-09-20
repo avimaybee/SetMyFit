@@ -26,8 +26,11 @@ export default function OnboardingPage() {
       try {
         const res = await apiFetch('/api/settings/profile');
         if (res.ok) {
-          router.push('/');
-          return;
+          const json = await res.json().catch(() => null);
+          if (json && json.data !== null && json.hasProfile !== false) {
+            router.push('/');
+            return;
+          }
         }
       } catch {
         // Profile check failed — let the user continue onboarding.
