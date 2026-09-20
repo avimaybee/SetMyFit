@@ -45,6 +45,18 @@ const nextConfig: NextConfig = {
     // Limit image sizes for srcset
     imageSizes: [128, 256, 384],
   },
+  async rewrites() {
+    return [
+      {
+        source: '/wardrobe/:userId/:file*',
+        destination: '/api/uploads/wardrobe/:userId/:file*',
+      },
+      {
+        source: '/:file((?:\\d+-[a-zA-Z0-9_-]+|item-[a-zA-Z0-9_-]+)\\.(?:jpg|jpeg|png|webp|gif|avif))',
+        destination: '/api/uploads/:file',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

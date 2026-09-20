@@ -336,9 +336,25 @@ const inMemoryBackend: DbBackend = {
 
     // 2. Clothing items
     if (lower.includes('from clothing_items')) {
-      const userId = params[0] ? String(params[0]) : null;
-      const allItems = Array.from(memoryStore.clothingItems.values());
-      const filtered = userId ? allItems.filter((i) => String(i.user_id) === userId) : allItems;
+      let filtered = Array.from(memoryStore.clothingItems.values());
+
+      if (lower.includes('where id = ? and user_id = ?') || lower.includes('where id=? and user_id=?')) {
+        const id = Number(params[0]);
+        const userId = String(params[1] ?? '');
+        filtered = filtered.filter((i) => Number(i.id) === id && String(i.user_id) === userId);
+      } else if (lower.includes('where user_id = ? and id = ?') || lower.includes('where user_id=? and id=?')) {
+        const userId = String(params[0] ?? '');
+        const id = Number(params[1]);
+        filtered = filtered.filter((i) => Number(i.id) === id && String(i.user_id) === userId);
+      } else if (lower.includes('where id = ?') || lower.includes('where id=?')) {
+        const id = Number(params[0]);
+        filtered = filtered.filter((i) => Number(i.id) === id);
+      } else if (lower.includes('where user_id = ?') || lower.includes('where user_id=?')) {
+        const userId = params[0] ? String(params[0]) : null;
+        if (userId) {
+          filtered = filtered.filter((i) => String(i.user_id) === userId);
+        }
+      }
 
       // Check for stats queries: SELECT COUNT(*) ...
       if (lower.includes('count(*) as total') || lower.includes('count(*)')) {
@@ -427,6 +443,16 @@ const inMemoryBackend: DbBackend = {
 
     // Delete clothing item
     if (lower.startsWith('delete from clothing_items')) {
+      if (lower.includes('where id = ? and user_id = ?') || lower.includes('where id=? and user_id=?')) {
+        const id = Number(params[0]);
+        const userId = String(params[1] ?? '');
+        const item = memoryStore.clothingItems.get(id);
+        if (item && String(item.user_id) === userId) {
+          memoryStore.clothingItems.delete(id);
+          return { lastId: 0, changes: 1 };
+        }
+        return { lastId: 0, changes: 0 };
+      }
       const id = Number(params[0]);
       const existed = memoryStore.clothingItems.delete(id);
       return { lastId: 0, changes: existed ? 1 : 0 };
@@ -528,10 +554,16 @@ const inMemoryBackend: DbBackend = {
 
     // 3. Update Clothing Item
     if (lower.startsWith('update clothing_items')) {
-      // Find item ID: in UPDATE queries it is typically near the end of params
-      const id = Number(params[params.length - 2] ?? params[params.length - 1]);
+      let id: number;
+      let userId: string | null = null;
+      if (lower.includes('where id = ? and user_id = ?') || lower.includes('where id=? and user_id=?')) {
+        userId = String(params[params.length - 1] ?? '');
+        id = Number(params[params.length - 2]);
+      } else {
+        id = Number(params[params.length - 1]);
+      }
       const existing = memoryStore.clothingItems.get(id);
-      if (existing) {
+      if (existing && (!userId || String(existing.user_id) === userId)) {
         memoryStore.clothingItems.set(id, { ...existing, updated_at: new Date().toISOString() });
         return memoryStore.clothingItems.get(id) || null;
       }

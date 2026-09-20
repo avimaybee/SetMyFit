@@ -31,6 +31,11 @@ compatibility_flags = ["nodejs_compat"]
 [assets]
 directory = ".open-next/assets"
 
+[[d1_databases]]
+binding = "DB"
+database_name = "setmyfit-db"
+database_id = "476daf95-0d69-44f2-a82d-73d3dea95fad"
+
 [[r2_buckets]]
 binding = "R2"
 bucket_name = "setmyfit-images"
