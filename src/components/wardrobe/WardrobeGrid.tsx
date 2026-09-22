@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Trash2, Heart, Thermometer, Pencil, ArrowUpDown, AlertTriangle, Ruler, Plus } from 'lucide-react';
+import { Search, Trash2, Heart, Thermometer, Pencil, ArrowUpDown, AlertTriangle, Ruler, Plus, X } from 'lucide-react';
 import { RetroButton, RetroCard, RetroWindow, RetroImage } from '@/components/retro-ui';
 import { ClothingItem, ClothingType } from '@/types/retro';
 import { WardrobeItemForm } from './WardrobeItemForm';
@@ -27,11 +27,15 @@ export const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onAddItem, on
     const [editingId, setEditingId] = useState<string | null>(null);
 
     const categories: ClothingType[] = ['Top', 'Bottom', 'Shoes', 'Outerwear', 'Accessory', 'Dress'];
-    const tabs = ['ALL', ...categories];
+    const tabs = ['ALL', 'FAVORITES', ...categories];
 
     // Filter Items
     const filteredItems = items.filter(item => {
-        const matchesCategory = activeTab === 'ALL' || item.category === activeTab;
+        const matchesCategory = activeTab === 'ALL'
+            ? true
+            : activeTab === 'FAVORITES'
+                ? Boolean(item.is_favorite)
+                : item.category === activeTab;
         const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             item.style_tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
         return matchesCategory && matchesSearch;
@@ -99,16 +103,26 @@ export const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onAddItem, on
         <div className="flex flex-col h-full relative">
             {/* Redesigned Search Toolbar */}
             <div className="bg-[var(--accent-yellow)] border-2 border-[var(--border)] p-2 md:p-4 shadow-[2px_2px_0px_0px_var(--border)] md:shadow-[4px_4px_0px_0px_var(--border)] mb-4 md:mb-6 flex flex-col md:flex-row gap-2 md:gap-4 items-center">
-                <div className="flex-1 w-full bg-[var(--bg-secondary)] border-2 border-[var(--border)] h-10 md:h-12 flex items-center px-3 shadow-inner focus-within:ring-2 focus-within:ring-[var(--accent-pink)] transition-all">
-                    <Search size={18} className="text-[var(--text)] opacity-50 mr-3 md:w-[22px] md:h-[22px]" />
+                <div className="flex-1 w-full bg-[var(--bg-secondary)] border-2 border-[var(--border)] h-10 md:h-12 flex items-center px-3 shadow-inner focus-within:ring-2 focus-within:ring-[var(--accent-pink)] transition-all relative">
+                    <Search size={18} className="text-[var(--text)] opacity-50 mr-3 md:w-[22px] md:h-[22px] shrink-0" />
                     <input
                         type="text"
                         placeholder="SEARCH WARDROBE..."
                         aria-label="Search wardrobe"
-                        className="w-full h-full bg-transparent outline-none font-mono font-bold text-sm md:text-lg placeholder:text-[var(--text)]/50 text-[var(--text)]"
+                        className="w-full h-full bg-transparent outline-none font-mono font-bold text-sm md:text-lg placeholder:text-[var(--text)]/50 text-[var(--text)] pr-6"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
+                    {searchQuery && (
+                        <button
+                            type="button"
+                            onClick={() => setSearchQuery('')}
+                            aria-label="Clear search"
+                            className="p-1 text-[var(--text)] opacity-60 hover:opacity-100 transition-opacity"
+                        >
+                            <X size={16} />
+                        </button>
+                    )}
                 </div>
                 <div className="flex gap-2 w-full md:w-auto">
                     <div className="h-10 md:h-12 px-3 bg-[var(--bg-secondary)] border-2 border-[var(--border)] flex items-center justify-center gap-2 flex-1 md:flex-auto">
@@ -258,6 +272,33 @@ export const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onAddItem, on
                             </div>
                         </RetroCard>
                     ))}
+
+                    {items.length > 0 && sortedItems.length === 0 && (
+                        <div className="col-span-full py-12 px-4 flex flex-col items-center justify-center text-center">
+                            <div className="p-6 bg-[var(--bg-main)] border-2 border-[var(--border)] shadow-[4px_4px_0px_0px_var(--border)] max-w-sm w-full flex flex-col items-center gap-3">
+                                <h4 className="font-mono font-bold text-sm text-[var(--text)] uppercase tracking-tight">
+                                    {activeTab === 'FAVORITES' ? 'NO FAVORITES YET' : 'NO MATCHING PIECES'}
+                                </h4>
+                                <p className="font-mono text-xs text-[var(--text-muted)] leading-relaxed">
+                                    {activeTab === 'FAVORITES'
+                                        ? 'Tap the heart icon on any piece to pin your favorites here.'
+                                        : 'Try adjusting your search query or selecting a different category.'}
+                                </p>
+                                {(searchQuery || activeTab !== 'ALL') && (
+                                    <RetroButton
+                                        variant="secondary"
+                                        onClick={() => {
+                                            setSearchQuery('');
+                                            setActiveTab('ALL');
+                                        }}
+                                        className="font-mono text-xs mt-1"
+                                    >
+                                        RESET FILTERS
+                                    </RetroButton>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 

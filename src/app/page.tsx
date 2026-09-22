@@ -550,6 +550,7 @@ export default function HomePage() {
             onOpenQuickAdd={openGlobalAdd}
             recommendationId={recommendationData?.recommendation?.id ?? null}
             onFeedback={handleFeedback}
+            weather={recommendationData?.weather ?? null}
           />
         )}
       </div>

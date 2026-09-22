@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { currentUser } from "@/lib/firebase/client";
 import { TemplatesPage as TemplatesPageComponent } from "@/components/templates/TemplatesPage";
-import { OutfitTemplate } from "@/types/retro";
+import { OutfitTemplate, ClothingItem } from "@/types/retro";
 import { toast } from "@/components/ui/toaster";
 
 // Template -> generator occasion mapping (MissionControl profiles).
@@ -18,6 +18,7 @@ const TEMPLATE_OCCASIONS: Record<string, string> = {
 
 export default function TemplatesPage() {
   const [templates, setTemplates] = useState<(OutfitTemplate & { requirements?: string[] })[]>([]);
+  const [wardrobeItems, setWardrobeItems] = useState<ClothingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const router = useRouter();
@@ -26,26 +27,43 @@ export default function TemplatesPage() {
     try {
       setLoading(true);
       setLoadFailed(false);
-      const response = await apiFetch("/api/templates");
-      if (!response.ok) throw new Error(`Failed to fetch templates (${response.status})`);
-      const result = await response.json();
+      
+      const [templateRes, wardrobeRes] = await Promise.allSettled([
+        apiFetch("/api/templates"),
+        apiFetch("/api/wardrobe")
+      ]);
 
-      if (result.success) {
-        // Map DB fields to UI fields using a safe record type (avoid `any`)
-        const raw = result.data as Array<Record<string, unknown>>;
-        const mappedTemplates = raw.map((t) => ({
-          id: String(t['id'] ?? ''),
-          name: String(t['name'] ?? ''),
-          description: String(t['description'] ?? ''),
-          styleTags: (t['style_tags'] as string[]) || [],
-          coverImage: String(t['cover_image'] ?? ''),
-          requirements: (t['requirements'] as string[]) || []
-        }));
-        setTemplates(mappedTemplates);
+      if (wardrobeRes.status === 'fulfilled' && wardrobeRes.value.ok) {
+        try {
+          const wJson = await wardrobeRes.value.json();
+          if (wJson.success && Array.isArray(wJson.data)) {
+            setWardrobeItems(wJson.data);
+          }
+        } catch {
+          // Wardrobe matching optional
+        }
+      }
+
+      if (templateRes.status === 'fulfilled' && templateRes.value.ok) {
+        const result = await templateRes.value.json();
+        if (result.success) {
+          const raw = result.data as Array<Record<string, unknown>>;
+          const mappedTemplates = raw.map((t) => ({
+            id: String(t['id'] ?? ''),
+            name: String(t['name'] ?? ''),
+            description: String(t['description'] ?? ''),
+            styleTags: (t['style_tags'] as string[]) || [],
+            coverImage: String(t['cover_image'] ?? ''),
+            requirements: (t['requirements'] as string[]) || []
+          }));
+          setTemplates(mappedTemplates);
+        } else {
+          console.error("Failed to fetch templates:", result.error);
+          toast.error("Couldn't pull up style presets. Try refreshing.");
+          setLoadFailed(true);
+        }
       } else {
-        console.error("Failed to fetch templates:", result.error);
-        toast.error("Couldn't pull up style presets. Try refreshing.");
-        setLoadFailed(true);
+        throw new Error("Failed to fetch templates");
       }
     } catch (error) {
       console.error("Error fetching templates:", error);
@@ -92,7 +110,7 @@ export default function TemplatesPage() {
       <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-main)] min-h-screen text-[var(--text)]">
         <div className="max-w-7xl mx-auto">
           <div className="bg-white border-2 border-black p-8 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-            <p className="font-mono font-bold">TEMPLATES_LOAD_FAILED</p>
+            <p className="font-mono font-bold">COULDN&apos;T LOAD STYLE TEMPLATES</p>
             <p className="font-mono text-xs mt-2 text-gray-600">Check your connection and try again.</p>
             <button
               onClick={fetchTemplates}
@@ -110,7 +128,7 @@ export default function TemplatesPage() {
     <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-main)] min-h-screen text-[var(--text)]">
       <h1 className="sr-only">Outfit templates</h1>
       <div className="max-w-7xl mx-auto">
-        <TemplatesPageComponent templates={templates} onApply={handleApply} />
+        <TemplatesPageComponent templates={templates} onApply={handleApply} userItems={wardrobeItems} />
       </div>
     </div>
   );

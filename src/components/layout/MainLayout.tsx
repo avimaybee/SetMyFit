@@ -83,6 +83,7 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
         { href: '/', icon: <Home size={20} />, label: 'Home' },
         { href: '/wardrobe', icon: <Shirt size={20} />, label: 'Wardrobe' },
         { href: '/templates', icon: <Layers size={20} />, label: 'Templates' },
+        { href: '/stats', icon: <BarChart3 size={20} />, label: 'Stats' },
         { href: '/history', icon: <Clock size={20} />, label: 'History' },
         { href: '/settings', icon: <Settings size={20} />, label: 'Settings' },
     ];
@@ -207,7 +208,7 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
                             key={item.href}
                             href={item.href}
                             className={`
-                                flex flex-col items-center justify-center gap-1 py-1.5 px-2 min-h-[48px] rounded transition-all flex-1 text-center
+                                flex flex-col items-center justify-center gap-1 py-1.5 px-1 min-h-[48px] rounded transition-all flex-1 text-center
                                 ${isActive(item.href)
                                     ? 'bg-black text-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                                     : 'text-black hover:bg-black/5 active:scale-95'
@@ -215,7 +216,7 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
                             `}
                         >
                             {React.cloneElement(item.icon as React.ReactElement<{ size: number }>, { size: 18 })}
-                            <span className="font-mono text-[10px] font-bold uppercase tracking-tight leading-none">{item.label}</span>
+                            <span className="font-mono text-[9px] font-bold uppercase tracking-tight leading-none">{item.label}</span>
                         </Link>
                     ))}
                 </div>

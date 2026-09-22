@@ -10,13 +10,13 @@ interface StatsPageProps {
     onNavigateToWardrobe?: () => void;
 }
 
-// We will use CSS variables for colors so they switch with theme
+// Theme-aligned high contrast colors for SVG chart cells
 const CHART_COLORS = [
-    'var(--accent-pink)',
-    'var(--accent-blue)',
-    'var(--accent-green)',
-    'var(--accent-yellow)',
-    'var(--accent-orange)'
+    '#A0C4FF', // accent-blue
+    '#FF99C8', // accent-pink
+    '#CAFFBF', // accent-green
+    '#FDFFB6', // accent-yellow
+    '#FF8E72'  // accent-orange
 ];
 
 export const StatsPage: React.FC<StatsPageProps> = ({ items, _history, onNavigateToWardrobe }) => {
@@ -164,7 +164,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ items, _history, onNavigat
             {/* Charts Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Category Distribution */}
-                <RetroWindow title="CATEGORY_BREAKDOWN" className="min-h-[300px]">
+                <RetroWindow title="CATEGORY BREAKDOWN" className="min-h-[300px]">
                     <div className="p-4 flex flex-col gap-2 h-full">
                         <div className="h-56 w-full">
                             <ResponsiveContainer width="100%" height="100%">
@@ -203,7 +203,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ items, _history, onNavigat
                 </RetroWindow>
 
                 {/* Color Palette */}
-                <RetroWindow title="COLOR_PALETTE" icon={<Palette size={14} />}>
+                <RetroWindow title="COLOR PALETTE" icon={<Palette size={14} />}>
                     <div className="p-4 space-y-3">
                         <p className="font-mono text-xs text-[var(--text-muted)] mb-2">Your most common colors</p>
                         {analytics.topColors.map(([color, count], idx) => (
@@ -257,7 +257,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ items, _history, onNavigat
                 </RetroBox>
 
                 {/* Quick Stats */}
-                <RetroWindow title="QUICK_STATS">
+                <RetroWindow title="QUICK STATS">
                     <div className="space-y-2 font-mono text-sm p-3 text-[var(--text)]">
                         <div className="flex justify-between items-center border-b border-[var(--border)] border-dashed pb-1">
                             <span className="text-[var(--text-muted)]">Favorites:</span>
@@ -279,7 +279,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ items, _history, onNavigat
                 </RetroWindow>
 
                 {/* Materials */}
-                <RetroWindow title="TOP_MATERIALS">
+                <RetroWindow title="TOP MATERIALS">
                     <div className="p-3 space-y-2">
                         {analytics.topMaterials.map(([material, count], idx) => (
                             <div key={material} className="flex justify-between items-center font-mono text-sm">

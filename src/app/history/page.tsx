@@ -117,16 +117,19 @@ export default function HistoryPage() {
             </div>
           ) : loadFailed && history.length === 0 ? (
             <div className="py-16 text-center">
-              <p className="font-mono text-sm font-bold">LOGS_LOAD_FAILED</p>
+              <p className="font-mono text-sm font-bold">COULDN&apos;T LOAD OUTFIT LOGS</p>
               <p className="font-mono text-xs mt-2 text-[var(--text-muted)]">Check your connection and try again.</p>
               <RetroButton className="mt-4 text-xs" onClick={fetchHistory}>
                 RETRY
               </RetroButton>
             </div>
           ) : history.length === 0 ? (
-            <div className="py-16 text-center font-mono text-sm text-[var(--text-muted)]">
-              <p>NO HISTORY FOUND.</p>
-              <p className="mt-2">GENERATE AND LOG YOUR FIRST OUTFIT.</p>
+            <div className="py-16 text-center font-mono text-sm text-[var(--text-muted)] flex flex-col items-center gap-2">
+              <p className="font-bold text-[var(--text)]">NO OUTFIT LOGS YET</p>
+              <p className="text-xs">Generate a fit and tap Log Outfit to start your style history.</p>
+              <RetroButton className="mt-3 text-xs" onClick={() => router.push('/')}>
+                GO TO GENERATOR
+              </RetroButton>
             </div>
           ) : (
             <div className="space-y-10 p-2 md:p-4 pt-6">

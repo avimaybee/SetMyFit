@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { RefreshCcw, ThumbsUp, ThumbsDown, CheckCircle, Shuffle, Shirt, Loader2, BrainCircuit, ChevronDown, ChevronUp, Thermometer, Lock, Unlock, Upload } from 'lucide-react';
+import { RefreshCcw, ThumbsUp, ThumbsDown, CheckCircle, Shuffle, Shirt, Loader2, BrainCircuit, ChevronDown, ChevronUp, Thermometer, Lock, Unlock, Upload, CloudSun } from 'lucide-react';
 import { RetroWindow, RetroButton, RetroBadge, RetroImage } from '../retro-ui';
 import { ClothingItem, Outfit, ClothingType } from '@/types/retro';
+import type { WeatherData } from '@/lib/types';
 
 interface OutfitRecommenderProps {
     items: ClothingItem[];
@@ -19,6 +20,7 @@ interface OutfitRecommenderProps {
     onOpenQuickAdd?: () => void;  // Direct quick add modal trigger
     recommendationId?: string | number | null;  // Saved recommendation id for feedback
     onFeedback?: (isLiked: boolean, reason?: string) => void | Promise<void>;  // Like/dislike handler
+    weather?: WeatherData | null;
 }
 
 interface OrganizedOutfit {
@@ -45,7 +47,8 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
     onNavigateToWardrobe,
     onOpenQuickAdd,
     recommendationId = null,
-    onFeedback
+    onFeedback,
+    weather
 }) => {
     const [isSwapping, setIsSwapping] = useState(false);
     const [activeSwapCategory, setActiveSwapCategory] = useState<ClothingType | null>(null);
@@ -246,17 +249,17 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
     // Show loading spinner ONLY when actually loading
     if (isLoadingWardrobe) {
         return (
-            <RetroWindow title="OUTFIT_GEN.EXE" className="h-full flex flex-col" headerColor="bg-[#FF99C8]">
+            <RetroWindow title="OUTFIT GENERATOR" className="h-full flex flex-col" headerColor="bg-[#FF99C8]">
                 {/* Status Bar - Integrated Loading Feedback */}
-                <div className="flex flex-row justify-between items-center bg-white border-2 border-black p-2 mb-4 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] gap-2">
+                <div className="flex flex-row justify-between items-center bg-[var(--bg-secondary)] border-2 border-[var(--border)] p-2 mb-4 shadow-[2px_2px_0px_0px_var(--border)] gap-2">
                     <div className="flex items-center gap-2 flex-1">
                         <Loader2 size={16} className="animate-spin text-[#FF99C8]" />
                         <div className="flex flex-col">
-                            <p className="font-mono text-[10px] md:text-xs font-bold tracking-tight text-gray-800 uppercase">
-                                INIT_WARDROBE_DATA...
+                            <p className="font-mono text-[10px] md:text-xs font-bold tracking-tight text-[var(--text)] uppercase">
+                                LOADING CLOSET PIECES...
                             </p>
-                            <div className="w-32 h-1.5 border border-black bg-gray-100 overflow-hidden mt-0.5">
-                                <div className="h-full bg-[#CAFFBF] animate-[width_2s_ease-in-out_infinite]" style={{ width: '45%' }} />
+                            <div className="w-32 h-1.5 border border-[var(--border)] bg-[var(--bg-main)] overflow-hidden mt-0.5">
+                                <div className="h-full bg-[var(--accent-green)] animate-[width_2s_ease-in-out_infinite]" style={{ width: '45%' }} />
                             </div>
                         </div>
                     </div>
@@ -325,7 +328,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
     // Empty wardrobe - show welcoming onboarding prompt
     if (items.length === 0) {
         return (
-            <RetroWindow title="OUTFIT_GEN.EXE" className="h-full flex items-center justify-center text-center p-6">
+            <RetroWindow title="OUTFIT GENERATOR" className="h-full flex items-center justify-center text-center p-6">
                 <div className="flex flex-col items-center gap-6 max-w-sm">
                     <div className="w-20 h-20 bg-[#CAFFBF] border-2 border-black rounded-full flex items-center justify-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                         <Shirt size={40} className="text-black" />
@@ -349,7 +352,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
 
     if (coreCategoriesPresent.size < 3) {
         return (
-            <RetroWindow title="OUTFIT_GEN.EXE" className="h-full flex items-center justify-center text-center p-6">
+            <RetroWindow title="OUTFIT GENERATOR" className="h-full flex items-center justify-center text-center p-6">
                 <div className="flex flex-col items-center gap-4 max-w-sm">
                     <h2 className="font-black text-xl mb-2">ALMOST THERE!</h2>
                     <p className="font-mono text-sm mb-2">
@@ -392,7 +395,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
     // A dress satisfies both the top and bottom slots.
     if ((coreTops.length === 0 && !coreDress) || (!coreBottom && !coreDress) || !coreShoes) {
         return (
-            <RetroWindow title="OUTFIT_GEN.EXE" className="h-full flex items-center justify-center text-center p-6">
+            <RetroWindow title="OUTFIT GENERATOR" className="h-full flex items-center justify-center text-center p-6">
                 <div>
                     <h2 className="font-black text-xl mb-2">INCOMPLETE OUTFIT SLOTS</h2>
                     <p className="font-mono text-sm mb-4">We could not assemble a complete outfit from your items. Make sure you have at least one Top, Bottom, and Shoes.</p>
@@ -409,16 +412,25 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
         : [];
 
     return (
-        <RetroWindow title="OUTFIT_GEN.EXE" className="h-full flex flex-col relative" headerColor="bg-[#FF99C8]">
+        <RetroWindow title="OUTFIT GENERATOR" className="h-full flex flex-col relative" headerColor="bg-[#FF99C8]">
 
             {/* Header Status Bar */}
-            <div className="flex flex-row justify-between items-center bg-white border-2 border-black p-2 mb-4 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] gap-2">
+            <div className="flex flex-row justify-between items-center bg-[var(--bg-secondary)] border-2 border-[var(--border)] p-2 mb-4 shadow-[2px_2px_0px_0px_var(--border)] gap-2">
                 <div className="flex items-center gap-2">
-                    <CheckCircle size={16} className={suggestedOutfit?.reasoning ? "text-green-600 fill-green-200" : "text-gray-400"} />
-                    <p className={`font-mono text-[10px] md:text-sm font-bold tracking-tight ${suggestedOutfit?.reasoning ? "text-green-700" : "text-gray-500"}`}>
+                    <CheckCircle size={16} className={suggestedOutfit?.reasoning ? "text-green-600 fill-green-200" : "text-[var(--text-muted)]"} />
+                    <p className={`font-mono text-[10px] md:text-sm font-bold tracking-tight ${suggestedOutfit?.reasoning ? "text-green-700" : "text-[var(--text-muted)]"}`}>
                         {suggestedOutfit?.reasoning ? "MATCHED" : "MANUAL"}
                     </p>
                 </div>
+                {weather && typeof weather.temperature === 'number' && (
+                    <div className="flex items-center gap-1.5 bg-[var(--bg-main)] border border-[var(--border)] px-2 py-0.5 font-mono text-[10px] md:text-xs font-bold text-[var(--text)]">
+                        <CloudSun size={13} className="text-[var(--accent-orange)] shrink-0" />
+                        <span>{weather.city ? `${weather.city.toUpperCase()} · ` : ''}{Math.round(weather.temperature)}°C</span>
+                        {weather.weather_condition && (
+                            <span className="hidden sm:inline text-[var(--text-muted)] uppercase">({weather.weather_condition})</span>
+                        )}
+                    </div>
+                )}
                 <div className="flex items-center gap-2">
                     <RetroBadge color="bg-[#FF99C8]">
                         {reasoning ? reasoning.styleScore : '---'}%

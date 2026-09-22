@@ -1,6 +1,6 @@
 import React from 'react';
 import { RetroWindow } from '@/components/retro-ui';
-import { Terminal, Database, Calendar } from 'lucide-react';
+import { Activity, Database, Calendar } from 'lucide-react';
 
 import Link from 'next/link';
 
@@ -61,10 +61,10 @@ export const SystemMsg: React.FC<SystemMsgProps> = ({
 
     return (
         <RetroWindow
-            title="SYSTEM_STATUS"
+            title="CLOSET STATUS"
             className="h-full"
             headerColor="bg-[var(--accent-green)]"
-            icon={<Terminal size={12} />}
+            icon={<Activity size={12} />}
             collapsible
         >
             <div className="p-3 h-full flex flex-col font-mono text-xs space-y-3 bg-[var(--bg-secondary)]">
@@ -111,12 +111,11 @@ export const SystemMsg: React.FC<SystemMsgProps> = ({
                     </div>
                 </div>
 
-                {/* Terminal Cursor */}
+                {/* Status Indicator */}
                 <div className="mt-auto pt-2 border-t border-[var(--border)] border-dashed">
-                    <div className="flex items-center gap-1 text-[var(--text-muted)]">
-                        <span className="text-[var(--status-online)] font-bold">&gt;</span>
-                        <span>Ready for input</span>
-                        <span className="animate-pulse font-bold text-[var(--text)]">_</span>
+                    <div className="flex items-center gap-2 text-[var(--text-muted)]">
+                        <span className="w-1.5 h-1.5 bg-[var(--status-online)] rounded-full"></span>
+                        <span className="font-bold text-[10px] text-[var(--text)]">Closet synced & ready</span>
                     </div>
                 </div>
             </div>
