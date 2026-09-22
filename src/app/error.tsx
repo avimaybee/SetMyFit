@@ -22,7 +22,7 @@ export default function Error({
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="max-w-md w-full">
-        <RetroWindow title="RUNTIME_ERROR.SYS" icon={<ShieldAlert size={14} />}>
+        <RetroWindow title="APPLICATION ERROR" icon={<ShieldAlert size={14} />}>
           <div className="flex flex-col gap-4 py-4">
             <p className="font-black text-2xl tracking-tighter">SOMETHING CRASHED</p>
             <p className="font-mono text-xs leading-relaxed break-words">

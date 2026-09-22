@@ -562,7 +562,7 @@ export default function HomePage() {
             selectedOccasion={selectedOccasion}
             onOccasionChange={(occ) => {
               setSelectedOccasion(occ);
-              emitClientLog(`Mission profile updated: ${occ || 'General'}`);
+              emitClientLog(`Occasion updated: ${occ || 'Everyday'}`);
             }}
             lockedCount={lockedItems.length}
           />

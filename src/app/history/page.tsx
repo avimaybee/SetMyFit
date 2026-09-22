@@ -110,7 +110,7 @@ export default function HistoryPage() {
     <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-main)] min-h-screen text-[var(--text)]">
       <h1 className="sr-only">Outfit history</h1>
       <div className="max-w-5xl mx-auto space-y-6">
-          <RetroWindow title="HISTORY.DB" icon={<Calendar size={14} />} className="h-full">
+          <RetroWindow title="OUTFIT HISTORY" icon={<Calendar size={14} />} className="h-full">
           {loading ? (
             <div className="py-10">
               <ListSkeleton />
@@ -126,10 +126,10 @@ export default function HistoryPage() {
           ) : history.length === 0 ? (
             <div className="py-16 text-center font-mono text-sm text-[var(--text-muted)]">
               <p>NO HISTORY FOUND.</p>
-              <p className="mt-2">RUN A RECOMMENDATION AND LOG YOUR OUTFITS.</p>
+              <p className="mt-2">GENERATE AND LOG YOUR FIRST OUTFIT.</p>
             </div>
           ) : (
-            <div className="space-y-10 p-2 md:p-4">
+            <div className="space-y-10 p-2 md:p-4 pt-6">
               {history.map((entry) => {
                 const { condition, temperature } = extractWeatherDetails(entry.weather_data);
                 const previewItems = entry.items.slice(0, 4);
@@ -139,10 +139,10 @@ export default function HistoryPage() {
                 return (
                   <article
                     key={entry.id}
-                    className="bg-[var(--bg-secondary)] border-2 border-[var(--border)] shadow-[6px_6px_0px_0px_var(--border)] p-1 relative group hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[8px_8px_0px_0px_var(--border)] transition-all duration-200"
+                    className="bg-[var(--bg-secondary)] border-2 border-[var(--border)] shadow-[4px_4px_0px_0px_var(--border)] md:shadow-[6px_6px_0px_0px_var(--border)] p-1 relative group hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_var(--border)] md:hover:shadow-[8px_8px_0px_0px_var(--border)] transition-all duration-200 mt-4"
                   >
                     <div className="absolute -top-6 left-4 bg-[var(--accent-pink)] border-2 border-[var(--border)] border-b-0 px-3 py-1">
-                      <span className="font-mono font-bold text-xs text-[var(--text)] mix-blend-hard-light">{formatDateLabel(entry.outfit_date)}</span>
+                      <span className="font-mono font-bold text-xs text-[var(--text)]">{formatDateLabel(entry.outfit_date)}</span>
                     </div>
                     <div className="relative z-10 bg-[var(--bg-secondary)] p-4 border-2 border-transparent">
                       <div className="flex flex-col md:flex-row gap-6">
@@ -188,16 +188,16 @@ export default function HistoryPage() {
                             </div>
                             <RetroButton
                               variant="danger"
-                              className="p-1.5"
+                              className="w-9 h-9 min-h-[36px] flex items-center justify-center p-0"
                               onClick={() => setPendingDeleteId(entry.id)}
                               disabled={deletingId === entry.id}
-                              title="Delete history entry"
-                              aria-label={`Delete history entry ${entry.id}`}
+                              title="Delete outfit entry"
+                              aria-label={`Delete outfit entry ${entry.id}`}
                             >
-                              <Trash2 size={14} />
+                              <Trash2 size={15} />
                             </RetroButton>
                           </div>
-                          <div className="mb-4">
+                          <div>
                             <p className="font-mono text-xs text-[var(--text-muted)] mb-1">ITEMS WORN:</p>
                             <div className="flex flex-wrap gap-1">
                               {entry.items.slice(0, 8).map((item) => (
@@ -215,11 +215,6 @@ export default function HistoryPage() {
                               )}
                             </div>
                           </div>
-                          <div className="mt-auto pt-3 border-t-2 border-[var(--border)] border-dashed flex justify-end gap-3">
-                            <RetroButton className="flex items-center gap-2 text-xs py-1.5" variant="danger" onClick={() => setPendingDeleteId(entry.id)} disabled={deletingId === entry.id}>
-                              <Trash2 size={12} /> DELETE ENTRY
-                            </RetroButton>
-                          </div>
                         </div>
                       </div>
                     </div>
@@ -235,24 +230,24 @@ export default function HistoryPage() {
       {pendingDeleteId !== null && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="max-w-sm w-full">
-            <RetroWindow title="CONFIRM_DELETION.SYS" icon={<Trash2 size={14} />}>
+            <RetroWindow title="CONFIRM REMOVAL" icon={<Trash2 size={14} />}>
               <div className="p-2 text-center">
-                <p className="font-mono text-sm font-bold">PERMANENTLY DELETE THIS HISTORY ENTRY?</p>
+                <p className="font-mono text-sm font-bold">REMOVE THIS OUTFIT LOG?</p>
                 <p className="font-mono text-xs mt-2 text-[var(--text-muted)]">This cannot be undone.</p>
-                <div className="flex gap-2 mt-4">
+                <div className="grid grid-cols-2 gap-2 mt-4">
                   <RetroButton
                     variant="neutral"
-                    className="flex-1 text-xs"
+                    className="text-xs"
                     onClick={() => setPendingDeleteId(null)}
                   >
                     CANCEL
                   </RetroButton>
                   <RetroButton
                     variant="danger"
-                    className="flex-1 text-xs"
+                    className="text-xs"
                     onClick={() => handleDelete(pendingDeleteId)}
                   >
-                    DELETE ENTRY
+                    REMOVE
                   </RetroButton>
                 </div>
               </div>

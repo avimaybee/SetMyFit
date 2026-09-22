@@ -162,59 +162,35 @@ export const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onAddItem, on
                         <div className="w-10 h-10 md:w-14 md:h-14 rounded-full bg-[var(--accent-blue)] border-2 border-[var(--border)] flex items-center justify-center group-hover:scale-110 transition-transform shadow-[2px_2px_0px_0px_var(--border)] z-10">
                             <Plus size={20} strokeWidth={3} className="text-[var(--text)] md:w-[28px] md:h-[28px]" />
                         </div>
-                        <span className="font-mono font-bold text-xs md:text-sm text-[var(--text-muted)] group-hover:text-[var(--text)] z-10 bg-[var(--bg-secondary)] px-2 border border-transparent group-hover:border-[var(--border)]">UPLOAD.EXE</span>
+                        <span className="font-mono font-bold text-xs md:text-sm text-[var(--text-muted)] group-hover:text-[var(--text)] z-10 bg-[var(--bg-secondary)] px-2 border border-transparent group-hover:border-[var(--border)]">ADD PIECE</span>
                     </button>
 
                     {sortedItems.map((item) => (
                         <RetroCard
                             key={item.id}
-                            className={`flex flex-col h-full group relative p-2 md:p-2 ${deletingId === item.id ? 'pixelate-exit' : ''}`}
+                            className={`flex flex-col h-full group relative p-2 md:p-2.5 ${deletingId === item.id ? 'pixelate-exit' : ''}`}
                         >
                             {/* Favorite Toggle */}
                             <button
+                                type="button"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onToggleFavorite(item.id);
                                 }}
                                 aria-label={item.is_favorite ? `Unfavorite ${item.name}` : `Favorite ${item.name}`}
                                 aria-pressed={item.is_favorite}
-                                className="absolute top-2 right-2 z-20 transition-transform hover:scale-110 p-2 -m-1"
+                                className="absolute top-3 right-3 z-20 bg-[var(--bg-secondary)] border-2 border-[var(--border)] p-1.5 shadow-[2px_2px_0px_0px_var(--border)] transition-transform hover:scale-105 active:scale-95 flex items-center justify-center"
                             >
-                                <Heart size={18} className={item.is_favorite ? "fill-red-500 text-red-500" : "text-black/50 fill-white"} />
+                                <Heart size={14} className={item.is_favorite ? "fill-red-500 text-red-500" : "text-black/50 fill-white"} />
                             </button>
-
-                            {/* Action Bar: Delete, Edit */}
-                            <div className="absolute top-2 left-2 z-20 flex flex-col gap-1">
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setItemToDelete(item.id);
-                                    }}
-                                    className="bg-[var(--accent-orange)] border-2 border-[var(--border)] p-2 transition-colors hover:bg-red-500"
-                                    aria-label={`Delete ${item.name}`}
-                                >
-                                    <Trash2 size={12} className="text-white" />
-                                </button>
-
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleOpenEdit(item);
-                                    }}
-                                    className="bg-[var(--bg-secondary)] border-2 border-[var(--border)] p-2 transition-colors hover:bg-[var(--accent-yellow)]"
-                                    aria-label={`Edit ${item.name}`}
-                                >
-                                    <Pencil size={12} className="text-[var(--text)]" />
-                                </button>
-                            </div>
 
                             <div className="aspect-square border-2 border-[var(--border)] mb-2 overflow-hidden bg-[var(--bg-main)] relative">
                                 <RetroImage src={item.image_url} alt={item.name} containerClassName="w-full h-full border-0" />
-                                <div className="absolute bottom-1 left-1 bg-[var(--bg-secondary)] border border-[var(--border)] px-1 py-0.5 text-[8px] font-mono font-bold uppercase text-[var(--text)]">
+                                <div className="absolute bottom-1.5 left-1.5 bg-[var(--bg-secondary)] border border-[var(--border)] px-1.5 py-0.5 text-[8px] font-mono font-bold uppercase text-[var(--text)] z-10">
                                     {item.category}
                                 </div>
                                 {item.last_worn && formatLastWorn(item.last_worn) === 'TODAY' && (
-                                    <div className="absolute top-1 left-1 bg-[var(--accent-green)] border border-[var(--border)] px-1 py-0.5 text-[8px] font-mono font-bold uppercase animate-pulse text-[var(--text)]">
+                                    <div className="absolute top-1.5 left-1.5 bg-[var(--status-online)] text-white border border-[var(--border)] px-1.5 py-0.5 text-[8px] font-mono font-bold uppercase z-10 shadow-sm">
                                         WORN TODAY
                                     </div>
                                 )}
@@ -224,7 +200,7 @@ export const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onAddItem, on
 
                                 <div className="flex justify-between items-center text-[10px] font-mono text-[var(--text-muted)] mb-1">
                                     <div className="flex items-center gap-1">
-                                        <Ruler size={8} />
+                                        <Ruler size={10} />
                                         <span>{item.fit || 'Reg'}</span>
                                     </div>
                                     <div className="flex items-center gap-1 bg-[var(--bg-main)] border border-[var(--border)] px-1">
@@ -238,16 +214,46 @@ export const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onAddItem, on
                                         <span>Lvl.{item.insulation_value}</span>
                                     </div>
                                     <span>|</span>
-                                    <span>{item.material}</span>
+                                    <span className="truncate">{item.material}</span>
                                 </div>
 
-                                <div className="mt-auto pt-2 border-t-2 border-[var(--border)] border-dashed flex flex-wrap gap-1">
-                                    {item.pattern && (
-                                        <span className="text-[8px] md:text-[9px] bg-[var(--accent-pink)] px-1 border border-[var(--border)] uppercase text-[var(--text)]">{item.pattern}</span>
-                                    )}
-                                    {item.season_tags.slice(0, 1).map(tag => (
-                                        <span key={tag} className="text-[8px] md:text-[9px] bg-[var(--accent-blue)] px-1 border border-[var(--border)] uppercase text-[var(--text)]">{tag}</span>
-                                    ))}
+                                <div className="mt-auto pt-2 border-t-2 border-[var(--border)] border-dashed flex items-center justify-between gap-1">
+                                    <div className="flex flex-wrap gap-1 min-w-0">
+                                        {item.pattern && (
+                                            <span className="text-[8px] md:text-[9px] bg-[var(--accent-pink)] px-1 border border-[var(--border)] uppercase text-[var(--text)]">{item.pattern}</span>
+                                        )}
+                                        {item.season_tags.slice(0, 1).map(tag => (
+                                            <span key={tag} className="text-[8px] md:text-[9px] bg-[var(--accent-blue)] px-1 border border-[var(--border)] uppercase text-[var(--text)]">{tag}</span>
+                                        ))}
+                                    </div>
+
+                                    {/* Dedicated Edit & Delete Actions */}
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleOpenEdit(item);
+                                            }}
+                                            className="w-7 h-7 bg-[var(--bg-secondary)] border-2 border-[var(--border)] flex items-center justify-center transition-colors hover:bg-[var(--accent-yellow)] active:translate-y-[1px] shadow-[1px_1px_0px_0px_var(--border)]"
+                                            aria-label={`Edit ${item.name}`}
+                                            title="Edit item"
+                                        >
+                                            <Pencil size={12} className="text-[var(--text)]" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setItemToDelete(item.id);
+                                            }}
+                                            className="w-7 h-7 bg-[var(--accent-orange)] border-2 border-[var(--border)] flex items-center justify-center transition-colors hover:bg-red-500 active:translate-y-[1px] shadow-[1px_1px_0px_0px_var(--border)]"
+                                            aria-label={`Delete ${item.name}`}
+                                            title="Delete item"
+                                        >
+                                            <Trash2 size={12} className="text-white" />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </RetroCard>
@@ -268,13 +274,13 @@ export const WardrobeGrid: React.FC<WardrobeGridProps> = ({ items, onAddItem, on
             {itemToDelete && (
                 <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                     <div className="max-w-sm w-full animate-in zoom-in-95 duration-200">
-                        <RetroWindow title="CONFIRM_DELETION.SYS" onClose={() => setItemToDelete(null)} className="bg-[var(--accent-orange)]" icon={<AlertTriangle size={14} />}>
+                        <RetroWindow title="CONFIRM REMOVAL" onClose={() => setItemToDelete(null)} className="bg-[var(--accent-orange)]" icon={<AlertTriangle size={14} />}>
                             <div className="p-4 bg-[var(--bg-secondary)] flex flex-col gap-4 text-center text-[var(--text)]">
-                                <h3 className="font-black text-lg">PERMANENT DELETE?</h3>
-                                <p className="font-mono text-xs text-[var(--text-muted)]">This item will be removed from your wardrobe forever. This action cannot be undone.</p>
+                                <h3 className="font-black text-lg">REMOVE PIECE?</h3>
+                                <p className="font-mono text-xs text-[var(--text-muted)]">This item will be removed from your closet. This action cannot be undone.</p>
                                 <div className="grid grid-cols-2 gap-2 mt-2">
                                     <RetroButton variant="neutral" onClick={() => setItemToDelete(null)}>CANCEL</RetroButton>
-                                    <RetroButton variant="danger" onClick={confirmDelete}>DELETE</RetroButton>
+                                    <RetroButton variant="danger" onClick={confirmDelete}>REMOVE</RetroButton>
                                 </div>
                             </div>
                         </RetroWindow>

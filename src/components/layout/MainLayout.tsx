@@ -136,7 +136,7 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
             </header>
 
             {/* DESKTOP: Sidebar / Navigation */}
-            <aside className="hidden md:flex w-full md:w-64 flex-col gap-4 shrink-0 sticky top-4 h-[calc(100vh-2rem)]">
+            <aside className="hidden md:flex w-full md:w-64 flex-col gap-4 shrink-0 sticky top-4 h-[calc(100vh-2rem)] overflow-y-auto no-scrollbar pb-2">
                 {/* Logo Box */}
                 <div className="bg-[#FF6B6B] border-2 border-black p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                     <h1 className="font-black text-3xl text-white drop-shadow-[3px_3px_0px_rgba(0,0,0,1)] tracking-tighter" style={{ WebkitTextStroke: '1.5px black' }}>

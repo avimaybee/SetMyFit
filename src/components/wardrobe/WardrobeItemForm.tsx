@@ -364,8 +364,8 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <div className="max-w-md w-full animate-in zoom-in-95 duration-200">
-                <RetroWindow title={initialItem ? "UPDATE_ITEM.EXE" : "NEW_ITEM_WIZARD"} onClose={onClose}>
-                    <form onSubmit={handleSaveItem} className="space-y-4 p-2 max-h-[80vh] overflow-y-auto">
+                <RetroWindow title={initialItem ? "EDIT PIECE" : "ADD TO CLOSET"} onClose={onClose}>
+                    <form onSubmit={handleSaveItem} className="space-y-4 p-2 max-h-[82vh] md:max-h-[80vh] overflow-y-auto pb-4">
 
                         {/* Image Upload */}
                         <input
@@ -427,7 +427,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                                             ) : isAnalyzing ? (
                                                 <>
                                                     <ScanLine size={32} className="text-[#00ff41] animate-bounce mb-2" />
-                                                    <span className="font-mono font-bold text-[#00ff41] animate-pulse bg-black px-2 text-xs">ANALYZING METADATA...</span>
+                                                    <span className="font-mono font-bold text-[#00ff41] animate-pulse bg-black px-2 text-xs">READING PHOTO DETAILS...</span>
                                                 </>
                                             ) : (
                                                 <>

@@ -92,7 +92,7 @@ export const RetroWindow: React.FC<RetroWindowProps> = ({
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
 
   return (
-    <div className={`bg-[var(--bg-main)] border-2 border-[var(--border)] shadow-[8px_8px_0px_0px_var(--border)] flex flex-col ${className}`}>
+    <div className={`bg-[var(--bg-main)] border-2 border-[var(--border)] shadow-[4px_4px_0px_0px_var(--border)] md:shadow-[8px_8px_0px_0px_var(--border)] flex flex-col ${className}`}>
       {/* Window Header */}
       <div className={`${headerColor} border-b-2 border-[var(--border)] p-1 px-2 flex items-center justify-between select-none`}>
         <div className="flex items-center gap-2 pl-1 min-w-0">
@@ -336,7 +336,7 @@ export const RetroImage: React.FC<RetroImageProps> = ({
       {status === 'error' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-[var(--bg-secondary)] p-4 text-center">
           <ImageOff className="text-[var(--accent-orange)] mb-2" size={32} />
-          <span className="font-mono text-xs font-bold text-[var(--text)]">{src ? 'IMG_ERR' : 'NO IMAGE'}</span>
+          <span className="font-mono text-xs font-bold text-[var(--text)]">{src ? 'NO PHOTO' : 'NO PHOTO'}</span>
         </div>
       )}
 

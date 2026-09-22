@@ -85,7 +85,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       <div id="recaptcha-container" />
 
       <div className="max-w-md w-full my-auto">
-        <RetroWindow title="ACCESS_CONTROL.EXE" icon={<ShieldCheck size={14} />}>
+        <RetroWindow title="SIGN IN" icon={<ShieldCheck size={14} />}>
           <div className="flex flex-col gap-5 py-3">
             {/* Logo / Header */}
             <div className="text-center border-b-2 border-black border-dashed pb-4">
@@ -93,7 +93,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 SET<span className="text-[#FF99C8]">MY</span>FIT
               </h1>
               <p className="font-mono text-xs bg-black text-white inline-block px-2 py-0.5">
-                SECURITY LEVEL: PROTOCOL V2
+                V2.0.0
               </p>
             </div>
 
@@ -227,16 +227,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 <div className="bg-[#CAFFBF] border-2 border-black p-2 flex items-start gap-2">
                   <Terminal size={15} className="mt-0.5 shrink-0" />
                   <p className="font-mono text-[10px] leading-tight">
-                    AUTHENTICATED SESSION // READY FOR INPUT
+                    SECURE SIGN IN
                   </p>
                 </div>
 
                 <RetroButton type="submit" disabled={loading} className="w-full py-3">
                   {loading
-                    ? 'AUTHENTICATING...'
+                    ? 'SIGNING IN...'
                     : isSignUp
-                    ? 'INITIALIZE NEW USER'
-                    : 'ENTER SYSTEM'}
+                    ? 'CREATE ACCOUNT'
+                    : 'SIGN IN'}
                 </RetroButton>
               </form>
             )}
@@ -294,7 +294,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     </div>
 
                     <RetroButton type="submit" disabled={loading || verificationCode.length < 6} className="w-full py-3">
-                      {loading ? 'VERIFYING CODE...' : 'CONFIRM & ENTER SYSTEM'}
+                      {loading ? 'VERIFYING CODE...' : 'VERIFY & SIGN IN'}
                     </RetroButton>
 
                     <div className="text-center">

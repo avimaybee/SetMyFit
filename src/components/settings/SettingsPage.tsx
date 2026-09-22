@@ -31,7 +31,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout, preference
         <div className="max-w-2xl mx-auto flex flex-col gap-6">
 
             {/* Algorithm Tuning */}
-            <RetroWindow title="ALGORITHM_TUNING.CFG" icon={<Sliders size={14} />}>
+            <RetroWindow title="RECOMMENDATION SETTINGS" icon={<Sliders size={14} />}>
                 <div className="space-y-6 p-4">
                     <div className="bg-[var(--accent-yellow)] border border-[var(--border)] p-3 text-xs font-mono text-[var(--text)]">
                         These settings control how outfits are selected from your wardrobe.
@@ -67,7 +67,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout, preference
             </RetroWindow>
 
             {/* User Profile */}
-            <RetroWindow title="USER_PROFILE" icon={<User size={14} />}>
+            <RetroWindow title="PROFILE & FIT" icon={<User size={14} />}>
                 <div className="p-4 space-y-6">
                     <div>
                         <label className="font-bold font-mono text-xs uppercase mb-2 block text-[var(--text)]">Gender Context</label>
@@ -90,7 +90,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout, preference
             </RetroWindow>
 
             {/* Display Settings */}
-            <RetroWindow title="DISPLAY_SETTINGS" icon={<Monitor size={14} />}>
+            <RetroWindow title="APPEARANCE" icon={<Monitor size={14} />}>
                 <div className="p-4 space-y-4">
                     <div className="flex justify-between items-center">
                         <div>
@@ -107,7 +107,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout, preference
             </RetroWindow>
 
             {/* System */}
-            <RetroWindow title="SYSTEM" icon={<Database size={14} />}>
+            <RetroWindow title="SYSTEM & ACCOUNT" icon={<Database size={14} />}>
                 <div className="p-4 space-y-4">
                     <div className="flex justify-between items-center font-mono text-xs">
                         <span className="text-[var(--text)]">Database Status</span>

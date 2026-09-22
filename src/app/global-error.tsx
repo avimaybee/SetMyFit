@@ -17,7 +17,7 @@ export default function GlobalError({
         <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ maxWidth: 480, width: "100%", border: "2px solid black", background: "#fff", boxShadow: "8px 8px 0px 0px #000" }}>
             <div style={{ background: "#FF8E72", borderBottom: "2px solid black", padding: "4px 8px", fontWeight: "bold" }}>
-              FATAL_ERROR.SYS
+              APPLICATION ERROR
             </div>
             <div style={{ padding: 16 }}>
               <p style={{ fontWeight: 900, fontSize: 24, margin: "0 0 8px" }}>APP CRASHED</p>

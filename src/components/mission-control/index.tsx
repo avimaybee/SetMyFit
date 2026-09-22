@@ -10,13 +10,13 @@ interface MissionControlProps {
 
 export const MissionControl: React.FC<MissionControlProps> = ({ selectedOccasion, onOccasionChange, lockedCount }) => {
   return (
-    <RetroWindow title="MISSION_CTRL" icon={<Sliders size={14} />} className="h-full" headerColor="bg-[var(--accent-pink)]" collapsible>
+    <RetroWindow title="STYLE CONTROLS" icon={<Sliders size={14} />} className="h-full" headerColor="bg-[var(--accent-pink)]" collapsible>
         <div className="p-3 space-y-4 h-full flex flex-col">
             
             {/* Occasion Selector */}
             <div>
                 <p className="text-[10px] font-mono font-bold text-[var(--text-muted)] uppercase mb-2 border-b border-[var(--border)] border-dashed pb-1">
-                    Mission Profile
+                    Occasion / Vibe
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                     {[
@@ -46,7 +46,7 @@ export const MissionControl: React.FC<MissionControlProps> = ({ selectedOccasion
                 </div>
                 {!selectedOccasion && (
                     <div className="mt-2 text-[10px] font-mono text-[var(--text-muted)] bg-[var(--bg-main)] p-1 border border-[var(--border)] text-center">
-                        DEFAULT: GENERAL PURPOSE
+                        DEFAULT: EVERYDAY / CASUAL
                     </div>
                 )}
             </div>
@@ -54,12 +54,12 @@ export const MissionControl: React.FC<MissionControlProps> = ({ selectedOccasion
             {/* Constraints Display */}
             <div className="mt-auto">
                  <p className="text-[10px] font-mono font-bold text-[var(--text-muted)] uppercase mb-2 border-b border-[var(--border)] border-dashed pb-1">
-                    Active Constraints
+                    Locked Pieces
                 </p>
                 <div className="flex items-center justify-between bg-[var(--bg-tertiary)] p-2 border-2 border-[var(--border)]">
                     <div className="flex items-center gap-2">
                         <Crosshair size={16} className={lockedCount > 0 ? "text-[var(--accent-orange)]" : "text-[var(--text-muted)]"} />
-                        <span className="font-mono text-xs font-bold text-[var(--text)]">LOCKED ITEMS</span>
+                        <span className="font-mono text-xs font-bold text-[var(--text)]">LOCKED PIECES</span>
                     </div>
                     <span className={`font-mono text-sm font-black ${lockedCount > 0 ? "text-[var(--accent-orange)]" : "text-[var(--text-muted)]"}`}>
                         {lockedCount}

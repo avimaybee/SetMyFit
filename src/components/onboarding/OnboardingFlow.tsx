@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { RetroWindow, RetroButton } from '@/components/retro-ui';
 import { processImageUpload } from '@/lib/imageProcessor';
 import { toast } from '@/components/ui/toaster';
@@ -18,7 +18,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
     const [file, setFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [base64Data, setBase64Data] = useState<string | null>(null);
-    const [progress, setProgress] = useState(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -62,41 +61,25 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
         }
     };
 
-    useEffect(() => {
-        if (step === 3) {
-            const interval = setInterval(() => {
-                setProgress(prev => {
-                    if (prev >= 100) {
-                        clearInterval(interval);
-                        return 100;
-                    }
-                    return prev + 2;
-                });
-            }, 50);
-            return () => clearInterval(interval);
-        }
-    }, [step]);
-
-    const handleSkip = () => {
-        // Skip without uploading an item — clear any selected file so a
-        // browsed-but-skipped photo is not uploaded anyway.
+    const handleSkip = async () => {
         setFile(null);
         setPreviewUrl(null);
         setBase64Data(null);
         setStep(3);
-    };
-
-    const handleUploadAndContinue = () => {
-        // Continue with the uploaded item
-        setStep(3);
-    };
-
-    const handleFinalComplete = async () => {
-        if (isSubmitting) return;
         setIsSubmitting(true);
-        const prefs = { preferred_styles: aesthetics, gender };
-
         try {
+            const prefs = { preferred_styles: aesthetics, gender };
+            await onComplete(prefs);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleUploadAndContinue = async () => {
+        setStep(3);
+        setIsSubmitting(true);
+        try {
+            const prefs = { preferred_styles: aesthetics, gender };
             if (file && base64Data) {
                 await onComplete(prefs, { file, base64: base64Data });
             } else {
@@ -240,38 +223,22 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
     );
 
     const renderStep3 = () => (
-        <div className="space-y-6 text-center animate-in fade-in zoom-in duration-500">
+        <div className="space-y-6 text-center py-6 animate-in fade-in duration-300">
             <div className="flex justify-center mb-4">
-                <Shirt size={48} className="text-[#FF8E72]" />
+                <Shirt size={48} className="text-[#FF8E72] animate-pulse" />
             </div>
 
-            <h2 className="font-black text-2xl mb-2">INITIALIZING...</h2>
-
-            <div className="w-full bg-white border-2 border-black h-6 relative">
-                <div
-                    className="bg-[#CAFFBF] h-full absolute top-0 left-0 transition-all duration-100 border-r-2 border-black"
-                    style={{ width: `${progress}%` }}
-                ></div>
-            </div>
-            <p className="font-mono text-xs">{progress < 100 ? 'CONFIGURING YOUR WARDROBE...' : 'SYSTEM READY.'}</p>
-
-            {progress === 100 && (
-                <RetroButton
-                    onClick={handleFinalComplete}
-                    disabled={isSubmitting}
-                    variant="secondary"
-                    className="w-full animate-bounce mt-4"
-                >
-                    {isSubmitting ? 'SAVING...' : 'ENTER DASHBOARD'}
-                </RetroButton>
-            )}
+            <h2 className="font-black text-2xl mb-2">SETTING UP YOUR CLOSET</h2>
+            <p className="font-mono text-xs text-gray-600">
+                {isSubmitting ? 'Saving your style profile...' : 'Your closet is ready!'}
+            </p>
         </div>
     );
 
     return (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <div className="max-w-lg w-full">
-                <RetroWindow title="WIZARD.BAT" icon={<CheckCircle size={14} />}>
+                <RetroWindow title="STYLE SETUP" icon={<CheckCircle size={14} />}>
                     <div className="p-2">
                         {step === 1 && renderStep1()}
                         {step === 2 && renderStep2()}

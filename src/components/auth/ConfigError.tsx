@@ -16,7 +16,7 @@ export const FirebaseConfigError: React.FC = () => {
       style={{ backgroundImage: 'radial-gradient(#e5e5e5 1px, transparent 1px)', backgroundSize: '20px 20px' }}
     >
       <div className="max-w-md w-full">
-        <RetroWindow title="CONFIG_ERROR.SYS" icon={<ShieldAlert size={14} />}>
+        <RetroWindow title="CONFIGURATION REQUIRED" icon={<ShieldAlert size={14} />}>
           <div className="flex flex-col gap-4 py-4">
             <p className="font-black text-2xl tracking-tighter">AUTH IS NOT CONFIGURED</p>
             <p className="font-mono text-xs leading-relaxed">

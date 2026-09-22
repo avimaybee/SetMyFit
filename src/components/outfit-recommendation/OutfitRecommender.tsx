@@ -482,7 +482,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                 {isGenerating && (
                     <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center text-white">
                         <Loader2 size={48} className="animate-spin text-[#FF99C8] mb-4" />
-                        <p className="font-mono font-bold text-lg animate-pulse text-center px-4">ANALYZING THERMAL PROPERTIES...</p>
+                        <p className="font-mono font-bold text-lg animate-pulse text-center px-4">CURATING YOUR OUTFIT...</p>
                         <div className="w-48 h-2 border border-white mt-2 overflow-hidden">
                             <div className="h-full bg-[#CAFFBF] animate-[width_1s_ease-in-out_infinite]" style={{ width: `${generationProgress}%` }}></div>
                         </div>
@@ -495,7 +495,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
 
                     {/* Left: Accessories */}
                     <div className="relative h-full border-2 border-black/10 bg-black/5 rounded-lg p-1 md:p-2 flex flex-col">
-                        <span className="absolute -top-2 md:-top-3 left-1 md:left-2 font-mono text-[8px] md:text-[9px] font-bold bg-[#FDFFB6] border border-black px-1">ACCESSORIES</span>
+                        <span className="absolute -top-2 md:-top-3 left-1 md:left-2 font-mono text-[8px] md:text-[9px] font-bold bg-[#FDFFB6] border border-black px-1"><span className="md:hidden">ACCS</span><span className="hidden md:inline">ACCESSORIES</span></span>
                         <div className="flex-1 flex flex-col gap-2 md:gap-3 justify-center overflow-y-auto no-scrollbar py-2">
                             {accessories.length > 0 ? accessories.map((acc, _idx) => (
                                 <div key={acc.id} className="group relative cursor-pointer transition-transform hover:scale-105 hover:rotate-2 shrink-0 self-center">
@@ -738,7 +738,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                 >
                     <div className="flex items-center gap-2 font-mono text-xs font-bold">
                         <BrainCircuit size={14} />
-                        LOGIC_GATE.LOG
+                        STYLING NOTES
                     </div>
                     {showReasoning ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
                 </button>
@@ -775,11 +775,11 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                                         </div>
                                     </>
                                 ) : (
-                                    <div className="text-gray-500 italic">Manual configuration active. Logic gate bypassed.</div>
+                                    <div className="text-gray-500 italic">Custom outfit active.</div>
                                 )}
                             </>
                         ) : (
-                            <div className="text-gray-500 italic">Waiting for outfit generation...</div>
+                            <div className="text-gray-500 italic">Ready to curate your outfit.</div>
                         )}
                     </div>
                 )}
@@ -832,7 +832,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsSwapping(false)}></div>
                     <div className="w-full max-w-md relative z-10 animate-in fade-in zoom-in duration-200">
                         <RetroWindow
-                            title={`SELECT_${activeSwapCategory?.toUpperCase() || 'ITEM'}.DLL`}
+                            title={`SWAP ${activeSwapCategory?.toUpperCase() || 'PIECE'}`}
                             onClose={() => setIsSwapping(false)}
                             className="bg-[#FFF8E7] max-h-[80vh]"
                         >
