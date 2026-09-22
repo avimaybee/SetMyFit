@@ -79,6 +79,14 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
         { href: '/settings', icon: <Settings size={20} />, label: 'Settings', color: 'text-orange-500' },
     ];
 
+    const mobileNavItems = [
+        { href: '/', icon: <Home size={20} />, label: 'Home' },
+        { href: '/wardrobe', icon: <Shirt size={20} />, label: 'Wardrobe' },
+        { href: '/templates', icon: <Layers size={20} />, label: 'Templates' },
+        { href: '/history', icon: <Clock size={20} />, label: 'History' },
+        { href: '/settings', icon: <Settings size={20} />, label: 'Settings' },
+    ];
+
     const isActive = (href: string) => {
         if (href === '/' && pathname !== '/') return false;
         return pathname.startsWith(href);
@@ -102,24 +110,28 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
     }
 
     return (
-        <div className="min-h-screen flex flex-col md:flex-row max-w-7xl mx-auto md:p-4 gap-6 pb-20 md:pb-4">
+        <div className="min-h-screen flex flex-col md:flex-row max-w-7xl mx-auto md:p-4 gap-6 pb-24 md:pb-4">
 
             {/* MOBILE: Top Header */}
             <header className="md:hidden sticky top-0 z-40 bg-[#FF6B6B] border-b-2 border-black p-3 flex justify-between items-center shadow-md">
-                <h1 className="font-black text-xl text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,1)] tracking-tighter flex items-center gap-1" style={{ WebkitTextStroke: '1px black' }}>
+                <Link href="/" className="font-black text-xl text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,1)] tracking-tighter flex items-center gap-1" style={{ WebkitTextStroke: '1px black' }}>
                     SET<span className="text-[#FDFFB6]">MY</span>FIT <span className="text-[10px] font-mono mt-1 ml-1 opacity-80">v2.0.0</span>
-                </h1>
-                <div className="flex items-center gap-3">
+                </Link>
+                <div className="flex items-center gap-2">
                     <button
                         onClick={() => openGlobalAdd()}
                         aria-label="Quick add item"
-                        className="w-11 h-11 min-w-[44px] min-h-[44px] bg-[#FDFFB6] border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
+                        className="w-10 h-10 min-w-[40px] min-h-[40px] bg-[#FDFFB6] border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-transform"
                     >
-                        <Plus size={20} strokeWidth={3} />
+                        <Plus size={20} strokeWidth={3} className="text-black" />
                     </button>
-                    <div className="w-8 h-8 bg-white border-2 border-black rounded-full overflow-hidden flex items-center justify-center">
-                        <User size={20} className="text-gray-600" />
-                    </div>
+                    <Link
+                        href="/settings"
+                        aria-label="Settings and profile"
+                        className="w-10 h-10 min-w-[40px] min-h-[40px] bg-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center justify-center transition-transform hover:bg-gray-50"
+                    >
+                        <User size={18} className="text-black" />
+                    </Link>
                 </div>
             </header>
 
@@ -143,9 +155,9 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
                     </div>
                     <div className="leading-none">
                         <span className="block font-black text-sm uppercase">{userEmail}</span>
-                        <div className="flex items-center gap-1">
-                            <span className="w-2 h-2 bg-green-500 rounded-full border border-black animate-pulse"></span>
-                            <span className="text-[10px] font-mono text-gray-600">ONLINE</span>
+                        <div className="flex items-center gap-1.5 mt-1">
+                            <span className="w-2 h-2 bg-emerald-600 rounded-full border border-black animate-pulse"></span>
+                            <span className="text-[10px] font-mono text-emerald-800 font-bold">ONLINE</span>
                         </div>
                     </div>
                 </div>
@@ -188,22 +200,22 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
             </main>
 
             {/* MOBILE: Bottom Navigation Bar */}
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#FFF8E7] border-t-2 border-black z-50 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_0px_0px_rgba(0,0,0,0.1)]">
-                <div className="flex justify-around items-center py-2 px-1">
-                    {navItems.map((item) => (
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#FFF8E7] border-t-2 border-black z-50 pb-safe shadow-[0_-4px_0px_0px_rgba(0,0,0,0.1)]">
+                <div className="flex justify-around items-center py-1 px-1">
+                    {mobileNavItems.map((item) => (
                         <Link
                             key={item.href}
                             href={item.href}
                             className={`
-                                flex flex-col items-center justify-center gap-1 p-2 py-2.5 min-h-[56px] rounded-lg transition-all w-full
+                                flex flex-col items-center justify-center gap-1 py-1.5 px-2 min-h-[48px] rounded transition-all flex-1 text-center
                                 ${isActive(item.href)
-                                    ? 'bg-black text-white'
+                                    ? 'bg-black text-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                                     : 'text-black hover:bg-black/5 active:scale-95'
                                 }
                             `}
                         >
                             {React.cloneElement(item.icon as React.ReactElement<{ size: number }>, { size: 18 })}
-                            <span className="font-mono text-[9px] font-bold uppercase tracking-tight">{item.label}</span>
+                            <span className="font-mono text-[10px] font-bold uppercase tracking-tight leading-none">{item.label}</span>
                         </Link>
                     ))}
                 </div>

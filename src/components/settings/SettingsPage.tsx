@@ -111,7 +111,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout, preference
                 <div className="p-4 space-y-4">
                     <div className="flex justify-between items-center font-mono text-xs">
                         <span className="text-[var(--text)]">Database Status</span>
-                        <span className="text-[var(--accent-green)] font-bold">● ONLINE</span>
+                        <span className="text-[var(--status-online)] font-bold flex items-center gap-1 bg-[var(--status-online-bg)] px-2 py-0.5 border border-[var(--status-online)] text-[10px]">
+                            ● ONLINE
+                        </span>
                     </div>
                     <div className="flex justify-between items-center font-mono text-xs">
                         <span className="text-[var(--text)]">Version</span>

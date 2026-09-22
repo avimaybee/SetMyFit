@@ -2,6 +2,8 @@ import React from 'react';
 import { RetroWindow } from '@/components/retro-ui';
 import { Terminal, Database, Calendar } from 'lucide-react';
 
+import Link from 'next/link';
+
 interface SystemMsgProps {
     logs?: { message: string; ts: string }[];
     itemCount?: number;
@@ -63,37 +65,38 @@ export const SystemMsg: React.FC<SystemMsgProps> = ({
             className="h-full"
             headerColor="bg-[var(--accent-green)]"
             icon={<Terminal size={12} />}
+            collapsible
         >
             <div className="p-3 h-full flex flex-col font-mono text-xs space-y-3 bg-[var(--bg-secondary)]">
 
                 {/* Status Header */}
                 <div className="flex items-center justify-between border-b border-[var(--border)] border-dashed pb-2">
-                    <span suppressHydrationWarning className="text-[var(--text-muted)]">{timeStr}</span>
-                    <span className="text-[var(--accent-green)] font-bold flex items-center gap-1">
-                        <span className="w-2 h-2 bg-[var(--accent-green)] rounded-full animate-pulse"></span>
+                    <span suppressHydrationWarning className="text-[var(--text-muted)] font-bold">{timeStr}</span>
+                    <span className="text-[var(--status-online)] font-bold flex items-center gap-1.5 bg-[var(--status-online-bg)] px-2 py-0.5 border border-[var(--status-online)] text-[10px]">
+                        <span className="w-2 h-2 bg-[var(--status-online)] rounded-full animate-pulse"></span>
                         ONLINE
                     </span>
                 </div>
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-2">
+                    <Link href="/wardrobe" className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-2 hover:bg-[var(--accent-yellow)] transition-colors block">
                         <div className="flex items-center gap-1 text-[var(--text-muted)] mb-1">
                             <Database size={10} />
                             <span>WARDROBE</span>
                         </div>
                         <span className="text-lg font-bold text-[var(--text)]">{itemCount}</span>
-                        <span className="text-[var(--text-muted)]"> items</span>
-                    </div>
+                        <span className="text-[var(--text-muted)]"> {itemCount === 1 ? 'item' : 'items'}</span>
+                    </Link>
 
-                    <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-2">
+                    <Link href="/history" className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-2 hover:bg-[var(--accent-yellow)] transition-colors block">
                         <div className="flex items-center gap-1 text-[var(--text-muted)] mb-1">
                             <Calendar size={10} />
                             <span>LOGGED</span>
                         </div>
                         <span className="text-lg font-bold text-[var(--text)]">{outfitCount}</span>
-                        <span className="text-[var(--text-muted)]"> outfits</span>
-                    </div>
+                        <span className="text-[var(--text-muted)]"> {outfitCount === 1 ? 'outfit' : 'outfits'}</span>
+                    </Link>
                 </div>
 
                 {/* Info Lines */}
@@ -111,7 +114,7 @@ export const SystemMsg: React.FC<SystemMsgProps> = ({
                 {/* Terminal Cursor */}
                 <div className="mt-auto pt-2 border-t border-[var(--border)] border-dashed">
                     <div className="flex items-center gap-1 text-[var(--text-muted)]">
-                        <span className="text-[var(--accent-green)]">&gt;</span>
+                        <span className="text-[var(--status-online)] font-bold">&gt;</span>
                         <span>Ready for input</span>
                         <span className="animate-pulse font-bold text-[var(--text)]">_</span>
                     </div>

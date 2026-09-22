@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { RefreshCcw, ThumbsUp, ThumbsDown, CheckCircle, Sparkles, Loader2, BrainCircuit, ChevronDown, ChevronUp, Thermometer, Lock, Unlock, Upload } from 'lucide-react';
+import { RefreshCcw, ThumbsUp, ThumbsDown, CheckCircle, Shuffle, Shirt, Loader2, BrainCircuit, ChevronDown, ChevronUp, Thermometer, Lock, Unlock, Upload } from 'lucide-react';
 import { RetroWindow, RetroButton, RetroBadge, RetroImage } from '../retro-ui';
 import { ClothingItem, Outfit, ClothingType } from '@/types/retro';
 
@@ -16,6 +16,7 @@ interface OutfitRecommenderProps {
     isLogging?: boolean;
     isLoadingWardrobe?: boolean;  // NEW: Distinguish loading from empty
     onNavigateToWardrobe?: () => void;  // NEW: Action for empty state
+    onOpenQuickAdd?: () => void;  // Direct quick add modal trigger
     recommendationId?: string | number | null;  // Saved recommendation id for feedback
     onFeedback?: (isLiked: boolean, reason?: string) => void | Promise<void>;  // Like/dislike handler
 }
@@ -42,6 +43,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
     isLogging = false,
     isLoadingWardrobe = false,
     onNavigateToWardrobe,
+    onOpenQuickAdd,
     recommendationId = null,
     onFeedback
 }) => {
@@ -326,7 +328,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
             <RetroWindow title="OUTFIT_GEN.EXE" className="h-full flex items-center justify-center text-center p-6">
                 <div className="flex flex-col items-center gap-6 max-w-sm">
                     <div className="w-20 h-20 bg-[#CAFFBF] border-2 border-black rounded-full flex items-center justify-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                        <Sparkles size={40} className="text-black" />
+                        <Shirt size={40} className="text-black" />
                     </div>
                     <div>
                         <h2 className="font-black text-2xl mb-2">WELCOME!</h2>
@@ -335,7 +337,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                         </p>
                     </div>
                     <RetroButton
-                        onClick={onNavigateToWardrobe}
+                        onClick={onOpenQuickAdd || onNavigateToWardrobe}
                         className="flex items-center gap-2"
                     >
                         <Upload size={16} /> ADD YOUR FIRST ITEM
@@ -351,7 +353,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                 <div className="flex flex-col items-center gap-4 max-w-sm">
                     <h2 className="font-black text-xl mb-2">ALMOST THERE!</h2>
                     <p className="font-mono text-sm mb-2">
-                        To generate complete outfits, you need at least one item from each core category:
+                        To style full looks, you need at least one item from each core category:
                     </p>
                     <div className="flex gap-2 flex-wrap justify-center mb-2">
                         {(['Top', 'Bottom', 'Shoes'] as ClothingType[]).map(cat => (
@@ -369,9 +371,16 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                     <p className="font-mono text-xs text-gray-500">
                         Found: {Array.from(coreCategoriesPresent).join(', ') || 'none'}
                     </p>
-                    <RetroButton onClick={onNavigateToWardrobe} className="flex items-center gap-2">
-                        <Upload size={16} /> ADD MISSING ITEMS
-                    </RetroButton>
+                    <div className="flex flex-col sm:flex-row gap-2 w-full justify-center">
+                        <RetroButton onClick={onOpenQuickAdd || onNavigateToWardrobe} className="flex items-center justify-center gap-2">
+                            <Upload size={16} /> QUICK ADD PIECE
+                        </RetroButton>
+                        {onNavigateToWardrobe && (
+                            <RetroButton onClick={onNavigateToWardrobe} variant="neutral" className="flex items-center justify-center gap-2 text-xs">
+                                VIEW CLOSET
+                            </RetroButton>
+                        )}
+                    </div>
                 </div>
             </RetroWindow>
         );
@@ -811,7 +820,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                         </>
                     ) : (
                         <>
-                            <Sparkles size={16} className="md:w-[18px] md:h-[18px]" /> <span className="md:hidden">GENERATE</span><span className="hidden md:inline">GENERATE OUTFIT</span>
+                            <Shuffle size={16} className="md:w-[18px] md:h-[18px]" /> <span className="md:hidden">GENERATE</span><span className="hidden md:inline">GENERATE OUTFIT</span>
                         </>
                     )}
                 </RetroButton>

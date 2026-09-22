@@ -75,43 +75,82 @@ interface RetroWindowProps {
   onClose?: () => void;
   icon?: React.ReactNode;
   headerColor?: string;
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
 }
 
-export const RetroWindow: React.FC<RetroWindowProps> = ({ title, children, className = '', onClose, icon, headerColor = 'bg-[var(--accent-orange)]' }) => {
+export const RetroWindow: React.FC<RetroWindowProps> = ({
+  title,
+  children,
+  className = '',
+  onClose,
+  icon,
+  headerColor = 'bg-[var(--accent-orange)]',
+  collapsible = false,
+  defaultCollapsed = false,
+}) => {
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+
   return (
     <div className={`bg-[var(--bg-main)] border-2 border-[var(--border)] shadow-[8px_8px_0px_0px_var(--border)] flex flex-col ${className}`}>
       {/* Window Header */}
       <div className={`${headerColor} border-b-2 border-[var(--border)] p-1 px-2 flex items-center justify-between select-none`}>
-        <div className="flex items-center gap-2 pl-1">
-          {icon && <span className="text-[var(--text)]">{icon}</span>}
+        <div className="flex items-center gap-2 pl-1 min-w-0">
+          {icon && <span className="text-[var(--text)] shrink-0">{icon}</span>}
           <span className="font-bold font-mono text-sm uppercase tracking-wider text-[var(--text)] truncate">{title}</span>
         </div>
-        <div className="flex items-center gap-1" aria-hidden="true">
-          <div className="w-5 h-5 border-2 border-[var(--border)] bg-[var(--bg-secondary)] flex items-center justify-center hover:opacity-80 cursor-default">
-            <Minus size={12} strokeWidth={4} className="text-[var(--text)]" />
+        <div className="flex items-center gap-1 shrink-0">
+          {collapsible ? (
+            <button
+              type="button"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="w-5 h-5 border-2 border-[var(--border)] bg-[var(--bg-secondary)] flex items-center justify-center hover:opacity-80 active:translate-y-[1px] cursor-pointer"
+              aria-label={isCollapsed ? `Expand ${title}` : `Collapse ${title}`}
+              title={isCollapsed ? "Expand" : "Collapse"}
+            >
+              {isCollapsed ? (
+                <Square size={9} strokeWidth={4} className="text-[var(--text)]" />
+              ) : (
+                <Minus size={11} strokeWidth={4} className="text-[var(--text)]" />
+              )}
+            </button>
+          ) : (
+            <div className="w-5 h-5 border-2 border-[var(--border)] bg-[var(--bg-secondary)] opacity-40 flex items-center justify-center">
+              <Minus size={11} strokeWidth={4} className="text-[var(--text)]" />
+            </div>
+          )}
+          <div className="w-5 h-5 border-2 border-[var(--border)] bg-[var(--bg-secondary)] opacity-40 flex items-center justify-center">
+            <Square size={9} strokeWidth={4} className="text-[var(--text)]" />
           </div>
-          <div className="w-5 h-5 border-2 border-[var(--border)] bg-[var(--bg-secondary)] flex items-center justify-center hover:opacity-80 cursor-default">
-            <Square size={10} strokeWidth={4} className="text-[var(--text)]" />
-          </div>
-          <button
-            onClick={onClose}
-            className="w-5 h-5 border-2 border-[var(--border)] bg-[var(--accent-pink)] flex items-center justify-center hover:bg-red-500 transition-colors active:bg-red-600 group"
-            aria-label="Close"
-          >
-            <X size={14} strokeWidth={4} className="text-[var(--text)]" />
-          </button>
+          {onClose ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-5 h-5 border-2 border-[var(--border)] bg-[var(--accent-pink)] flex items-center justify-center hover:bg-red-500 transition-colors active:bg-red-600 cursor-pointer group"
+              aria-label={`Close ${title}`}
+              title="Close"
+            >
+              <X size={13} strokeWidth={4} className="text-[var(--text)]" />
+            </button>
+          ) : (
+            <div className="w-5 h-5 border-2 border-[var(--border)] bg-[var(--bg-secondary)] opacity-40 flex items-center justify-center">
+              <X size={12} strokeWidth={4} className="text-[var(--text)]" />
+            </div>
+          )}
         </div>
       </div>
       {/* Window Content */}
-      <div className="flex-1 p-4 overflow-auto relative flex flex-col">
-        {/* Stripes texture for aesthetics in background */}
-        <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none z-0"
-          style={{ backgroundImage: 'repeating-linear-gradient(45deg, var(--border) 0, var(--border) 1px, transparent 0, transparent 50%)', backgroundSize: '12px 12px' }}>
+      {!isCollapsed && (
+        <div className="flex-1 p-3 md:p-4 overflow-auto relative flex flex-col">
+          {/* Stripes texture for aesthetics in background */}
+          <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none z-0"
+            style={{ backgroundImage: 'repeating-linear-gradient(45deg, var(--border) 0, var(--border) 1px, transparent 0, transparent 50%)', backgroundSize: '12px 12px' }}>
+          </div>
+          <div className="relative z-10 flex-1 flex flex-col text-[var(--text)]">
+            {children}
+          </div>
         </div>
-        <div className="relative z-10 flex-1 flex flex-col text-[var(--text)]">
-          {children}
-        </div>
-      </div>
+      )}
     </div>
   );
 };

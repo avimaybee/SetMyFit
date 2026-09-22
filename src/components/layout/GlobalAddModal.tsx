@@ -14,7 +14,7 @@ import { clientLogger } from '@/lib/clientLogger';
 
 export const GlobalAddModal: React.FC = () => {
     const pathname = usePathname();
-    const { isGlobalAddOpen, closeGlobalAdd } = useAddItem();
+    const { isGlobalAddOpen, closeGlobalAdd, notifyItemAdded } = useAddItem();
 
     // The wardrobe route renders its own add/edit modal so we avoid double stacks here.
     if (pathname?.startsWith('/wardrobe')) {
@@ -94,11 +94,7 @@ export const GlobalAddModal: React.FC = () => {
 
             toast.success("Saved to your closet.");
             closeGlobalAdd();
-
-            // Reload the page to refresh wardrobe if on wardrobe page
-            if (typeof window !== 'undefined' && window.location.pathname === '/wardrobe') {
-                window.location.reload();
-            }
+            notifyItemAdded();
 
         } catch (err) {
             console.error("Error adding item:", err);

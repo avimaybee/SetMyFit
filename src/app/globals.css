@@ -1,10 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Work+Sans:wght@400;600;800&display=swap');
 @import "tailwindcss";
 
 /* Fonts */
 @theme {
-  --font-sans: 'Work Sans', sans-serif;
-  --font-mono: 'Space Mono', monospace;
+  --font-sans: var(--font-sans), 'Work Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: var(--font-mono), 'Space Mono', monospace;
 }
 
 /* shadcn token bridge: map shadcn/ui utilities onto the retro theme vars
@@ -43,6 +42,10 @@
   --accent-orange: #FF8E72;
   --accent-yellow: #FDFFB6;
   --accent-green: #CAFFBF;
+
+  /* Semantic High-Contrast Status Tokens */
+  --status-online: #15803d; /* WCAG AAA high-contrast green */
+  --status-online-bg: #dcfce7;
   
   --card-shadow: 4px 4px 0px 0px var(--border);
 }
@@ -62,12 +65,14 @@
   --accent-orange: #331a00;
   --accent-yellow: #333300;
   --accent-green: #003300;
+  --status-online: #00ff41;
+  --status-online-bg: #002200;
   
   --card-shadow: 4px 4px 0px 0px var(--border);
 }
 
 body {
-  font-family: 'Work Sans', sans-serif;
+  font-family: var(--font-sans), 'Work Sans', sans-serif;
   background-color: var(--bg-main);
   color: var(--text);
   transition: background-color 0.3s ease, color 0.3s ease;
@@ -84,7 +89,7 @@ body.theme-hacker {
       linear-gradient(0deg, transparent 24%, rgba(0, 255, 65, .03) 25%, rgba(0, 255, 65, .03) 26%, transparent 27%, transparent 74%, rgba(0, 255, 65, .03) 75%, rgba(0, 255, 65, .03) 76%, transparent 77%, transparent), 
       linear-gradient(90deg, transparent 24%, rgba(0, 255, 65, .03) 25%, rgba(0, 255, 65, .03) 26%, transparent 27%, transparent 74%, rgba(0, 255, 65, .03) 75%, rgba(0, 255, 65, .03) 76%, transparent 77%, transparent);
   background-size: 30px 30px;
-  font-family: 'Space Mono', monospace;
+  font-family: var(--font-mono), 'Space Mono', monospace;
 }
 
 .theme-hacker * {
@@ -101,7 +106,15 @@ body.theme-hacker {
 }
 
 .font-mono {
-  font-family: 'Space Mono', monospace;
+  font-family: var(--font-mono), 'Space Mono', monospace;
+}
+
+/* Mobile Safe Area Insets */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
 }
 /* Custom Scrollbar */
 ::-webkit-scrollbar {

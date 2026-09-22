@@ -10,7 +10,7 @@ interface MissionControlProps {
 
 export const MissionControl: React.FC<MissionControlProps> = ({ selectedOccasion, onOccasionChange, lockedCount }) => {
   return (
-    <RetroWindow title="MISSION_CTRL" icon={<Sliders size={14} />} className="h-full" headerColor="bg-[var(--accent-pink)]">
+    <RetroWindow title="MISSION_CTRL" icon={<Sliders size={14} />} className="h-full" headerColor="bg-[var(--accent-pink)]" collapsible>
         <div className="p-3 space-y-4 h-full flex flex-col">
             
             {/* Occasion Selector */}

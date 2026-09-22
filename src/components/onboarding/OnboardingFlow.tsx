@@ -5,7 +5,7 @@ import { RetroWindow, RetroButton } from '@/components/retro-ui';
 import { processImageUpload } from '@/lib/imageProcessor';
 import { toast } from '@/components/ui/toaster';
 import { UserPreferences } from '@/types/retro';
-import { Upload, ArrowRight, Sparkles, CheckCircle, SkipForward } from 'lucide-react';
+import { Upload, ArrowRight, Shirt, CheckCircle, SkipForward } from 'lucide-react';
 
 interface OnboardingFlowProps {
     onComplete: (prefs: Partial<UserPreferences>, firstItem?: { file: File; base64: string }) => void;
@@ -242,7 +242,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
     const renderStep3 = () => (
         <div className="space-y-6 text-center animate-in fade-in zoom-in duration-500">
             <div className="flex justify-center mb-4">
-                <Sparkles size={48} className="text-[#FF8E72] animate-spin-slow" />
+                <Shirt size={48} className="text-[#FF8E72]" />
             </div>
 
             <h2 className="font-black text-2xl mb-2">INITIALIZING...</h2>
@@ -253,7 +253,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                     style={{ width: `${progress}%` }}
                 ></div>
             </div>
-            <p className="font-mono text-xs">{progress < 100 ? 'GENERATING NEURAL PATHWAYS...' : 'SYSTEM READY.'}</p>
+            <p className="font-mono text-xs">{progress < 100 ? 'CONFIGURING YOUR WARDROBE...' : 'SYSTEM READY.'}</p>
 
             {progress === 100 && (
                 <RetroButton

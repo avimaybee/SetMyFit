@@ -11,6 +11,7 @@ import { toast } from "../components/ui/toaster";
 import { MissionControl } from "../components/mission-control";
 import { SystemMsg } from "../components/system-msg";
 import { clientLogger } from "@/lib/clientLogger";
+import { useAddItem } from "@/contexts/AddItemContext";
 
 type RecommendationApiResponse = {
   success: boolean;
@@ -91,6 +92,7 @@ const mapClothingItem = (item: IClothingItem): ClothingItem => {
 
 export default function HomePage() {
   const router = _useRouter();
+  const { wardrobeVersion, openGlobalAdd } = useAddItem();
   const [recommendationData, setRecommendationData] = useState<RecommendationApiPayload | null>(null);
   const [hasBootstrappedContent, setHasBootstrappedContent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -209,7 +211,7 @@ export default function HomePage() {
     if (isAuthenticated) {
       fetchWardrobe();
     }
-  }, [isAuthenticated, fetchWardrobe]);
+  }, [isAuthenticated, fetchWardrobe, wardrobeVersion]);
 
   // Widget data for SystemMsg (best-effort; never blocks the generator).
   useEffect(() => {
@@ -502,25 +504,28 @@ export default function HomePage() {
     }
   }, [recommendationData, hasBootstrappedContent]);
 
-  const shouldShowSkeleton = !hasBootstrappedContent;
+  const shouldShowSkeleton = !hasBootstrappedContent && isWardrobeLoading;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
       <h1 className="sr-only">Outfit generator</h1>
 
       {/* Left/Center Panel: Outfit Generator */}
-      <div className="lg:col-span-2 h-full">
-        {error && !recommendationData && hasBootstrappedContent ? (
-          <div className="bg-[#FF8E72] border-2 border-black p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-            <p className="font-mono text-sm font-bold">GENERATION_FAILED: {error}</p>
+      <div className="lg:col-span-2 h-full flex flex-col gap-4">
+        {/* Informative alert for network errors (non-blocking) */}
+        {error && !recommendationData && allWardrobeItems.length >= 3 && (
+          <div className="bg-[#FF8E72] border-2 border-black p-3 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between gap-3">
+            <p className="font-mono text-xs font-bold text-black">{error}</p>
             <button
               onClick={() => { setError(null); fetchRecommendation(); }}
-              className="mt-3 bg-black text-white font-mono text-xs px-4 py-2 border-2 border-black hover:bg-gray-800"
+              className="bg-black text-white font-mono text-xs px-3 py-1.5 border border-black hover:bg-gray-800 shrink-0 font-bold"
             >
               RETRY
             </button>
           </div>
-        ) : shouldShowSkeleton ? (
+        )}
+
+        {shouldShowSkeleton ? (
           <OutfitSkeleton />
         ) : (
           <OutfitRecommender
@@ -542,6 +547,7 @@ export default function HomePage() {
             isLogging={isLoggingOutfit}
             isLoadingWardrobe={isWardrobeLoading}
             onNavigateToWardrobe={handleNavigateToWardrobe}
+            onOpenQuickAdd={openGlobalAdd}
             recommendationId={recommendationData?.recommendation?.id ?? null}
             onFeedback={handleFeedback}
           />
@@ -550,17 +556,7 @@ export default function HomePage() {
 
       {/* Right Panel: Widgets */}
       <div className="flex flex-col gap-4">
-
-        {/* System Messages */}
-        <div>
-          <SystemMsg
-            itemCount={allWardrobeItems.length}
-            outfitCount={outfitCount}
-            lastOutfitDate={lastOutfitDate}
-          />
-        </div>
-
-        {/* Mission Control */}
+        {/* Mission Control: Occasion selector prioritized on mobile right below outfit */}
         <div>
           <MissionControl
             selectedOccasion={selectedOccasion}
@@ -569,6 +565,15 @@ export default function HomePage() {
               emitClientLog(`Mission profile updated: ${occ || 'General'}`);
             }}
             lockedCount={lockedItems.length}
+          />
+        </div>
+
+        {/* System Messages */}
+        <div>
+          <SystemMsg
+            itemCount={allWardrobeItems.length}
+            outfitCount={outfitCount}
+            lastOutfitDate={lastOutfitDate}
           />
         </div>
       </div>

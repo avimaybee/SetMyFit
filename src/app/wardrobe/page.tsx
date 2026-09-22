@@ -17,7 +17,7 @@ export default function WardrobePage() {
     const [items, setItems] = useState<ClothingItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadFailed, setLoadFailed] = useState(false);
-    const { isGlobalAddOpen, openGlobalAdd, closeGlobalAdd } = useAddItem();
+    const { isGlobalAddOpen, openGlobalAdd, closeGlobalAdd, wardrobeVersion } = useAddItem();
     // Serialize saves + favorite toggles to prevent duplicates and races.
     const savingRef = useRef(false);
     const favoriteInFlightRef = useRef<Set<string>>(new Set());
@@ -79,7 +79,7 @@ export default function WardrobePage() {
 
     useEffect(() => {
         fetchWardrobe();
-    }, [fetchWardrobe]);
+    }, [fetchWardrobe, wardrobeVersion]);
 
     const mapDbTypeToUiCategory = (dbType: string): ClothingType => {
         switch (dbType) {

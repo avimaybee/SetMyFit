@@ -171,7 +171,7 @@ export default function HistoryPage() {
                               <div className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
                                 <span className="bg-[var(--accent-yellow)] px-2 py-0.5 border border-[var(--border)] text-[var(--text)] font-bold">
                                   {condition ?? "N/A"}
-                                  {typeof temperature === "number" ? `, ${temperature}Â°` : ""}
+                                  {typeof temperature === "number" ? `, ${temperature}°C` : ""}
                                 </span>
                                 {rating !== null && (
                                   <div className="flex items-center gap-0.5">
