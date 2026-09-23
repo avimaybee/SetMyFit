@@ -11,7 +11,7 @@ interface RetroBoxProps {
 
 export const RetroBox: React.FC<RetroBoxProps> = ({ children, className = '', color = 'bg-[var(--bg-secondary)]', noShadow = false }) => {
   return (
-    <div className={`${color} border-2 border-[var(--border)] ${noShadow ? '' : 'shadow-[4px_4px_0px_0px_var(--border)]'} p-4 ${className}`}>
+    <div className={`${color} border-2 border-[var(--border)] ${noShadow ? '' : 'shadow-[3px_3px_0px_0px_var(--border)] sm:shadow-[4px_4px_0px_0px_var(--border)]'} p-3 sm:p-4 ${className}`}>
       {children}
     </div>
   );
@@ -50,11 +50,11 @@ export const RetroButton: React.FC<RetroButtonProps> = ({ children, className = 
       className={`
         ${bgClass} 
         border-2 border-[var(--border)] 
-        px-4 py-2 
+        px-3 sm:px-4 py-2 
         min-h-[44px]
         font-bold 
         text-[var(--text)]
-        shadow-[4px_4px_0px_0px_var(--border)] 
+        shadow-[3px_3px_0px_0px_var(--border)] sm:shadow-[4px_4px_0px_0px_var(--border)]
         transition-all 
         active:translate-x-[2px] active:translate-y-[2px] active:shadow-none
         disabled:opacity-50 disabled:cursor-not-allowed
@@ -92,19 +92,19 @@ export const RetroWindow: React.FC<RetroWindowProps> = ({
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
 
   return (
-    <div className={`bg-[var(--bg-main)] border-2 border-[var(--border)] shadow-[4px_4px_0px_0px_var(--border)] md:shadow-[8px_8px_0px_0px_var(--border)] flex flex-col ${className}`}>
+    <div className={`bg-[var(--bg-main)] border-2 border-[var(--border)] shadow-[3px_3px_0px_0px_var(--border)] md:shadow-[6px_6px_0px_0px_var(--border)] flex flex-col ${className}`}>
       {/* Window Header */}
-      <div className={`${headerColor} border-b-2 border-[var(--border)] p-1 px-2 flex items-center justify-between select-none`}>
+      <div className={`${headerColor} border-b-2 border-[var(--border)] py-1.5 px-2 flex items-center justify-between select-none min-h-[36px]`}>
         <div className="flex items-center gap-2 pl-1 min-w-0">
           {icon && <span className="text-[var(--text)] shrink-0">{icon}</span>}
-          <span className="font-bold font-mono text-sm uppercase tracking-wider text-[var(--text)] truncate">{title}</span>
+          <span className="font-bold font-mono text-xs sm:text-sm uppercase tracking-wider text-[var(--text)] truncate">{title}</span>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {collapsible ? (
             <button
               type="button"
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="w-5 h-5 border-2 border-[var(--border)] bg-[var(--bg-secondary)] flex items-center justify-center hover:opacity-80 active:translate-y-[1px] cursor-pointer"
+              className="w-6 h-6 border-2 border-[var(--border)] bg-[var(--bg-secondary)] flex items-center justify-center hover:opacity-80 active:translate-y-[1px] cursor-pointer"
               aria-label={isCollapsed ? `Expand ${title}` : `Collapse ${title}`}
               title={isCollapsed ? "Expand" : "Collapse"}
             >
@@ -115,25 +115,25 @@ export const RetroWindow: React.FC<RetroWindowProps> = ({
               )}
             </button>
           ) : (
-            <div className="w-5 h-5 border-2 border-[var(--border)] bg-[var(--bg-secondary)] opacity-40 flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-[var(--border)] bg-[var(--bg-secondary)] opacity-40 flex items-center justify-center">
               <Minus size={11} strokeWidth={4} className="text-[var(--text)]" />
             </div>
           )}
-          <div className="w-5 h-5 border-2 border-[var(--border)] bg-[var(--bg-secondary)] opacity-40 flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-[var(--border)] bg-[var(--bg-secondary)] opacity-40 flex items-center justify-center">
             <Square size={9} strokeWidth={4} className="text-[var(--text)]" />
           </div>
           {onClose ? (
             <button
               type="button"
               onClick={onClose}
-              className="w-5 h-5 border-2 border-[var(--border)] bg-[var(--accent-pink)] flex items-center justify-center hover:bg-red-500 transition-colors active:bg-red-600 cursor-pointer group"
+              className="w-6 h-6 border-2 border-[var(--border)] bg-[var(--accent-pink)] flex items-center justify-center hover:bg-red-500 transition-colors active:bg-red-600 cursor-pointer group"
               aria-label={`Close ${title}`}
               title="Close"
             >
               <X size={13} strokeWidth={4} className="text-[var(--text)]" />
             </button>
           ) : (
-            <div className="w-5 h-5 border-2 border-[var(--border)] bg-[var(--bg-secondary)] opacity-40 flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-[var(--border)] bg-[var(--bg-secondary)] opacity-40 flex items-center justify-center">
               <X size={12} strokeWidth={4} className="text-[var(--text)]" />
             </div>
           )}
@@ -156,14 +156,14 @@ export const RetroWindow: React.FC<RetroWindowProps> = ({
 };
 
 export const RetroBadge: React.FC<{ children: React.ReactNode; color?: string }> = ({ children, color = 'bg-[var(--accent-yellow)]' }) => (
-  <span className={`${color} border-2 border-[var(--border)] px-2 py-0.5 text-xs font-bold uppercase tracking-wide shadow-[2px_2px_0px_0px_var(--border)] text-[var(--text)]`}>
+  <span className={`${color} border-2 border-[var(--border)] px-2 py-0.5 text-xs font-bold uppercase tracking-wide shadow-[2px_2px_0px_0px_var(--border)] text-[var(--text)] inline-block`}>
     {children}
   </span>
 );
 
 export const RetroInput: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = ({ className = '', ...props }) => (
   <input
-    className={`w-full border-2 border-[var(--border)] p-2 font-mono text-sm bg-[var(--bg-secondary)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-pink)] focus:border-[var(--border)] placeholder:text-gray-500 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+    className={`w-full border-2 border-[var(--border)] px-3 py-2.5 font-mono text-base sm:text-sm min-h-[44px] bg-[var(--bg-secondary)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-pink)] focus:border-[var(--border)] placeholder:text-gray-500 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
     {...props}
   />
 );
@@ -171,12 +171,12 @@ export const RetroInput: React.FC<React.InputHTMLAttributes<HTMLInputElement>> =
 export const RetroSelect: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = (props) => (
   <div className="relative">
     <select
-      className="w-full appearance-none border-2 border-[var(--border)] p-2 font-mono text-sm bg-[var(--bg-secondary)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-pink)] shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] pr-8"
+      className="w-full appearance-none border-2 border-[var(--border)] px-3 py-2.5 font-mono text-base sm:text-sm min-h-[44px] bg-[var(--bg-secondary)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-pink)] shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)] pr-8"
       {...props}
     >
       {props.children}
     </select>
-    <div className="absolute right-2 top-3 pointer-events-none text-[var(--text)]">
+    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text)]">
       <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[6px] border-t-[var(--border)]"></div>
     </div>
   </div>
@@ -193,7 +193,7 @@ export const RetroSlider: React.FC<RetroSliderProps> = ({ label, minLabel, maxLa
     <div className={`flex flex-col gap-1 ${className}`}>
       <label className="font-bold font-mono text-xs uppercase text-[var(--text)]">{label}</label>
       <div className="relative flex items-center gap-2">
-        {minLabel && <span className="text-[10px] font-mono text-[var(--text)]">{minLabel}</span>}
+        {minLabel && <span className="text-[10px] font-mono text-[var(--text)] shrink-0">{minLabel}</span>}
         <input
           type="range"
           className="w-full h-4 bg-[var(--bg-secondary)] border-2 border-[var(--border)] appearance-none cursor-pointer accent-[var(--border)]
@@ -201,7 +201,7 @@ export const RetroSlider: React.FC<RetroSliderProps> = ({ label, minLabel, maxLa
                     "
           {...props}
         />
-        {maxLabel && <span className="text-[10px] font-mono text-[var(--text)]">{maxLabel}</span>}
+        {maxLabel && <span className="text-[10px] font-mono text-[var(--text)] shrink-0">{maxLabel}</span>}
       </div>
     </div>
   );
@@ -215,9 +215,9 @@ interface RetroToggleProps {
 
 export const RetroToggle: React.FC<RetroToggleProps> = ({ label, checked, onChange }) => {
   return (
-    <div className="flex items-center justify-between cursor-pointer group" onClick={() => onChange(!checked)}>
+    <div className="flex items-center justify-between cursor-pointer group py-1 min-h-[44px]" onClick={() => onChange(!checked)}>
       <span className="font-mono text-sm text-[var(--text)]">{label}</span>
-      <div className={`w-12 h-6 border-2 border-[var(--border)] relative transition-colors ${checked ? 'bg-[var(--accent-green)]' : 'bg-[var(--bg-secondary)]'}`}>
+      <div className={`w-12 h-6 border-2 border-[var(--border)] relative transition-colors shrink-0 ${checked ? 'bg-[var(--accent-green)]' : 'bg-[var(--bg-secondary)]'}`}>
         <div className={`absolute top-[-2px] left-[-2px] w-6 h-6 bg-[var(--bg-secondary)] border-2 border-[var(--border)] transition-transform ${checked ? 'translate-x-6' : 'translate-x-0'} shadow-[2px_2px_0px_0px_var(--border)]`}></div>
       </div>
     </div>
@@ -260,13 +260,13 @@ export const RetroToast: React.FC<RetroToastProps> = ({ message, type = 'info', 
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-[9999] animate-in slide-in-from-right-10 fade-in duration-300">
-      <div className={`${bg} border-2 border-[var(--border)] p-3 shadow-[4px_4px_0px_0px_var(--border)] flex items-center gap-3 min-w-[240px]`}>
-        <div className="bg-[var(--bg-secondary)] border-2 border-[var(--border)] p-1 rounded-full text-[var(--text)]">
+    <div className="fixed bottom-20 left-4 right-4 sm:bottom-6 sm:left-auto sm:right-6 sm:max-w-md z-[9999] animate-in slide-in-from-bottom-5 sm:slide-in-from-right-10 fade-in duration-300">
+      <div className={`${bg} border-2 border-[var(--border)] p-3 shadow-[3px_3px_0px_0px_var(--border)] sm:shadow-[4px_4px_0px_0px_var(--border)] flex items-center gap-3 w-full`}>
+        <div className="bg-[var(--bg-secondary)] border-2 border-[var(--border)] p-1 rounded-full text-[var(--text)] shrink-0">
           {icon}
         </div>
-        <span className="font-mono text-sm font-bold text-[var(--text)]">{message}</span>
-        <button onClick={onClose} className="ml-auto hover:bg-black/10 p-1 rounded text-[var(--text)]">
+        <span className="font-mono text-xs sm:text-sm font-bold text-[var(--text)] break-words flex-1">{message}</span>
+        <button onClick={onClose} className="ml-auto hover:bg-black/10 p-1 rounded text-[var(--text)] shrink-0" aria-label="Close message">
           <X size={14} />
         </button>
       </div>

@@ -44,11 +44,11 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ templates, onApply
                         return (
                             <div key={template.id} className="relative group">
                                 <div className="relative z-10 bg-[var(--bg-secondary)] border-2 border-[var(--border)] shadow-[4px_4px_0px_0px_var(--border)] md:shadow-[6px_6px_0px_0px_var(--border)] h-full flex flex-col">
-                                    <div className="border-b-2 border-[var(--border)] bg-[var(--bg-tertiary)] p-1.5 flex justify-between items-center relative overflow-hidden">
+                                    <div className="border-b-2 border-[var(--border)] bg-[var(--bg-tertiary)] p-2 flex justify-between items-center relative overflow-hidden flex-wrap gap-2">
                                          {/* Dotted Background Pattern */}
                                          <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(var(--text) 1px, transparent 1px)', backgroundSize: '8px 8px' }}></div>
                                          
-                                         <div className="flex items-center gap-1.5 z-10 relative">
+                                         <div className="flex items-center gap-1.5 z-10 relative flex-wrap">
                                              <span className="font-mono text-xs font-bold px-1 text-[var(--text)]">PRESET</span>
                                              {userItems.length > 0 && totalReqs > 0 && (
                                                  isFullyReady ? (
@@ -62,25 +62,25 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ templates, onApply
                                                  ) : null
                                              )}
                                          </div>
-                                          <div className="flex flex-wrap gap-1 z-10 relative">
+                                         <div className="flex flex-wrap gap-1 z-10 relative">
                                              {template.styleTags.map(tag => (
                                                  <span key={tag} className="text-[9px] border border-[var(--border)] px-1 bg-[var(--bg-main)] uppercase font-bold text-[var(--text)]">{tag}</span>
                                              ))}
                                          </div>
                                     </div>
 
-                                    <div className="p-4 flex-1 flex flex-col gap-4">
-                                        <div className="flex gap-4">
-                                            <div className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 border-2 border-[var(--border)] bg-[var(--bg-main)]">
+                                    <div className="p-3 sm:p-4 flex-1 flex flex-col gap-3 sm:gap-4">
+                                        <div className="flex gap-3 sm:gap-4 items-start">
+                                            <div className="w-16 h-16 sm:w-24 sm:h-24 shrink-0 border-2 border-[var(--border)] bg-[var(--bg-main)]">
                                                 <RetroImage 
                                                     src={template.coverImage} 
                                                     alt={template.name} 
                                                     containerClassName="w-full h-full border-0" 
                                                 />
                                             </div>
-                                            <div className="min-w-0">
-                                                <h3 className="font-black text-lg sm:text-xl uppercase leading-none mb-2 text-[var(--text)]">{template.name}</h3>
-                                                <p className="font-mono text-xs text-[var(--text-muted)] leading-snug">{template.description}</p>
+                                            <div className="min-w-0 flex-1">
+                                                <h3 className="font-black text-base sm:text-xl uppercase leading-tight mb-1 sm:mb-2 text-[var(--text)] truncate">{template.name}</h3>
+                                                <p className="font-mono text-xs text-[var(--text-muted)] leading-snug line-clamp-2 sm:line-clamp-3">{template.description}</p>
                                             </div>
                                         </div>
 

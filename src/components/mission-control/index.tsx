@@ -11,7 +11,7 @@ interface MissionControlProps {
 export const MissionControl: React.FC<MissionControlProps> = ({ selectedOccasion, onOccasionChange, lockedCount }) => {
   return (
     <RetroWindow title="STYLE CONTROLS" icon={<Sliders size={14} />} className="h-full" headerColor="bg-[var(--accent-pink)]" collapsible>
-        <div className="p-3 space-y-4 h-full flex flex-col">
+        <div className="space-y-4 h-full flex flex-col">
             
             {/* Occasion Selector */}
             <div>
@@ -32,14 +32,14 @@ export const MissionControl: React.FC<MissionControlProps> = ({ selectedOccasion
                                 key={occ.id}
                                 onClick={() => onOccasionChange(isActive ? '' : occ.id)}
                                 className={`
-                                    flex items-center gap-2 px-3 py-2 border-2 border-[var(--border)] text-xs font-mono font-bold transition-all
+                                    flex items-center justify-center sm:justify-start gap-2 px-3 py-2.5 min-h-[44px] border-2 border-[var(--border)] text-xs font-mono font-bold transition-all
                                     ${isActive 
                                         ? 'bg-[var(--text)] text-[var(--bg-main)] shadow-[2px_2px_0px_0px_var(--border)]' 
-                                        : 'bg-[var(--bg-secondary)] text-[var(--text)] hover:bg-[var(--accent-yellow)]'
+                                        : 'bg-[var(--bg-secondary)] text-[var(--text)] hover:bg-[var(--accent-yellow)] active:scale-[0.98]'
                                     }
                                 `}
                             >
-                                <Icon size={12} /> {occ.id}
+                                <Icon size={14} className="shrink-0" /> <span className="truncate">{occ.id}</span>
                             </button>
                         )
                     })}

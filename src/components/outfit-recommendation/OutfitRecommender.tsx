@@ -418,20 +418,20 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
             <div className="flex flex-row justify-between items-center bg-[var(--bg-secondary)] border-2 border-[var(--border)] p-2 mb-4 shadow-[2px_2px_0px_0px_var(--border)] gap-2">
                 <div className="flex items-center gap-2">
                     <CheckCircle size={16} className={suggestedOutfit?.reasoning ? "text-green-600 fill-green-200" : "text-[var(--text-muted)]"} />
-                    <p className={`font-mono text-[10px] md:text-sm font-bold tracking-tight ${suggestedOutfit?.reasoning ? "text-green-700" : "text-[var(--text-muted)]"}`}>
+                    <p className={`font-mono text-[10px] md:text-sm font-bold tracking-tight shrink-0 ${suggestedOutfit?.reasoning ? "text-green-700" : "text-[var(--text-muted)]"}`}>
                         {suggestedOutfit?.reasoning ? "MATCHED" : "MANUAL"}
                     </p>
                 </div>
                 {weather && typeof weather.temperature === 'number' && (
-                    <div className="flex items-center gap-1.5 bg-[var(--bg-main)] border border-[var(--border)] px-2 py-0.5 font-mono text-[10px] md:text-xs font-bold text-[var(--text)]">
+                    <div className="flex items-center gap-1.5 bg-[var(--bg-main)] border border-[var(--border)] px-1.5 sm:px-2 py-0.5 font-mono text-[10px] md:text-xs font-bold text-[var(--text)] min-w-0 truncate">
                         <CloudSun size={13} className="text-[var(--accent-orange)] shrink-0" />
-                        <span>{weather.city ? `${weather.city.toUpperCase()} · ` : ''}{Math.round(weather.temperature)}°C</span>
+                        <span className="truncate">{weather.city ? `${weather.city.toUpperCase()} · ` : ''}{Math.round(weather.temperature)}°C</span>
                         {weather.weather_condition && (
                             <span className="hidden sm:inline text-[var(--text-muted)] uppercase">({weather.weather_condition})</span>
                         )}
                     </div>
                 )}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                     <RetroBadge color="bg-[#FF99C8]">
                         {reasoning ? reasoning.styleScore : '---'}%
                     </RetroBadge>
@@ -441,16 +441,16 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
             {/* Feedback: rate this fit to train future recommendations */}
             {suggestedOutfit && recommendationId && onFeedback && (
                 <div className="flex items-center justify-between gap-2 bg-white border-2 border-black p-2 mb-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                    <span className="font-mono text-[10px] md:text-xs font-bold text-gray-600">
+                    <span className="font-mono text-[10px] md:text-xs font-bold text-gray-600 truncate">
                         {feedback === 'liked' ? 'RATED: LIKED ✓' : feedback === 'disliked' ? 'RATED: NOTED ✓' : 'RATE THIS FIT:'}
                     </span>
                     {!feedback && !showReasons && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 shrink-0">
                             <button
                                 onClick={() => submitFeedback(true)}
                                 disabled={feedbackBusy}
                                 aria-label="Like this outfit"
-                                className="flex items-center gap-1 bg-[#CAFFBF] border-2 border-black px-2 py-1 font-mono text-[10px] md:text-xs font-bold hover:bg-green-300 disabled:opacity-50"
+                                className="flex items-center gap-1 bg-[#CAFFBF] border-2 border-black px-2 py-1 font-mono text-[10px] md:text-xs font-bold hover:bg-green-300 disabled:opacity-50 min-h-[36px]"
                             >
                                 <ThumbsUp size={12} /> LIKE
                             </button>
@@ -458,7 +458,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                                 onClick={() => setShowReasons(true)}
                                 disabled={feedbackBusy}
                                 aria-label="Dislike this outfit"
-                                className="flex items-center gap-1 bg-[#FF8E72] border-2 border-black px-2 py-1 font-mono text-[10px] md:text-xs font-bold hover:bg-red-400 disabled:opacity-50"
+                                className="flex items-center gap-1 bg-[#FF8E72] border-2 border-black px-2 py-1 font-mono text-[10px] md:text-xs font-bold hover:bg-red-400 disabled:opacity-50 min-h-[36px]"
                             >
                                 <ThumbsDown size={12} /> DISLIKE
                             </button>
@@ -471,7 +471,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                                     key={reason}
                                     onClick={() => submitFeedback(false, reason)}
                                     disabled={feedbackBusy}
-                                    className="bg-[#FDFFB6] border-2 border-black px-2 py-1 font-mono text-[10px] font-bold hover:bg-yellow-300 disabled:opacity-50"
+                                    className="bg-[#FDFFB6] border-2 border-black px-2 py-1 font-mono text-[10px] font-bold hover:bg-yellow-300 disabled:opacity-50 min-h-[36px]"
                                 >
                                     {reason.toUpperCase()}
                                 </button>
@@ -479,7 +479,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
                             <button
                                 onClick={() => submitFeedback(false)}
                                 disabled={feedbackBusy}
-                                className="font-mono text-[10px] underline text-gray-500 hover:text-black disabled:opacity-50"
+                                className="font-mono text-[10px] underline text-gray-500 hover:text-black disabled:opacity-50 px-1 py-1"
                             >
                                 SKIP
                             </button>
@@ -489,7 +489,7 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
             )}
 
             {/* Main Canvas */}
-            <div className="flex-1 bg-[#f0f0f0] border-2 border-black relative p-2 md:p-4 flex items-center justify-center overflow-hidden min-h-[350px] md:min-h-[400px]">
+            <div className="flex-1 bg-[#f0f0f0] border-2 border-black relative p-2 md:p-4 flex items-center justify-center overflow-hidden min-h-[340px] md:min-h-[400px]">
 
                 {isGenerating && (
                     <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center text-white">
@@ -503,18 +503,18 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
 
                 <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '16px 16px' }}></div>
 
-                <div className="relative z-10 grid grid-cols-[70px_1fr_80px] md:grid-cols-[120px_1fr_120px] gap-2 md:gap-4 items-center w-full h-full">
+                <div className="relative z-10 grid grid-cols-[64px_1fr_74px] sm:grid-cols-[72px_1fr_84px] md:grid-cols-[120px_1fr_120px] gap-1.5 sm:gap-2 md:gap-4 items-center w-full h-full">
 
                     {/* Left: Accessories */}
-                    <div className="relative h-full border-2 border-black/10 bg-black/5 rounded-lg p-1 md:p-2 flex flex-col">
-                        <span className="absolute -top-2 md:-top-3 left-1 md:left-2 font-mono text-[8px] md:text-[9px] font-bold bg-[#FDFFB6] border border-black px-1"><span className="md:hidden">ACCS</span><span className="hidden md:inline">ACCESSORIES</span></span>
+                    <div className="relative h-full border-2 border-black/10 bg-black/5 rounded-lg p-1 md:p-2 flex flex-col min-w-0">
+                        <span className="absolute -top-2 md:-top-3 left-1 md:left-2 font-mono text-[8px] md:text-[9px] font-bold bg-[#FDFFB6] border border-black px-1 z-10"><span className="md:hidden">ACCS</span><span className="hidden md:inline">ACCESSORIES</span></span>
                         <div className="flex-1 flex flex-col gap-2 md:gap-3 justify-center overflow-y-auto no-scrollbar py-2">
                             {accessories.length > 0 ? accessories.map((acc, _idx) => (
                                 <div key={acc.id} className="group relative cursor-pointer transition-transform hover:scale-105 hover:rotate-2 shrink-0 self-center">
                                     <RetroImage
                                         src={acc.image_url}
                                         alt={acc.name}
-                                        containerClassName={`w-12 h-12 md:w-20 md:h-20 bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] md:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] ${lockedItems.includes(acc.id) ? 'border-red-500' : 'border-black'}`}
+                                        containerClassName={`w-11 h-11 sm:w-12 sm:h-12 md:w-20 md:h-20 bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] md:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] ${lockedItems.includes(acc.id) ? 'border-red-500' : 'border-black'}`}
                                     />
                                     <button
                                         type="button"
@@ -840,19 +840,19 @@ export const OutfitRecommender: React.FC<OutfitRecommenderProps> = ({
 
             {/* Swap Modal */}
             {isSwapping && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsSwapping(false)}></div>
                     <div className="w-full max-w-md relative z-10 animate-in fade-in zoom-in duration-200">
                         <RetroWindow
                             title={`SWAP ${activeSwapCategory?.toUpperCase() || 'PIECE'}`}
                             onClose={() => setIsSwapping(false)}
-                            className="bg-[#FFF8E7] max-h-[80vh]"
+                            className="bg-[#FFF8E7] max-h-[85vh] sm:max-h-[80vh] flex flex-col"
                         >
                             <div className="sticky top-0 z-10 bg-[#FFF8E7] pb-2 mb-2 border-b-2 border-black border-dashed">
                                 <p className="font-mono text-xs text-gray-500 mb-1">Select replacement for {activeSwapCategory}:</p>
                             </div>
 
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 overflow-y-auto p-1 max-h-[400px]">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 overflow-y-auto p-1 max-h-[55vh] sm:max-h-[400px]">
                                 {swapCandidates.map((item) => (
                                     <div
                                         key={item.id}

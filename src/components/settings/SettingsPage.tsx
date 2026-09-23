@@ -32,7 +32,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout, preference
 
             {/* Algorithm Tuning */}
             <RetroWindow title="RECOMMENDATION SETTINGS" icon={<Sliders size={14} />}>
-                <div className="space-y-6 p-4">
+                <div className="space-y-6">
                     <div className="bg-[var(--accent-yellow)] border border-[var(--border)] p-3 text-xs font-mono text-[var(--text)]">
                         These settings control how outfits are selected from your wardrobe.
                     </div>
@@ -68,18 +68,18 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout, preference
 
             {/* User Profile */}
             <RetroWindow title="PROFILE & FIT" icon={<User size={14} />}>
-                <div className="p-4 space-y-6">
+                <div className="space-y-6">
                     <div>
                         <label className="font-bold font-mono text-xs uppercase mb-2 block text-[var(--text)]">Gender Context</label>
                         <p className="text-[10px] font-mono text-[var(--text-muted)] mb-2">
                             Controls sizing and fit criteria for outfit generation
                         </p>
-                        <div className="flex border-2 border-[var(--border)] bg-[var(--bg-secondary)]">
+                        <div className="flex border-2 border-[var(--border)] bg-[var(--bg-secondary)] shadow-[2px_2px_0px_0px_var(--border)]">
                             {(['MASC', 'FEM', 'NEUTRAL'] as const).map(g => (
                                 <button
                                     key={g}
                                     onClick={() => onUpdate({ gender: g })}
-                                    className={`flex-1 py-3 font-mono text-xs font-bold hover:bg-gray-100/10 transition-colors ${preferences.gender === g ? 'bg-[var(--accent-pink)] text-[var(--text)]' : 'text-gray-500'}`}
+                                    className={`flex-1 py-3 min-h-[44px] font-mono text-xs font-bold hover:bg-gray-100/10 transition-colors ${preferences.gender === g ? 'bg-[var(--accent-pink)] text-[var(--text)]' : 'text-gray-500'}`}
                                 >
                                     {g}
                                 </button>
@@ -91,14 +91,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout, preference
 
             {/* Display Settings */}
             <RetroWindow title="APPEARANCE" icon={<Monitor size={14} />}>
-                <div className="p-4 space-y-4">
-                    <div className="flex justify-between items-center">
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center gap-4">
                         <div>
                             <span className="font-mono text-sm font-bold text-[var(--text)]">HACKER MODE</span>
                             <p className="text-[10px] font-mono text-[var(--text-muted)]">High-contrast terminal visuals</p>
                         </div>
                         <RetroToggle
-                            label="Hacker mode"
+                            label=""
                             checked={preferences.theme === 'HACKER'}
                             onChange={(c) => onUpdate({ theme: c ? 'HACKER' : 'RETRO' })}
                         />
@@ -108,7 +108,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout, preference
 
             {/* System */}
             <RetroWindow title="SYSTEM & ACCOUNT" icon={<Database size={14} />}>
-                <div className="p-4 space-y-4">
+                <div className="space-y-4">
                     <div className="flex justify-between items-center font-mono text-xs">
                         <span className="text-[var(--text)]">Database Status</span>
                         <span className="text-[var(--status-online)] font-bold flex items-center gap-1 bg-[var(--status-online-bg)] px-2 py-0.5 border border-[var(--status-online)] text-[10px]">
@@ -120,8 +120,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout, preference
                         <span className="text-[var(--text-muted)]">v2.0.0</span>
                     </div>
                     <div className="pt-4 border-t-2 border-[var(--border)] border-dashed">
-                        <RetroButton variant="danger" className="w-full flex items-center justify-center gap-2" onClick={onLogout}>
-                            <LogOut size={14} />
+                        <RetroButton variant="danger" className="w-full flex items-center justify-center gap-2 min-h-[44px]" onClick={onLogout}>
+                            <LogOut size={16} />
                             SIGN OUT
                         </RetroButton>
                     </div>

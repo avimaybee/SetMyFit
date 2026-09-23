@@ -107,9 +107,9 @@ export default function HistoryPage() {
   }, [router]);
 
   return (
-    <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-main)] min-h-screen text-[var(--text)]">
+    <div className="w-full max-w-5xl mx-auto pb-6 text-[var(--text)]">
       <h1 className="sr-only">Outfit history</h1>
-      <div className="max-w-5xl mx-auto space-y-6">
+      <div className="space-y-6">
           <RetroWindow title="OUTFIT HISTORY" icon={<Calendar size={14} />} className="h-full">
           {loading ? (
             <div className="py-10">
@@ -132,7 +132,7 @@ export default function HistoryPage() {
               </RetroButton>
             </div>
           ) : (
-            <div className="space-y-10 p-2 md:p-4 pt-6">
+            <div className="space-y-8 sm:space-y-10 p-1 sm:p-3 md:p-4 pt-6">
               {history.map((entry) => {
                 const { condition, temperature } = extractWeatherDetails(entry.weather_data);
                 const previewItems = entry.items.slice(0, 4);
@@ -142,15 +142,15 @@ export default function HistoryPage() {
                 return (
                   <article
                     key={entry.id}
-                    className="bg-[var(--bg-secondary)] border-2 border-[var(--border)] shadow-[4px_4px_0px_0px_var(--border)] md:shadow-[6px_6px_0px_0px_var(--border)] p-1 relative group hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_0px_var(--border)] md:hover:shadow-[8px_8px_0px_0px_var(--border)] transition-all duration-200 mt-4"
+                    className="bg-[var(--bg-secondary)] border-2 border-[var(--border)] shadow-[3px_3px_0px_0px_var(--border)] md:shadow-[6px_6px_0px_0px_var(--border)] p-1 relative group hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[5px_5px_0px_0px_var(--border)] md:hover:shadow-[8px_8px_0px_0px_var(--border)] transition-all duration-200 mt-7"
                   >
-                    <div className="absolute -top-6 left-4 bg-[var(--accent-pink)] border-2 border-[var(--border)] border-b-0 px-3 py-1">
-                      <span className="font-mono font-bold text-xs text-[var(--text)]">{formatDateLabel(entry.outfit_date)}</span>
+                    <div className="absolute -top-6 left-3 sm:left-4 bg-[var(--accent-pink)] border-2 border-[var(--border)] border-b-0 px-2.5 sm:px-3 py-0.5 sm:py-1 z-20">
+                      <span className="font-mono font-bold text-[11px] sm:text-xs text-[var(--text)]">{formatDateLabel(entry.outfit_date)}</span>
                     </div>
-                    <div className="relative z-10 bg-[var(--bg-secondary)] p-4 border-2 border-transparent">
-                      <div className="flex flex-col md:flex-row gap-6">
+                    <div className="relative z-10 bg-[var(--bg-secondary)] p-3 sm:p-4 border-2 border-transparent">
+                      <div className="flex flex-col md:flex-row gap-4 sm:gap-6">
                         <div className="flex-shrink-0 w-full md:w-1/3">
-                          <div className="relative grid grid-cols-2 gap-2 bg-[var(--bg-tertiary)] p-2 border-2 border-[var(--border)] border-dashed">
+                          <div className="relative grid grid-cols-2 gap-1.5 sm:gap-2 bg-[var(--bg-tertiary)] p-1.5 sm:p-2 border-2 border-[var(--border)] border-dashed">
                             {previewItems.map((item) => (
                               <div key={`${entry.id}-${item.id}`} className="aspect-square relative overflow-hidden">
                                 <RetroImage
@@ -167,12 +167,12 @@ export default function HistoryPage() {
                             )}
                           </div>
                         </div>
-                        <div className="flex-1 flex flex-col">
-                          <div className="flex justify-between items-start gap-3 flex-wrap mb-3">
-                            <div>
-                              <h3 className="font-black text-lg uppercase text-[var(--text)]">ENTRY #{entry.id}</h3>
-                              <div className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
-                                <span className="bg-[var(--accent-yellow)] px-2 py-0.5 border border-[var(--border)] text-[var(--text)] font-bold">
+                        <div className="flex-1 flex flex-col min-w-0">
+                          <div className="flex justify-between items-start gap-2 sm:gap-3 flex-wrap mb-3">
+                            <div className="min-w-0 flex-1">
+                              <h3 className="font-black text-base sm:text-lg uppercase text-[var(--text)] truncate">ENTRY #{entry.id}</h3>
+                              <div className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)] flex-wrap">
+                                <span className="bg-[var(--accent-yellow)] px-1.5 sm:px-2 py-0.5 border border-[var(--border)] text-[var(--text)] font-bold text-[10px] sm:text-xs">
                                   {condition ?? "N/A"}
                                   {typeof temperature === "number" ? `, ${temperature}°C` : ""}
                                 </span>
@@ -191,13 +191,13 @@ export default function HistoryPage() {
                             </div>
                             <RetroButton
                               variant="danger"
-                              className="w-9 h-9 min-h-[36px] flex items-center justify-center p-0"
+                              className="w-10 h-10 min-w-[40px] min-h-[40px] sm:w-9 sm:h-9 sm:min-w-[36px] sm:min-h-[36px] flex items-center justify-center p-0 shrink-0"
                               onClick={() => setPendingDeleteId(entry.id)}
                               disabled={deletingId === entry.id}
                               title="Delete outfit entry"
                               aria-label={`Delete outfit entry ${entry.id}`}
                             >
-                              <Trash2 size={15} />
+                              <Trash2 size={16} />
                             </RetroButton>
                           </div>
                           <div>
@@ -206,13 +206,13 @@ export default function HistoryPage() {
                               {entry.items.slice(0, 8).map((item) => (
                                 <span
                                   key={`${entry.id}-item-${item.id}`}
-                                  className="text-[10px] border border-[var(--border)] px-2 py-0.5 bg-[var(--accent-green)] flex items-center gap-1 text-[var(--text)] max-w-full"
+                                  className="text-[10px] border border-[var(--border)] px-1.5 sm:px-2 py-0.5 bg-[var(--accent-green)] flex items-center gap-1 text-[var(--text)] max-w-full"
                                 >
-                                  <Tag size={8} className="shrink-0" /> <span className="truncate">{item.name}</span>
+                                  <Tag size={8} className="shrink-0" /> <span className="truncate max-w-[120px] sm:max-w-none">{item.name}</span>
                                 </span>
                               ))}
                               {entry.items.length > 8 && (
-                                <span className="text-[10px] border border-[var(--border)] px-2 py-0.5 bg-[var(--bg-tertiary)] text-[var(--text)]">
+                                <span className="text-[10px] border border-[var(--border)] px-1.5 sm:px-2 py-0.5 bg-[var(--bg-tertiary)] text-[var(--text)]">
                                   +{entry.items.length - 8} MORE
                                 </span>
                               )}

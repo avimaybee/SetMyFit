@@ -67,7 +67,7 @@ export const SystemMsg: React.FC<SystemMsgProps> = ({
             icon={<Activity size={12} />}
             collapsible
         >
-            <div className="p-3 h-full flex flex-col font-mono text-xs space-y-3 bg-[var(--bg-secondary)]">
+            <div className="h-full flex flex-col font-mono text-xs space-y-3 bg-[var(--bg-secondary)] p-2 sm:p-2.5">
 
                 {/* Status Header */}
                 <div className="flex items-center justify-between border-b border-[var(--border)] border-dashed pb-2">
@@ -80,22 +80,22 @@ export const SystemMsg: React.FC<SystemMsgProps> = ({
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 gap-2">
-                    <Link href="/wardrobe" className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-2 hover:bg-[var(--accent-yellow)] transition-colors block">
+                    <Link href="/wardrobe" className="bg-[var(--bg-tertiary)] border-2 border-[var(--border)] p-2 shadow-[2px_2px_0px_0px_var(--border)] hover:bg-[var(--accent-yellow)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all block">
                         <div className="flex items-center gap-1 text-[var(--text-muted)] mb-1">
                             <Database size={10} />
-                            <span>WARDROBE</span>
+                            <span className="text-[10px] font-bold">WARDROBE</span>
                         </div>
                         <span className="text-lg font-bold text-[var(--text)]">{itemCount}</span>
-                        <span className="text-[var(--text-muted)]"> {itemCount === 1 ? 'item' : 'items'}</span>
+                        <span className="text-[var(--text-muted)] text-[10px]"> {itemCount === 1 ? 'item' : 'items'}</span>
                     </Link>
 
-                    <Link href="/history" className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-2 hover:bg-[var(--accent-yellow)] transition-colors block">
+                    <Link href="/history" className="bg-[var(--bg-tertiary)] border-2 border-[var(--border)] p-2 shadow-[2px_2px_0px_0px_var(--border)] hover:bg-[var(--accent-yellow)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all block">
                         <div className="flex items-center gap-1 text-[var(--text-muted)] mb-1">
                             <Calendar size={10} />
-                            <span>LOGGED</span>
+                            <span className="text-[10px] font-bold">LOGGED</span>
                         </div>
                         <span className="text-lg font-bold text-[var(--text)]">{outfitCount}</span>
-                        <span className="text-[var(--text-muted)]"> {outfitCount === 1 ? 'outfit' : 'outfits'}</span>
+                        <span className="text-[var(--text-muted)] text-[10px]"> {outfitCount === 1 ? 'outfit' : 'outfits'}</span>
                     </Link>
                 </div>
 

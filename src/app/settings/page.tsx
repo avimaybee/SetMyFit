@@ -138,9 +138,9 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-main)] min-h-screen text-[var(--text)]">
+    <div className="w-full max-w-7xl mx-auto pb-6 text-[var(--text)]">
         <h1 className="sr-only">Settings</h1>
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-2xl mx-auto">
             <SettingsPageComponent
                 preferences={preferences}
                 onUpdate={handleUpdate}

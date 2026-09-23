@@ -362,10 +362,10 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
             <div className="max-w-md w-full animate-in zoom-in-95 duration-200">
-                <RetroWindow title={initialItem ? "EDIT PIECE" : "ADD TO CLOSET"} onClose={onClose}>
-                    <form onSubmit={handleSaveItem} className="space-y-4 p-2 max-h-[82vh] md:max-h-[80vh] overflow-y-auto pb-4">
+                <RetroWindow title={initialItem ? "EDIT PIECE" : "ADD TO CLOSET"} onClose={onClose} className="max-h-[90dvh]">
+                    <form onSubmit={handleSaveItem} className="space-y-4 p-1 sm:p-2 max-h-[78dvh] overflow-y-auto pb-4">
 
                         {/* Image Upload */}
                         <input
@@ -525,7 +525,7 @@ export const WardrobeItemForm: React.FC<WardrobeItemFormProps> = ({
                                         key={season}
                                         onClick={() => toggleSeason(season as Season)}
                                         disabled={isAnalyzing || isProcessingImage}
-                                        className={`px-2 py-1 border-2 border-[var(--border)] font-mono text-xs ${newItemSeasons.includes(season as Season) ? 'bg-[var(--accent-green)] text-[var(--text)]' : 'bg-[var(--bg-secondary)] text-[var(--text)]'}`}
+                                        className={`px-3 py-1.5 min-h-[38px] border-2 border-[var(--border)] font-mono text-xs font-bold transition-all active:scale-95 ${newItemSeasons.includes(season as Season) ? 'bg-[var(--accent-green)] text-[var(--text)] shadow-[2px_2px_0px_0px_var(--border)]' : 'bg-[var(--bg-secondary)] text-[var(--text)] hover:bg-[var(--accent-yellow)]'}`}
                                     >
                                         {season}
                                     </button>

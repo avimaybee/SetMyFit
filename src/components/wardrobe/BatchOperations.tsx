@@ -136,32 +136,32 @@ export default function BatchOperations({
   return (
     <>
       {/* Floating Batch Operations Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-blue-50 to-transparent border-t border-gray-200 p-4">
-        <Card className="bg-white shadow-lg">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
+      <div className="fixed bottom-16 md:bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-blue-50 via-white to-transparent border-t border-gray-200 p-2 sm:p-4">
+        <Card className="bg-white shadow-lg border-2 border-black">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
               {/* Info Section */}
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-blue-600" />
+              <div className="flex items-center gap-2 sm:gap-3">
+                <CheckCircle2 className="h-5 w-5 text-blue-600 shrink-0" />
                 <div>
-                  <p className="font-semibold text-sm">
+                  <p className="font-semibold text-xs sm:text-sm">
                     {selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''} selected
                   </p>
-                  <p className="text-xs text-gray-600">
+                  <p className="text-[10px] sm:text-xs text-gray-600">
                     ({wardrobeItems.length - selectedItems.length} remaining)
                   </p>
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 {/* Add Tag Button */}
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowBulkTagDialog(true)}
                   disabled={isProcessing}
-                  className="text-xs"
+                  className="text-xs min-h-[36px]"
                 >
                   <Tag className="h-3 w-3 mr-1" />
                   Add Tag
@@ -173,7 +173,7 @@ export default function BatchOperations({
                   size="sm"
                   onClick={() => setShowBulkDressCodeDialog(true)}
                   disabled={isProcessing}
-                  className="text-xs"
+                  className="text-xs min-h-[36px]"
                 >
                   <Badge className="h-3 w-3 mr-1" />
                   Set Dress Code
@@ -185,7 +185,7 @@ export default function BatchOperations({
                   size="sm"
                   onClick={() => setShowDeleteConfirm(true)}
                   disabled={isProcessing}
-                  className="text-xs"
+                  className="text-xs min-h-[36px]"
                 >
                   {isProcessing ? (
                     <Loader2 className="h-3 w-3 mr-1 animate-spin" />
@@ -201,7 +201,7 @@ export default function BatchOperations({
                   size="sm"
                   onClick={handleSelectAll}
                   disabled={selectedItems.length === wardrobeItems.length}
-                  className="text-xs"
+                  className="text-xs min-h-[36px]"
                 >
                   Select All
                 </Button>
@@ -211,7 +211,7 @@ export default function BatchOperations({
                   variant="outline"
                   size="sm"
                   onClick={handleClearSelection}
-                  className="text-xs"
+                  className="text-xs min-h-[36px]"
                 >
                   Clear
                 </Button>

@@ -111,25 +111,25 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
     }
 
     return (
-        <div className="min-h-screen flex flex-col md:flex-row max-w-7xl mx-auto md:p-4 gap-6 pb-24 md:pb-4">
+        <div className="min-h-screen flex flex-col md:flex-row max-w-7xl mx-auto md:p-4 gap-6 pb-24 md:pb-4 overflow-x-hidden">
 
             {/* MOBILE: Top Header */}
-            <header className="md:hidden sticky top-0 z-40 bg-[#FF6B6B] border-b-2 border-black p-3 flex justify-between items-center shadow-md">
-                <Link href="/" className="font-black text-xl text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,1)] tracking-tighter flex items-center gap-1" style={{ WebkitTextStroke: '1px black' }}>
-                    SET<span className="text-[#FDFFB6]">MY</span>FIT <span className="text-[10px] font-mono mt-1 ml-1 opacity-80">v2.0.0</span>
+            <header className="md:hidden sticky top-0 z-40 bg-[#FF6B6B] border-b-2 border-black p-2.5 sm:p-3 flex justify-between items-center shadow-md">
+                <Link href="/" className="font-black text-xl text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,1)] tracking-tighter flex items-center gap-1 min-w-0 truncate" style={{ WebkitTextStroke: '1px black' }}>
+                    <span>SET<span className="text-[#FDFFB6]">MY</span>FIT</span> <span className="text-[10px] font-mono mt-1 ml-1 opacity-80 shrink-0">v2.0.0</span>
                 </Link>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                     <button
                         onClick={() => openGlobalAdd()}
                         aria-label="Quick add item"
-                        className="w-10 h-10 min-w-[40px] min-h-[40px] bg-[#FDFFB6] border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-transform"
+                        className="w-11 h-11 min-w-[44px] min-h-[44px] bg-[#FDFFB6] border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-transform"
                     >
                         <Plus size={20} strokeWidth={3} className="text-black" />
                     </button>
                     <Link
                         href="/settings"
                         aria-label="Settings and profile"
-                        className="w-10 h-10 min-w-[40px] min-h-[40px] bg-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center justify-center transition-transform hover:bg-gray-50"
+                        className="w-11 h-11 min-w-[44px] min-h-[44px] bg-white border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center justify-center transition-transform hover:bg-gray-50"
                     >
                         <User size={18} className="text-black" />
                     </Link>
@@ -137,7 +137,7 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
             </header>
 
             {/* DESKTOP: Sidebar / Navigation */}
-            <aside className="hidden md:flex w-full md:w-64 flex-col gap-4 shrink-0 sticky top-4 h-[calc(100vh-2rem)] overflow-y-auto no-scrollbar pb-2">
+            <aside className="hidden md:flex w-full md:w-64 flex-col gap-4 shrink-0 sticky top-4 h-[calc(100vh-2rem)] overflow-y-auto no-scrollbar pb-2 min-h-0">
                 {/* Logo Box */}
                 <div className="bg-[#FF6B6B] border-2 border-black p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                     <h1 className="font-black text-3xl text-white drop-shadow-[3px_3px_0px_rgba(0,0,0,1)] tracking-tighter" style={{ WebkitTextStroke: '1.5px black' }}>
@@ -196,19 +196,19 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
             </aside>
 
             {/* Main Content Area */}
-            <main className="flex-1 flex flex-col p-4 md:p-0 overflow-x-hidden">
+            <main className="flex-1 flex flex-col p-3 sm:p-4 md:p-0 overflow-x-hidden min-w-0">
                 {children}
             </main>
 
             {/* MOBILE: Bottom Navigation Bar */}
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#FFF8E7] border-t-2 border-black z-50 pb-safe shadow-[0_-4px_0px_0px_rgba(0,0,0,0.1)]">
-                <div className="flex justify-around items-center py-1 px-1">
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#FFF8E7] border-t-2 border-black z-50 pb-[max(0.35rem,env(safe-area-inset-bottom))] shadow-[0_-4px_0px_0px_rgba(0,0,0,0.1)]">
+                <div className="flex justify-around items-center py-1 px-0.5">
                     {mobileNavItems.map((item) => (
                         <Link
                             key={item.href}
                             href={item.href}
                             className={`
-                                flex flex-col items-center justify-center gap-1 py-1.5 px-1 min-h-[48px] rounded transition-all flex-1 text-center
+                                flex flex-col items-center justify-center gap-0.5 py-1.5 px-0.5 min-h-[48px] rounded transition-all flex-1 text-center min-w-0
                                 ${isActive(item.href)
                                     ? 'bg-black text-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                                     : 'text-black hover:bg-black/5 active:scale-95'
@@ -216,7 +216,7 @@ export const MainLayout: React.FC<LayoutProps> = ({ children }) => {
                             `}
                         >
                             {React.cloneElement(item.icon as React.ReactElement<{ size: number }>, { size: 18 })}
-                            <span className="font-mono text-[9px] font-bold uppercase tracking-tight leading-none">{item.label}</span>
+                            <span className="font-mono text-[9px] font-bold uppercase tracking-tight leading-none truncate max-w-full px-0.5">{item.label}</span>
                         </Link>
                     ))}
                 </div>

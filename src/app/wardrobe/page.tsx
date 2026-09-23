@@ -362,18 +362,18 @@ export default function WardrobePage() {
     };
 
     return (
-        <div className="h-full p-4 md:p-8 overflow-y-auto bg-[var(--bg-main)] min-h-screen text-[var(--text)]">
+        <div className="w-full max-w-7xl mx-auto pb-6 text-[var(--text)]">
             <h1 className="sr-only">Wardrobe</h1>
-            <div className="max-w-7xl mx-auto">
+            <div>
                 {loading ? (
                     <ListSkeleton />
                 ) : loadFailed && items.length === 0 ? (
-                    <div className="bg-white border-2 border-black p-8 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    <div className="bg-white border-2 border-black p-4 sm:p-8 text-center shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] sm:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                         <p className="font-mono font-bold">WARDROBE_LOAD_FAILED</p>
                         <p className="font-mono text-xs mt-2 text-gray-600">Check your connection and try again.</p>
                         <button
                             onClick={fetchWardrobe}
-                            className="mt-4 bg-black text-white font-mono text-xs px-4 py-2 border-2 border-black hover:bg-gray-800"
+                            className="mt-4 bg-black text-white font-mono text-xs px-4 py-2 min-h-[44px] border-2 border-black hover:bg-gray-800"
                         >
                             RETRY
                         </button>

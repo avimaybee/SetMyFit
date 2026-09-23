@@ -121,54 +121,54 @@ export const StatsPage: React.FC<StatsPageProps> = ({ items, _history, onNavigat
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
             {/* Top Stats Row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4">
                 <RetroBox color="bg-[var(--accent-blue)]" className="flex flex-col justify-between text-[var(--text)]">
                     <div className="flex justify-between items-start">
-                        <Shirt size={20} />
-                        <span className="font-mono text-[10px] font-bold">WARDROBE</span>
+                        <Shirt size={18} className="sm:w-5 sm:h-5" />
+                        <span className="font-mono text-[9px] sm:text-[10px] font-bold">WARDROBE</span>
                     </div>
-                    <p className="font-black text-3xl mt-2">{analytics.totalItems}</p>
-                    <p className="text-[10px] font-mono opacity-80">Total Items</p>
+                    <p className="font-black text-2xl sm:text-3xl mt-1.5 sm:mt-2">{analytics.totalItems}</p>
+                    <p className="text-[9px] sm:text-[10px] font-mono opacity-80">Total Items</p>
                 </RetroBox>
 
                 <RetroBox color="bg-[var(--accent-green)]" className="flex flex-col justify-between text-[var(--text)]">
                     <div className="flex justify-between items-start">
-                        <Calendar size={20} />
-                        <span className="font-mono text-[10px] font-bold">LOGGED</span>
+                        <Calendar size={18} className="sm:w-5 sm:h-5" />
+                        <span className="font-mono text-[9px] sm:text-[10px] font-bold">LOGGED</span>
                     </div>
-                    <p className="font-black text-3xl mt-2">{analytics.outfitsLogged}</p>
-                    <p className="text-[10px] font-mono opacity-80">Outfits</p>
+                    <p className="font-black text-2xl sm:text-3xl mt-1.5 sm:mt-2">{analytics.outfitsLogged}</p>
+                    <p className="text-[9px] sm:text-[10px] font-mono opacity-80">Outfits</p>
                 </RetroBox>
 
                 <RetroBox color="bg-[var(--accent-pink)]" className="flex flex-col justify-between text-[var(--text)]">
                     <div className="flex justify-between items-start">
-                        <Activity size={20} />
-                        <span className="font-mono text-[10px] font-bold">AVG WEAR</span>
+                        <Activity size={18} className="sm:w-5 sm:h-5" />
+                        <span className="font-mono text-[9px] sm:text-[10px] font-bold">AVG WEAR</span>
                     </div>
-                    <p className="font-black text-3xl mt-2">{analytics.avgWearCount}</p>
-                    <p className="text-[10px] font-mono opacity-80">Per Item</p>
+                    <p className="font-black text-2xl sm:text-3xl mt-1.5 sm:mt-2">{analytics.avgWearCount}</p>
+                    <p className="text-[9px] sm:text-[10px] font-mono opacity-80">Per Item</p>
                 </RetroBox>
 
                 <RetroBox color="bg-[var(--accent-orange)]" className="flex flex-col justify-between text-[var(--text)]">
                     <div className="flex justify-between items-start">
-                        <AlertTriangle size={20} />
-                        <span className="font-mono text-[10px] font-bold">NEGLECTED</span>
+                        <AlertTriangle size={18} className="sm:w-5 sm:h-5" />
+                        <span className="font-mono text-[9px] sm:text-[10px] font-bold">NEGLECTED</span>
                     </div>
-                    <p className="font-black text-3xl mt-2">{analytics.neglectedItems}</p>
-                    <p className="text-[10px] font-mono opacity-80">30+ days</p>
+                    <p className="font-black text-2xl sm:text-3xl mt-1.5 sm:mt-2">{analytics.neglectedItems}</p>
+                    <p className="text-[9px] sm:text-[10px] font-mono opacity-80">30+ days</p>
                 </RetroBox>
             </div>
 
             {/* Charts Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 {/* Category Distribution */}
-                <RetroWindow title="CATEGORY BREAKDOWN" className="min-h-[300px]">
-                    <div className="p-4 flex flex-col gap-2 h-full">
-                        <div className="h-56 w-full">
+                <RetroWindow title="CATEGORY BREAKDOWN" className="min-h-[280px]">
+                    <div className="flex flex-col gap-2 h-full">
+                        <div className="h-52 sm:h-56 w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={analytics.chartData} layout="vertical" margin={{ left: 10, right: 20 }}>
+                                <BarChart data={analytics.chartData} layout="vertical" margin={{ left: 0, right: 15, top: 5, bottom: 5 }}>
                                     <XAxis
                                         type="number"
                                         tick={{ fill: 'var(--text)', fontFamily: 'monospace', fontSize: 10 }}
@@ -181,7 +181,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ items, _history, onNavigat
                                         tick={{ fill: 'var(--text)', fontFamily: 'monospace', fontSize: 10 }}
                                         axisLine={{ stroke: 'var(--border)', strokeWidth: 2 }}
                                         tickLine={false}
-                                        width={70}
+                                        width={62}
                                     />
                                     <Tooltip
                                         contentStyle={{
@@ -204,7 +204,7 @@ export const StatsPage: React.FC<StatsPageProps> = ({ items, _history, onNavigat
 
                 {/* Color Palette */}
                 <RetroWindow title="COLOR PALETTE" icon={<Palette size={14} />}>
-                    <div className="p-4 space-y-3">
+                    <div className="space-y-3">
                         <p className="font-mono text-xs text-[var(--text-muted)] mb-2">Your most common colors</p>
                         {analytics.topColors.map(([color, count], idx) => (
                             <div key={color} className="flex items-center gap-3">

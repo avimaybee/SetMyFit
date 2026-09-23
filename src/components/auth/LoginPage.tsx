@@ -89,7 +89,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center bg-[#FFF8E7] px-4 py-8 md:px-8 lg:px-12 relative overflow-x-hidden"
+      className="min-h-screen flex items-center justify-center bg-[#FFF8E7] px-3 py-6 sm:px-6 md:px-8 lg:px-12 relative overflow-x-hidden"
       style={{
         backgroundImage: 'radial-gradient(#d0d0d0 1px, transparent 1px)',
         backgroundSize: '20px 20px',
@@ -99,7 +99,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       <div id="recaptcha-container" />
 
       <div className="max-w-6xl w-full mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 items-center">
           
           {/* ============================================================ */}
           {/* DESKTOP SHOWCASE (Left 7 Cols on Desktop, Hidden on Mobile) */}
@@ -216,13 +216,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               title={isSignUp ? "CREATE ACCOUNT" : "SIGN IN"}
               icon={<ShieldCheck size={14} />}
               headerColor="bg-[#FF99C8]"
-              className="shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] md:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+              className="shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] md:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
             >
-              <div className="flex flex-col gap-4 py-2">
+              <div className="flex flex-col gap-3 py-1 sm:py-2">
                 
                 {/* Mobile Header (Hidden on Desktop) */}
-                <div className="text-center lg:hidden border-b-2 border-black border-dashed pb-3">
-                  <h2 className="font-black text-3xl tracking-tighter">
+                <div className="text-center lg:hidden border-b-2 border-black border-dashed pb-2.5">
+                  <h2 className="font-black text-2xl sm:text-3xl tracking-tighter">
                     SET<span className="text-[#FF99C8]">MY</span>FIT
                   </h2>
                   <p className="font-mono text-[10px] bg-black text-white inline-block px-2 py-0.5 mt-1">
@@ -237,7 +237,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     onClick={() => {
                       if (!loading) setIsSignUp(false);
                     }}
-                    className={`py-2 px-2 text-center font-mono text-xs font-bold transition-all cursor-pointer border-2 ${
+                    className={`py-2 px-2 min-h-[40px] text-center font-mono text-xs font-bold transition-all cursor-pointer border-2 ${
                       !isSignUp
                         ? 'bg-black text-white border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                         : 'border-transparent text-gray-700 hover:text-black hover:bg-white/60'
@@ -250,7 +250,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     onClick={() => {
                       if (!loading) setIsSignUp(true);
                     }}
-                    className={`py-2 px-2 text-center font-mono text-xs font-bold transition-all cursor-pointer border-2 ${
+                    className={`py-2 px-2 min-h-[40px] text-center font-mono text-xs font-bold transition-all cursor-pointer border-2 ${
                       isSignUp
                         ? 'bg-black text-white border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                         : 'border-transparent text-gray-700 hover:text-black hover:bg-white/60'
